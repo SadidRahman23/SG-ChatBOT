@@ -40,9 +40,7 @@ app.use(express.static(path.join(__dirname, "public")));
 //  MULTER — memory storage (no disk files)
 // ─────────────────────────────────────────
 const ALLOWED_MIME_TYPES = [
-  // Images
   "image/jpeg", "image/png", "image/gif", "image/webp",
-  // Documents
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -54,7 +52,7 @@ const ALLOWED_MIME_TYPES = [
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
       cb(null, true);
@@ -116,15 +114,13 @@ function isValidEmail(email) {
 
 const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
-// Validate messages — now supports both string and array content (vision)
 function isValidMessages(messages) {
   if (!Array.isArray(messages) || messages.length === 0) return false;
   return messages.every((m) => {
     if (!m || typeof m !== "object") return false;
     if (!["user", "assistant", "system"].includes(m.role)) return false;
-    // Content can be a string OR an array (vision messages)
     if (typeof m.content === "string") return m.content.trim().length > 0;
-    if (Array.isArray(m.content))      return m.content.length > 0;
+    if (Array.isArray(m.content)) return m.content.length > 0;
     return false;
   });
 }
@@ -142,11 +138,7 @@ function auth(req, res, next) {
     req.user = jwt.verify(token, JWT_SECRET);
     next();
   } catch (err) {
-    const message =
-      err.name === "TokenExpiredError"
-        ? "Session expired. Please log in again."
-        : "Invalid token.";
-    return res.status(401).json({ reply: message });
+    return res.status(401).json({ reply: "Invalid or expired token." });
   }
 }
 
@@ -159,22 +151,17 @@ app.post("/signup", authLimiter, async (req, res) => {
 
     if (!email || !password)
       return res.status(400).json({ message: "Email and password are required." });
-    if (!isValidEmail(email))
-      return res.status(400).json({ message: "Invalid email format." });
-    if (password.length < 8 || password.length > 128)
-      return res.status(400).json({ message: "Password must be 8–128 characters." });
 
     const exists = await User.findOne({ email: email.toLowerCase().trim() });
     if (exists)
-      return res.status(409).json({ message: "An account with this email already exists." });
+      return res.status(409).json({ message: "User already exists." });
 
     const hash = await bcrypt.hash(password, 12);
     await User.create({ email, password: hash });
 
-    res.status(201).json({ message: "Account created successfully." });
+    res.status(201).json({ message: "Account created." });
   } catch (err) {
-    console.error("Signup error:", err);
-    res.status(500).json({ message: "Server error during signup." });
+    res.status(500).json({ message: "Server error." });
   }
 });
 
@@ -185,18 +172,13 @@ app.post("/login", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({ message: "Email and password are required." });
-    if (!isValidEmail(email))
-      return res.status(400).json({ message: "Invalid email format." });
-
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-    const dummyHash = "$2a$12$invalidhashfortimingprotectiononly.......";
-    const passwordToCheck = user ? user.password : dummyHash;
-    const match = await bcrypt.compare(password, passwordToCheck);
 
-    if (!user || !match)
-      return res.status(401).json({ message: "Invalid email or password." });
+    if (!user) return res.status(401).json({ message: "Invalid credentials" });
+
+    const match = await bcrypt.compare(password, user.password);
+
+    if (!match) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
       { id: user._id, email: user.email },
@@ -206,126 +188,50 @@ app.post("/login", authLimiter, async (req, res) => {
 
     res.json({ token, email: user.email });
   } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ message: "Server error during login." });
+    res.status(500).json({ message: "Server error" });
   }
 });
 
 // ─────────────────────────────────────────
-//  CHAT  (supports text + file uploads)
+//  CHAT
 // ─────────────────────────────────────────
-app.post(
-  "/chat",
-  chatLimiter,
-  auth,
-  upload.single("file"),   // optional file field named "file"
-  async (req, res) => {
-    try {
-      // Messages arrive as JSON string in FormData OR as parsed JSON body
-      let messages;
-      try {
-        messages = typeof req.body.messages === "string"
-          ? JSON.parse(req.body.messages)
-          : req.body.messages;
-      } catch {
-        return res.status(400).json({ reply: "Invalid messages format." });
-      }
+app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => {
+  try {
+    let messages = typeof req.body.messages === "string"
+      ? JSON.parse(req.body.messages)
+      : req.body.messages;
 
-      if (!isValidMessages(messages))
-        return res.status(400).json({ reply: "Invalid or empty message history." });
+    if (!isValidMessages(messages))
+      return res.status(400).json({ reply: "Invalid messages." });
 
-      // ── If a file was uploaded, rebuild the last user message ──
-      if (req.file) {
-        const fileType = req.body.fileType || "document"; // "image" | "document"
-        const base64   = req.file.buffer.toString("base64");
-        const mime     = req.file.mimetype;
-        const filename = req.file.originalname;
+    const trimmed = messages.slice(-MAX_HISTORY);
 
-        // Find the last user message and enrich it
-        const lastUserIdx = [...messages].reverse().findIndex(m => m.role === "user");
-        if (lastUserIdx !== -1) {
-          const realIdx = messages.length - 1 - lastUserIdx;
-          const existing = messages[realIdx];
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: trimmed,
+      }),
+    });
 
-          if (IMAGE_MIME_TYPES.includes(mime)) {
-            // Vision-capable model — send image inline
-            const textPart = typeof existing.content === "string" && existing.content.trim()
-              ? existing.content
-              : "Please analyze this image and describe what you see in detail.";
+    const data = await response.json();
+    const reply = data?.choices?.[0]?.message?.content || "No response";
 
-            messages[realIdx] = {
-              role: "user",
-              content: [
-                { type: "text", text: textPart },
-                { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
-              ],
-            };
-          } else {
-            // Non-image document — prepend filename note to text
-            const originalText = typeof existing.content === "string"
-              ? existing.content
-              : "";
-            const docNote = `[Attached document: ${filename}]\n\n`;
-            messages[realIdx] = {
-              role: "user",
-              content: docNote + (originalText || "Please analyze this document and summarize its contents."),
-            };
-          }
-        }
-      }
-
-      const trimmed = messages.slice(-MAX_HISTORY);
-
-      // Use gpt-4o (vision) when images present, gpt-4o-mini otherwise
-      const hasImage = trimmed.some(
-        m => Array.isArray(m.content) &&
-             m.content.some(p => p.type === "image_url")
-      );
-      const model = hasImage ? "openai/gpt-4o" : "openai/gpt-4o-mini";
-
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ model, messages: trimmed }),
-      });
-
-      const data  = await response.json();
-      const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
-
-      res.json({ reply });
-    } catch (err) {
-      console.error("Chat error:", err);
-      res.status(500).json({ reply: "Server error. Please try again." });
-    }
+    res.json({ reply });
+  } catch (err) {
+    res.status(500).json({ reply: "Server error" });
   }
-);
-
-// ─────────────────────────────────────────
-//  MULTER ERROR HANDLER
-// ─────────────────────────────────────────
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE")
-      return res.status(400).json({ reply: "File too large. Maximum size is 10 MB." });
-    return res.status(400).json({ reply: `Upload error: ${err.message}` });
-  }
-  if (err && err.message && err.message.startsWith("Unsupported file type")) {
-    return res.status(400).json({ reply: err.message });
-  }
-  next(err);
 });
 
 // ─────────────────────────────────────────
 //  HEALTH
 // ─────────────────────────────────────────
 app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-  });
+  res.json({ status: "ok" });
 });
 
 // ─────────────────────────────────────────
@@ -336,15 +242,8 @@ app.get("/", (req, res) => {
 });
 
 // ─────────────────────────────────────────
-//  404
+//  START (FIXED HERE ✅)
 // ─────────────────────────────────────────
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found." });
-});
-
-// ─────────────────────────────────────────
-//  START
-// ─────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
 });
