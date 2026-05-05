@@ -286,7 +286,7 @@ app.post(
         m => Array.isArray(m.content) &&
              m.content.some(p => p.type === "image_url")
       );
-      const model = hasImage ? "openai/gpt-4o" : "openai/gpt-4o-mini";
+      const model = "openai/gpt-4o-mini"; // gpt-4o-mini supports vision and is cheaper
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -337,7 +337,7 @@ app.get("/health", (req, res) => {
 //  ROOT
 // ─────────────────────────────────────────
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.json({ message: "SG ChatBOT API running ✅" });
 });
 
 // ─────────────────────────────────────────
