@@ -7,6 +7,7 @@ import cors           from "cors";
 import dotenv         from "dotenv";
 import path           from "path";
 import rateLimit      from "express-rate-limit";
+import multer         from "multer";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,9 +34,35 @@ const app = express();
 
 app.use(cors());
 app.use(express.json({ limit: "16kb" }));
-
-// ✅ FIXED STATIC PATH
 app.use(express.static(path.join(__dirname, "public")));
+
+// ─────────────────────────────────────────
+//  MULTER — memory storage (no disk files)
+// ─────────────────────────────────────────
+const ALLOWED_MIME_TYPES = [
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  // Documents
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}`));
+    }
+  },
+});
 
 // ─────────────────────────────────────────
 //  RATE LIMITERS
@@ -87,16 +114,19 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+// Validate messages — now supports both string and array content (vision)
 function isValidMessages(messages) {
   if (!Array.isArray(messages) || messages.length === 0) return false;
-  return messages.every(
-    (m) =>
-      m &&
-      typeof m === "object" &&
-      ["user", "assistant", "system"].includes(m.role) &&
-      typeof m.content === "string" &&
-      m.content.trim().length > 0
-  );
+  return messages.every((m) => {
+    if (!m || typeof m !== "object") return false;
+    if (!["user", "assistant", "system"].includes(m.role)) return false;
+    // Content can be a string OR an array (vision messages)
+    if (typeof m.content === "string") return m.content.trim().length > 0;
+    if (Array.isArray(m.content))      return m.content.length > 0;
+    return false;
+  });
 }
 
 // ─────────────────────────────────────────
@@ -107,7 +137,6 @@ function auth(req, res, next) {
   if (!header || !header.startsWith("Bearer ")) {
     return res.status(401).json({ reply: "Authorization token missing." });
   }
-
   const token = header.slice(7).trim();
   try {
     req.user = jwt.verify(token, JWT_SECRET);
@@ -130,10 +159,8 @@ app.post("/signup", authLimiter, async (req, res) => {
 
     if (!email || !password)
       return res.status(400).json({ message: "Email and password are required." });
-
     if (!isValidEmail(email))
       return res.status(400).json({ message: "Invalid email format." });
-
     if (password.length < 8 || password.length > 128)
       return res.status(400).json({ message: "Password must be 8–128 characters." });
 
@@ -160,12 +187,10 @@ app.post("/login", authLimiter, async (req, res) => {
 
     if (!email || !password)
       return res.status(400).json({ message: "Email and password are required." });
-
     if (!isValidEmail(email))
       return res.status(400).json({ message: "Invalid email format." });
 
     const user = await User.findOne({ email: email.toLowerCase().trim() });
-
     const dummyHash = "$2a$12$invalidhashfortimingprotectiononly.......";
     const passwordToCheck = user ? user.password : dummyHash;
     const match = await bcrypt.compare(password, passwordToCheck);
@@ -187,37 +212,110 @@ app.post("/login", authLimiter, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
-//  CHAT
+//  CHAT  (supports text + file uploads)
 // ─────────────────────────────────────────
-app.post("/chat", chatLimiter, auth, async (req, res) => {
-  try {
-    const { messages } = req.body;
+app.post(
+  "/chat",
+  chatLimiter,
+  auth,
+  upload.single("file"),   // optional file field named "file"
+  async (req, res) => {
+    try {
+      // Messages arrive as JSON string in FormData OR as parsed JSON body
+      let messages;
+      try {
+        messages = typeof req.body.messages === "string"
+          ? JSON.parse(req.body.messages)
+          : req.body.messages;
+      } catch {
+        return res.status(400).json({ reply: "Invalid messages format." });
+      }
 
-    if (!isValidMessages(messages))
-      return res.status(400).json({ reply: "Invalid or empty message history." });
+      if (!isValidMessages(messages))
+        return res.status(400).json({ reply: "Invalid or empty message history." });
 
-    const trimmed = messages.slice(-MAX_HISTORY);
+      // ── If a file was uploaded, rebuild the last user message ──
+      if (req.file) {
+        const fileType = req.body.fileType || "document"; // "image" | "document"
+        const base64   = req.file.buffer.toString("base64");
+        const mime     = req.file.mimetype;
+        const filename = req.file.originalname;
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini",
-        messages: trimmed,
-      }),
-    });
+        // Find the last user message and enrich it
+        const lastUserIdx = [...messages].reverse().findIndex(m => m.role === "user");
+        if (lastUserIdx !== -1) {
+          const realIdx = messages.length - 1 - lastUserIdx;
+          const existing = messages[realIdx];
 
-    const data = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
+          if (IMAGE_MIME_TYPES.includes(mime)) {
+            // Vision-capable model — send image inline
+            const textPart = typeof existing.content === "string" && existing.content.trim()
+              ? existing.content
+              : "Please analyze this image and describe what you see in detail.";
 
-    res.json({ reply });
-  } catch (err) {
-    console.error("Chat error:", err);
-    res.status(500).json({ reply: "Server error. Please try again." });
+            messages[realIdx] = {
+              role: "user",
+              content: [
+                { type: "text", text: textPart },
+                { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
+              ],
+            };
+          } else {
+            // Non-image document — prepend filename note to text
+            const originalText = typeof existing.content === "string"
+              ? existing.content
+              : "";
+            const docNote = `[Attached document: ${filename}]\n\n`;
+            messages[realIdx] = {
+              role: "user",
+              content: docNote + (originalText || "Please analyze this document and summarize its contents."),
+            };
+          }
+        }
+      }
+
+      const trimmed = messages.slice(-MAX_HISTORY);
+
+      // Use gpt-4o (vision) when images present, gpt-4o-mini otherwise
+      const hasImage = trimmed.some(
+        m => Array.isArray(m.content) &&
+             m.content.some(p => p.type === "image_url")
+      );
+      const model = hasImage ? "openai/gpt-4o" : "openai/gpt-4o-mini";
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ model, messages: trimmed }),
+      });
+
+      const data  = await response.json();
+      const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
+
+      res.json({ reply });
+    } catch (err) {
+      console.error("Chat error:", err);
+      res.status(500).json({ reply: "Server error. Please try again." });
+    }
   }
+);
+
+// ─────────────────────────────────────────
+//  MULTER ERROR HANDLER
+// ─────────────────────────────────────────
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE")
+      return res.status(400).json({ reply: "File too large. Maximum size is 10 MB." });
+    return res.status(400).json({ reply: `Upload error: ${err.message}` });
+  }
+  if (err && err.message && err.message.startsWith("Unsupported file type")) {
+    return res.status(400).json({ reply: err.message });
+  }
+  next(err);
 });
 
 // ─────────────────────────────────────────
@@ -230,7 +328,9 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ✅ FIXED ROOT ROUTE
+// ─────────────────────────────────────────
+//  ROOT
+// ─────────────────────────────────────────
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
