@@ -1,186 +1,355 @@
-import express from "express";
-import mongoose from "mongoose";
-import fetch from "node-fetch";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import cors from "cors";
-import dotenv from "dotenv";
-import rateLimit from "express-rate-limit";
+import express        from "express";
+import mongoose       from "mongoose";
+import fetch          from "node-fetch";
+import bcrypt         from "bcryptjs";
+import jwt            from "jsonwebtoken";
+import cors           from "cors";
+import dotenv         from "dotenv";
+import path           from "path";
+import rateLimit      from "express-rate-limit";
+import multer         from "multer";
+import { fileURLToPath } from "url";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 // ─────────────────────────────────────────
-// ENV CHECK
+//  ENV VALIDATION
 // ─────────────────────────────────────────
 const REQUIRED_ENV = ["MONGO_URI", "OPENROUTER_KEY", "JWT_SECRET"];
 for (const key of REQUIRED_ENV) {
-  if (!process.env[key]) throw new Error(`Missing env: ${key}`);
+  if (!process.env[key]) throw new Error(`Missing required env variable: ${key}`);
 }
 
-const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET  = process.env.JWT_SECRET;
+const PORT        = process.env.PORT || 3000;
 const MAX_HISTORY = 20;
 
 // ─────────────────────────────────────────
-// APP
+//  APP SETUP
 // ─────────────────────────────────────────
 const app = express();
 
-// ✅ SECURE CORS (your Netlify frontend only)
 app.use(cors({
-  origin: "https://sgchatbotofficial.netlify.app"
+  origin: [
+    "https://sgchatbotofficial.netlify.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:5500",
+  ],
 }));
-
 app.use(express.json({ limit: "16kb" }));
 
 // ─────────────────────────────────────────
-// RATE LIMITING
+//  MULTER — memory storage (no disk files)
+// ─────────────────────────────────────────
+const ALLOWED_MIME_TYPES = [
+  // Images
+  "image/jpeg", "image/png", "image/gif", "image/webp",
+  // Documents
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}`));
+    }
+  },
+});
+
+// ─────────────────────────────────────────
+//  RATE LIMITERS
 // ─────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  message: { message: "Too many attempts. Please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
+  message: { reply: "Rate limit exceeded. Please slow down." },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // ─────────────────────────────────────────
-// DATABASE
+//  DATABASE
 // ─────────────────────────────────────────
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => console.log("DB error:", err.message));
+  .catch((err) => {
+    console.error("❌ MongoDB connection failed:", err.message);
+    process.exit(1);
+  });
 
 // ─────────────────────────────────────────
-// USER MODEL
+//  USER SCHEMA
 // ─────────────────────────────────────────
-const userSchema = new mongoose.Schema({
-  email: String,
-  password: String,
-});
+const userSchema = new mongoose.Schema(
+  {
+    email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
+    password: { type: String, required: true },
+  },
+  { timestamps: true }
+);
 
 const User = mongoose.model("User", userSchema);
 
 // ─────────────────────────────────────────
-// AUTH MIDDLEWARE
+//  HELPERS
+// ─────────────────────────────────────────
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+// Validate messages — now supports both string and array content (vision)
+function isValidMessages(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return false;
+  return messages.every((m) => {
+    if (!m || typeof m !== "object") return false;
+    if (!["user", "assistant", "system"].includes(m.role)) return false;
+    // Content can be a string OR an array (vision messages)
+    if (typeof m.content === "string") return m.content.trim().length > 0;
+    if (Array.isArray(m.content))      return m.content.length > 0;
+    return false;
+  });
+}
+
+// ─────────────────────────────────────────
+//  AUTH MIDDLEWARE
 // ─────────────────────────────────────────
 function auth(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ reply: "No token" });
-
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith("Bearer ")) {
+    return res.status(401).json({ reply: "Authorization token missing." });
+  }
+  const token = header.slice(7).trim();
   try {
     req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch {
-    return res.status(401).json({ reply: "Invalid token" });
+  } catch (err) {
+    const message =
+      err.name === "TokenExpiredError"
+        ? "Session expired. Please log in again."
+        : "Invalid token.";
+    return res.status(401).json({ reply: message });
   }
 }
 
 // ─────────────────────────────────────────
-// SIGNUP
+//  SIGNUP
 // ─────────────────────────────────────────
 app.post("/signup", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password)
-      return res.status(400).json({ message: "Missing fields" });
+      return res.status(400).json({ message: "Email and password are required." });
+    if (!isValidEmail(email))
+      return res.status(400).json({ message: "Invalid email format." });
+    if (password.length < 8 || password.length > 128)
+      return res.status(400).json({ message: "Password must be 8–128 characters." });
 
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(409).json({ message: "User exists" });
+    const exists = await User.findOne({ email: email.toLowerCase().trim() });
+    if (exists)
+      return res.status(409).json({ message: "An account with this email already exists." });
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 12);
     await User.create({ email, password: hash });
 
-    res.json({ message: "Account created" });
-  } catch {
-    res.status(500).json({ message: "Server error" });
+    res.status(201).json({ message: "Account created successfully." });
+  } catch (err) {
+    console.error("Signup error:", err);
+    res.status(500).json({ message: "Server error during signup." });
   }
 });
 
 // ─────────────────────────────────────────
-// LOGIN
+//  LOGIN
 // ─────────────────────────────────────────
 app.post("/login", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Invalid" });
+    if (!email || !password)
+      return res.status(400).json({ message: "Email and password are required." });
+    if (!isValidEmail(email))
+      return res.status(400).json({ message: "Invalid email format." });
 
-    const ok = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Invalid" });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
+    const dummyHash = "$2a$12$invalidhashfortimingprotectiononly.......";
+    const passwordToCheck = user ? user.password : dummyHash;
+    const match = await bcrypt.compare(password, passwordToCheck);
 
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    if (!user || !match)
+      return res.status(401).json({ message: "Invalid email or password." });
 
-    res.json({ token, email });
-  } catch {
-    res.status(500).json({ message: "Error" });
+    const token = jwt.sign(
+      { id: user._id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({ token, email: user.email });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ message: "Server error during login." });
   }
 });
 
 // ─────────────────────────────────────────
-// CHAT
+//  CHAT  (supports text + file uploads)
 // ─────────────────────────────────────────
-app.post("/chat", chatLimiter, auth, async (req, res) => {
-  try {
-    const messages = req.body.messages?.slice(-MAX_HISTORY);
+app.post(
+  "/chat",
+  chatLimiter,
+  auth,
+  upload.single("file"),   // optional file field named "file"
+  async (req, res) => {
+    try {
+      // Messages arrive as JSON string in FormData OR as parsed JSON body
+      let messages;
+      try {
+        messages = typeof req.body.messages === "string"
+          ? JSON.parse(req.body.messages)
+          : req.body.messages;
+      } catch {
+        return res.status(400).json({ reply: "Invalid messages format." });
+      }
 
-    if (!Array.isArray(messages)) {
-      return res.status(400).json({ reply: "Invalid messages" });
-    }
+      if (!isValidMessages(messages))
+        return res.status(400).json({ reply: "Invalid or empty message history." });
 
-    const response = await fetch(
-      "https://openrouter.ai/api/v1/chat/completions",
-      {
+      // ── If a file was uploaded, rebuild the last user message ──
+      if (req.file) {
+        const fileType = req.body.fileType || "document"; // "image" | "document"
+        const base64   = req.file.buffer.toString("base64");
+        const mime     = req.file.mimetype;
+        const filename = req.file.originalname;
+
+        // Find the last user message and enrich it
+        const lastUserIdx = [...messages].reverse().findIndex(m => m.role === "user");
+        if (lastUserIdx !== -1) {
+          const realIdx = messages.length - 1 - lastUserIdx;
+          const existing = messages[realIdx];
+
+          if (IMAGE_MIME_TYPES.includes(mime)) {
+            // Vision-capable model — send image inline
+            const textPart = typeof existing.content === "string" && existing.content.trim()
+              ? existing.content
+              : "Please analyze this image and describe what you see in detail.";
+
+            messages[realIdx] = {
+              role: "user",
+              content: [
+                { type: "text", text: textPart },
+                { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
+              ],
+            };
+          } else {
+            // Non-image document — prepend filename note to text
+            const originalText = typeof existing.content === "string"
+              ? existing.content
+              : "";
+            const docNote = `[Attached document: ${filename}]\n\n`;
+            messages[realIdx] = {
+              role: "user",
+              content: docNote + (originalText || "Please analyze this document and summarize its contents."),
+            };
+          }
+        }
+      }
+
+      const trimmed = messages.slice(-MAX_HISTORY);
+
+      // Use gpt-4o (vision) when images present, gpt-4o-mini otherwise
+      const hasImage = trimmed.some(
+        m => Array.isArray(m.content) &&
+             m.content.some(p => p.type === "image_url")
+      );
+      const model = hasImage ? "openai/gpt-4o" : "openai/gpt-4o-mini";
+
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "openai/gpt-4o-mini",
-          messages,
-        }),
-      }
-    );
+        body: JSON.stringify({ model, messages: trimmed }),
+      });
 
-    if (!response.ok) {
-      return res.status(500).json({ reply: "AI service error" });
+      const data  = await response.json();
+      const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
+
+      res.json({ reply });
+    } catch (err) {
+      console.error("Chat error:", err);
+      res.status(500).json({ reply: "Server error. Please try again." });
     }
-
-    const data = await response.json();
-
-    res.json({
-      reply: data?.choices?.[0]?.message?.content || "No response",
-    });
-  } catch {
-    res.status(500).json({ reply: "Server error" });
   }
+);
+
+// ─────────────────────────────────────────
+//  MULTER ERROR HANDLER
+// ─────────────────────────────────────────
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE")
+      return res.status(400).json({ reply: "File too large. Maximum size is 10 MB." });
+    return res.status(400).json({ reply: `Upload error: ${err.message}` });
+  }
+  if (err && err.message && err.message.startsWith("Unsupported file type")) {
+    return res.status(400).json({ reply: err.message });
+  }
+  next(err);
 });
 
 // ─────────────────────────────────────────
-// HEALTH CHECK
+//  HEALTH
 // ─────────────────────────────────────────
 app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+  res.json({
+    status: "ok",
+    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+  });
 });
 
 // ─────────────────────────────────────────
-// ROOT
+//  ROOT
 // ─────────────────────────────────────────
 app.get("/", (req, res) => {
-  res.json({ message: "SG ChatBOT API running" });
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // ─────────────────────────────────────────
-// START SERVER
+//  404
 // ─────────────────────────────────────────
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+app.use((req, res) => {
+  res.status(404).json({ message: "Route not found." });
+});
+
+// ─────────────────────────────────────────
+//  START
+// ─────────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
