@@ -290,7 +290,7 @@ app.post(
       );
       const model = hasImage
         ? "meta-llama/llama-3.2-11b-vision-instruct:free"
-        : "meta-llama/llama-3.3-70b-instruct:free";
+        : "google/gemma-3-27b-it:free";
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
