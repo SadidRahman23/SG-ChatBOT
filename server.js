@@ -300,6 +300,7 @@ app.post(
       });
 
       const data  = await response.json();
+      console.log("OpenRouter response:", JSON.stringify(data)); // debug log
       const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
 
       res.json({ reply });
