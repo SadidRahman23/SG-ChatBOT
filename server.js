@@ -32,6 +32,8 @@ const MAX_HISTORY = 20;
 // ─────────────────────────────────────────
 const app = express();
 
+app.set("trust proxy", 1); // Required for Render proxy
+
 app.use(cors({
   origin: [
     "https://sgchatbotofficial.netlify.app",
