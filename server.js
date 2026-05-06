@@ -288,7 +288,9 @@ app.post(
         m => Array.isArray(m.content) &&
              m.content.some(p => p.type === "image_url")
       );
-      const model = "openai/gpt-4o-mini"; // gpt-4o-mini supports vision and is cheaper
+      const model = hasImage
+        ? "meta-llama/llama-3.2-11b-vision-instruct:free"
+        : "meta-llama/llama-3.3-70b-instruct:free";
 
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
