@@ -712,10 +712,21 @@
     STATE.memory.push({ role: 'assistant', content: text });
     renderMathInElement(chatEl, { delimiters: [{ left:'$$', right:'$$', display:true },{ left:'$', right:'$', display:false }], throwOnError: false });
     chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
-    addToHistory(STATE.memory.find(m => m.role === 'user')?.content || 'Chat');
+    const lastUser = STATE.memory.slice().reverse().find(m => m.role === 'user');
+    addToHistory(lastUser ? lastUser.content : 'Chat');
   }
 
-  function addToHistory(text) {
+  function addToHistory(content) {
+    // content can be a string or an array (vision messages)
+    let text = '';
+    if (typeof content === 'string') {
+      text = content;
+    } else if (Array.isArray(content)) {
+      // Extract text part from vision message array
+      const textPart = content.find(p => p.type === 'text');
+      text = textPart ? textPart.text : '📎 File uploaded';
+    }
+    if (!text) text = '📎 File uploaded';
     const label = text.slice(0, 36) + (text.length > 36 ? '…' : '');
     const historyEl = document.getElementById('history');
     historyEl.querySelectorAll('.history-item').forEach(i => i.classList.remove('active'));
