@@ -431,6 +431,7 @@
     isLogin: true,
     welcomeVisible: true,
     pendingFile: null,
+    historyAdded: false, // ✅ প্রতি conversation-এ মাত্র একবার history-তে যাবে
   };
 
   const chatEl          = document.getElementById('chat');
@@ -654,6 +655,9 @@
   }
 
   function addToHistory(content) {
+    if (STATE.historyAdded) return; // ✅ already added, skip
+    STATE.historyAdded = true;
+
     let text = typeof content === 'string' ? content : (content.find?.(p=>p.type==='text')?.text || '📎 File');
     if (!text) text = '📎 File';
     const label = text.slice(0,36) + (text.length>36?'…':'');
@@ -731,7 +735,7 @@
   }
 
   function clearChat() {
-    STATE.memory=[]; clearPendingFile();
+    STATE.memory=[]; STATE.historyAdded=false; clearPendingFile();
     chatEl.innerHTML = `
       <div class="welcome" id="welcome">
         <div class="welcome-icon">✦</div>
