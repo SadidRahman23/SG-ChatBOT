@@ -281,6 +281,38 @@
     #input { flex:1; background:transparent; border:none; outline:none; color:var(--text); font-family:var(--font); font-size:14.5px; line-height:1.6; resize:none; max-height:140px; padding:3px 0; }
     #input::placeholder { color:var(--muted); }
 
+    /* ── VOICE BUTTON ── */
+    .voice-btn {
+      width:35px; height:35px; border-radius:9px;
+      border:1px solid var(--border-2); background:var(--surface-2);
+      color:var(--dim); cursor:pointer;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; transition:all var(--anim);
+    }
+    .voice-btn:hover { background:var(--surface-3); border-color:var(--accent); color:var(--accent); }
+    .voice-btn.recording {
+      border-color:rgba(239,68,68,.5);
+      background:rgba(239,68,68,.1);
+      color:#ef4444;
+      animation: recordPulse 1s ease-in-out infinite;
+    }
+    .voice-btn svg { width:15px; height:15px; }
+    @keyframes recordPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
+
+    /* ── WARNING POPUP ── */
+    .warn-toast {
+      position:fixed; bottom:100px; left:50%;
+      transform:translateX(-50%) translateY(20px);
+      background:rgba(245,158,11,.12);
+      border:1px solid rgba(245,158,11,.35);
+      color:#f59e0b; font-size:13px; font-weight:600;
+      padding:10px 20px; border-radius:99px;
+      opacity:0; transition:all .4s; pointer-events:none; z-index:160;
+      white-space:nowrap; backdrop-filter:blur(8px);
+    }
+    .warn-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* ══ UPLOAD BTN ══ */
     .upload-btn { width:35px; height:35px; border-radius:9px; border:1px solid var(--border-2); background:var(--surface-2); color:var(--dim); cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all var(--anim); }
     .upload-btn:hover { background:var(--surface-3); border-color:var(--accent); color:var(--accent); }
     .upload-btn.has-file { border-color:var(--accent2); color:var(--accent2); background:rgba(0,212,170,.08); }
@@ -463,6 +495,13 @@
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
       </button>
+      <!-- ✅ Voice button -->
+      <button class="voice-btn" id="voiceBtn" title="Voice chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
       <textarea id="input" placeholder="Message SG ChatBOT…" rows="1"></textarea>
       <button class="send-btn" id="sendBtn" aria-label="Send">
         <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -519,6 +558,7 @@
   </div>
 </div>
 
+<div class="warn-toast" id="warnToast">⚡ Only 5 messages left! Upgrade to Pro →</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -541,7 +581,8 @@
     isLogin: true,
     welcomeVisible: true,
     pendingFile: null,
-    historyAdded: false, // ✅ প্রতি conversation-এ মাত্র একবার history-তে যাবে
+    historyAdded: false,
+    lastWasVoice: false,
   };
 
   const chatEl          = document.getElementById('chat');
@@ -746,21 +787,6 @@
     return row;
   }
 
-  function addCopyButtons(el) {
-    el.querySelectorAll('pre').forEach(pre => {
-      if (pre.querySelector('.copy-btn')) return;
-      const btn = document.createElement('button');
-      btn.className='copy-btn'; btn.textContent='Copy';
-      btn.addEventListener('click', () => {
-        navigator.clipboard.writeText(pre.querySelector('code')?.textContent || pre.textContent);
-        btn.textContent='Copied!';
-        setTimeout(() => btn.textContent='Copy', 2000);
-      });
-      pre.style.position='relative';
-      pre.appendChild(btn);
-    });
-  }
-
   function renderBotMessage(text) {
     const row = document.createElement('div');
     row.className='msg-row bot';
@@ -890,7 +916,7 @@
   }
 
   function addToHistory(content) {
-    if (STATE.historyAdded) return; // ✅ already added, skip
+    if (STATE.historyAdded) return;
     STATE.historyAdded = true;
 
     let text = typeof content === 'string' ? content : (content.find?.(p=>p.type==='text')?.text || '📎 File');
@@ -901,6 +927,11 @@
     const item  = document.createElement('div');
     item.className='history-item active';
     item.textContent=label;
+    // ✅ FIX 1: History item click — scroll to chat top
+    item.addEventListener('click', () => {
+      chatEl.scrollTo({ top: 0, behavior: 'smooth' });
+      if (window.innerWidth <= 768) closeSidebar();
+    });
     hist.prepend(item);
   }
 
@@ -1011,13 +1042,20 @@
         document.getElementById('limitOverlay').classList.add('open');
       } else {
         renderBotMessage(data.reply || 'No response.');
+        // ✅ Voice reply if user used voice
+        if (isRecording === false && STATE.lastWasVoice) {
+          speakText(data.reply || '');
+          STATE.lastWasVoice = false;
+        }
         // Update counter
         if (data.msgsLeft !== undefined && data.msgsLeft !== null) {
           const countNum = document.getElementById('msgCountNum');
           countNum.textContent = data.msgsLeft;
           if (data.msgsLeft <= 3) countNum.style.color = '#f87171';
           else if (data.msgsLeft <= 6) countNum.style.color = '#f59e0b';
-          // Auto show popup when 0 left
+          // ✅ FIX 5: Warning popup
+          checkWarnLimit(data.msgsLeft);
+          // Auto show limit popup when 0
           if (data.msgsLeft === 0) {
             const mins    = data.minsLeft || 0;
             const h       = Math.floor(mins / 60);
@@ -1092,6 +1130,129 @@
   document.getElementById('limitDismiss').addEventListener('click', () => {
     document.getElementById('limitOverlay').classList.remove('open');
   });
+
+  /* ── ✅ FIX 3: VOICE CHAT ── */
+  const voiceBtn   = document.getElementById('voiceBtn');
+  let recognition  = null;
+  let isRecording  = false;
+  let speechSynth  = window.speechSynthesis;
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SR();
+    recognition.continuous   = false;
+    recognition.interimResults = false;
+    recognition.lang         = 'en-US';
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      inputEl.value = transcript;
+      isRecording = false;
+      voiceBtn.classList.remove('recording');
+      STATE.lastWasVoice = true; // track voice
+      send();
+    };
+
+    recognition.onerror = () => {
+      isRecording = false;
+      voiceBtn.classList.remove('recording');
+      showToast('Voice not recognized. Try again.', 'error');
+    };
+
+    recognition.onend = () => {
+      isRecording = false;
+      voiceBtn.classList.remove('recording');
+    };
+  }
+
+  voiceBtn.addEventListener('click', () => {
+    if (!recognition) { showToast('Voice not supported in this browser', 'error'); return; }
+    if (isRecording) {
+      recognition.stop();
+      isRecording = false;
+      voiceBtn.classList.remove('recording');
+    } else {
+      recognition.start();
+      isRecording = true;
+      voiceBtn.classList.add('recording');
+      showToast('Listening… speak now', '');
+    }
+  });
+
+  // AI voice reply using Web Speech API
+  function speakText(text) {
+    if (!speechSynth) return;
+    speechSynth.cancel();
+    // Strip markdown for speech
+    const clean = text.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').slice(0, 500);
+    const utt   = new SpeechSynthesisUtterance(clean);
+    utt.rate    = 1.05;
+    utt.pitch   = 1;
+    utt.lang    = 'en-US';
+    speechSynth.speak(utt);
+  }
+
+  /* ── ✅ FIX 4: CODE BLOCK EXPAND ── */
+  function addCopyButtons(el) {
+    el.querySelectorAll('pre').forEach(pre => {
+      if (pre.querySelector('.copy-btn')) return;
+      pre.style.position = 'relative';
+
+      // Copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'copy-btn';
+      copyBtn.textContent = 'Copy';
+      copyBtn.addEventListener('click', () => {
+        navigator.clipboard.writeText(pre.querySelector('code')?.textContent || pre.textContent);
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => copyBtn.textContent = 'Copy', 2000);
+      });
+
+      // Expand button for long code blocks
+      const codeEl = pre.querySelector('code');
+      const lineCount = (codeEl?.textContent || '').split('\n').length;
+
+      if (lineCount > 15) {
+        pre.style.maxHeight = '300px';
+        pre.style.overflow  = 'hidden';
+        pre.style.cursor    = 'default';
+
+        const expandBtn = document.createElement('button');
+        expandBtn.className   = 'copy-btn';
+        expandBtn.style.right = '70px';
+        expandBtn.textContent = '⤢ Expand';
+        expandBtn.addEventListener('click', () => {
+          if (pre.style.maxHeight === '300px') {
+            pre.style.maxHeight  = 'none';
+            pre.style.overflow   = 'auto';
+            expandBtn.textContent = '⤡ Collapse';
+          } else {
+            pre.style.maxHeight  = '300px';
+            pre.style.overflow   = 'hidden';
+            expandBtn.textContent = '⤢ Expand';
+          }
+        });
+        pre.appendChild(expandBtn);
+      }
+
+      pre.appendChild(copyBtn);
+    });
+  }
+
+  /* ── ✅ FIX 5: WARNING POPUP when 5 msgs left ── */
+  let warnShown = false;
+  function checkWarnLimit(msgsLeft) {
+    if (warnShown || msgsLeft === null) return;
+    if (msgsLeft <= 5 && msgsLeft > 0) {
+      warnShown = true;
+      const wt  = document.getElementById('warnToast');
+      wt.textContent = `⚡ Only ${msgsLeft} message${msgsLeft === 1 ? '' : 's'} left! Upgrade to Pro →`;
+      wt.classList.add('show');
+      wt.style.cursor = 'pointer';
+      wt.addEventListener('click', () => window.location.href = 'pricing.html');
+      setTimeout(() => wt.classList.remove('show'), 5000);
+    }
+  }
 
   // ── Fetch user status (plan + messages left) ──
   async function fetchStatus() {
