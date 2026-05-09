@@ -299,7 +299,20 @@
     .voice-btn svg { width:15px; height:15px; }
     @keyframes recordPulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 6px rgba(239,68,68,0)} }
 
-    /* ── WARNING POPUP ── */
+    /* ── PRO EXPIRY POPUP ── */
+    .expiry-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:155;padding:16px;}
+    .expiry-overlay.open{display:flex;}
+    .expiry-card{background:var(--surface);border:1px solid rgba(245,158,11,.35);border-radius:20px;padding:32px 26px;width:100%;max-width:380px;text-align:center;animation:scaleIn .22s cubic-bezier(.34,1.56,.64,1);box-shadow:0 30px 60px rgba(0,0,0,.5);}
+    .expiry-icon{font-size:44px;margin-bottom:14px;}
+    .expiry-title{font-size:20px;font-weight:800;margin-bottom:8px;color:#f59e0b;}
+    .expiry-sub{font-size:14px;color:var(--dim);line-height:1.7;margin-bottom:22px;}
+    .expiry-sub strong{color:var(--text);}
+    .expiry-renew{display:block;width:100%;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,#f59e0b,#fb923c);color:#000;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:all .25s;}
+    .expiry-renew:hover{filter:brightness(1.1);}
+    .expiry-dismiss{width:100%;padding:10px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;cursor:pointer;transition:all .2s;}
+    .expiry-dismiss:hover{background:var(--surface-2);color:var(--text);}
+
+    /* ── WARN TOAST ── */
     .warn-toast {
       position:fixed; bottom:100px; left:50%;
       transform:translateX(-50%) translateY(20px);
@@ -513,6 +526,17 @@
     <p class="input-hint">SG is AI and can make mistakes.</p>
   </div>
 </main>
+
+<!-- PRO EXPIRY WARNING POPUP -->
+<div class="expiry-overlay" id="expiryOverlay">
+  <div class="expiry-card">
+    <div class="expiry-icon">⏳</div>
+    <div class="expiry-title">Pro Expiring Tomorrow!</div>
+    <div class="expiry-sub">Your <strong>SG ChatBOT Pro</strong> plan expires <strong>tomorrow</strong>.<br>Renew now to keep unlimited access!</div>
+    <a href="pricing.html" class="expiry-renew">Renew Pro Now →</a>
+    <button class="expiry-dismiss" id="expiryDismiss">Remind me later</button>
+  </div>
+</div>
 
 <!-- LIMIT REACHED POPUP -->
 <div class="limit-overlay" id="limitOverlay">
@@ -1127,6 +1151,11 @@
     if(file){ const dt=new DataTransfer(); dt.items.add(file); fileInput.files=dt.files; fileInput.dispatchEvent(new Event('change')); }
   });
 
+  document.getElementById('expiryDismiss').addEventListener('click', () => {
+    document.getElementById('expiryOverlay').classList.remove('open');
+    sessionStorage.setItem('expiryDismissed', '1'); // don't show again this session
+  });
+
   document.getElementById('limitDismiss').addEventListener('click', () => {
     document.getElementById('limitOverlay').classList.remove('open');
   });
@@ -1271,8 +1300,25 @@
         proBadge.style.display   = 'inline-flex';
         upgradeBtn.style.display = 'none';
         counter.style.display    = 'none';
-        // Update user role
         document.getElementById('userRoleEl').textContent = '⚡ Pro Member';
+
+        // ✅ Check if Pro expires tomorrow
+        if (data.proExpires) {
+          const expires   = new Date(data.proExpires);
+          const now       = new Date();
+          const diffMs    = expires - now;
+          const diffHours = diffMs / (1000 * 60 * 60);
+
+          // Show popup if expires within 24 hours
+          if (diffHours > 0 && diffHours <= 24) {
+            const dismissed = sessionStorage.getItem('expiryDismissed');
+            if (!dismissed) {
+              setTimeout(() => {
+                document.getElementById('expiryOverlay').classList.add('open');
+              }, 2000);
+            }
+          }
+        }
       } else {
         proBadge.style.display   = 'none';
         upgradeBtn.style.display = 'inline-flex';
