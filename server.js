@@ -11,8 +11,7 @@ import multer from "multer";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
+const __dirname  = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 // ─────────────────────────────────────────
@@ -20,12 +19,14 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 // ─────────────────────────────────────────
 const REQUIRED_ENV = ["MONGO_URI", "OPENROUTER_KEY", "JWT_SECRET"];
 for (const key of REQUIRED_ENV) {
-  if (!process.env[key]) throw new Error(`Missing required env variable: ${key}`);
+  if (!process.env[key]) throw new Error(`Missing env: ${key}`);
 }
 
-const JWT_SECRET  = process.env.JWT_SECRET;
-const PORT        = process.env.PORT || 3000;
-const MAX_HISTORY = 20;
+const JWT_SECRET   = process.env.JWT_SECRET;
+const ADMIN_SECRET = process.env.ADMIN_SECRET || "sgadmin2025"; // change this!
+const PORT         = process.env.PORT || 3000;
+const MAX_HISTORY  = 20;
+const FREE_LIMIT   = 10; // messages per day for free users
 
 // ─────────────────────────────────────────
 // APP
@@ -64,35 +65,68 @@ const chatLimiter = rateLimit({ windowMs: 60 * 1000, max: 30 });
 // ─────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch(err => {
-    console.error("❌ MongoDB connection failed:", err.message);
-    process.exit(1);
-  });
+  .catch(err => { console.error("❌ MongoDB failed:", err.message); process.exit(1); });
 
 // ─────────────────────────────────────────
-// USER MODEL
+// MODELS
 // ─────────────────────────────────────────
 const userSchema = new mongoose.Schema({
   email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
+  plan:     { type: String, enum: ["free", "pro"], default: "free" },
+  proExpiresAt: { type: Date, default: null },
+  msgCount: { type: Number, default: 0 },   // today's message count
+  msgDate:  { type: String, default: "" },   // YYYY-MM-DD
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
+
+// Payment request model
+const paymentSchema = new mongoose.Schema({
+  userId:        { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  email:         { type: String, required: true },
+  method:        { type: String, enum: ["bkash", "nagad"], required: true },
+  transactionId: { type: String, required: true, trim: true },
+  amount:        { type: Number, required: true },
+  plan:          { type: String, enum: ["monthly", "yearly"], required: true },
+  status:        { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
+}, { timestamps: true });
+
+const Payment = mongoose.model("Payment", paymentSchema);
 
 // ─────────────────────────────────────────
 // AUTH MIDDLEWARE
 // ─────────────────────────────────────────
 function auth(req, res, next) {
   const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer ")) {
+  if (!header || !header.startsWith("Bearer "))
     return res.status(401).json({ reply: "Authorization token missing." });
-  }
   try {
     req.user = jwt.verify(header.slice(7), JWT_SECRET);
     next();
   } catch {
     return res.status(401).json({ reply: "Invalid or expired token." });
   }
+}
+
+function adminAuth(req, res, next) {
+  const secret = req.headers["x-admin-secret"];
+  if (secret !== ADMIN_SECRET)
+    return res.status(403).json({ message: "Forbidden" });
+  next();
+}
+
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
+function isProActive(user) {
+  if (user.plan !== "pro") return false;
+  if (!user.proExpiresAt) return false;
+  return new Date() < new Date(user.proExpiresAt);
 }
 
 // ─────────────────────────────────────────
@@ -135,10 +169,167 @@ app.post("/login", authLimiter, async (req, res) => {
 });
 
 // ─────────────────────────────────────────
+// GET USER STATUS (plan, messages left)
+// ─────────────────────────────────────────
+app.get("/status", auth, async (req, res) => {
+  try {
+    const user   = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const pro      = isProActive(user);
+    const today    = todayStr();
+    const msgToday = user.msgDate === today ? user.msgCount : 0;
+    const msgsLeft = pro ? null : Math.max(0, FREE_LIMIT - msgToday);
+
+    res.json({
+      email:      user.email,
+      plan:       pro ? "pro" : "free",
+      msgsLeft,
+      freeLimit:  FREE_LIMIT,
+      proExpires: user.proExpiresAt,
+    });
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// ─────────────────────────────────────────
+// SUBMIT PAYMENT
+// ─────────────────────────────────────────
+app.post("/payment/submit", auth, async (req, res) => {
+  try {
+    const { method, transactionId, plan } = req.body;
+
+    if (!method || !transactionId || !plan)
+      return res.status(400).json({ message: "Missing fields" });
+
+    if (!["bkash", "nagad"].includes(method))
+      return res.status(400).json({ message: "Invalid method" });
+
+    if (!["monthly", "yearly"].includes(plan))
+      return res.status(400).json({ message: "Invalid plan" });
+
+    // Check duplicate transaction ID
+    const duplicate = await Payment.findOne({ transactionId });
+    if (duplicate)
+      return res.status(409).json({ message: "Transaction ID already used" });
+
+    const amount = plan === "monthly" ? 99 : 799;
+
+    const user = await User.findById(req.user.id);
+
+    await Payment.create({
+      userId:        user._id,
+      email:         user.email,
+      method,
+      transactionId,
+      amount,
+      plan,
+      status:        "pending",
+    });
+
+    res.json({ message: "Payment submitted! We will verify within 24 hours." });
+  } catch {
+    res.status(500).json({ message: "Payment submission error" });
+  }
+});
+
+// ─────────────────────────────────────────
+// ADMIN — View pending payments
+// ─────────────────────────────────────────
+app.get("/admin/payments", adminAuth, async (req, res) => {
+  try {
+    const payments = await Payment.find({ status: "pending" }).sort({ createdAt: -1 });
+    res.json(payments);
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// ─────────────────────────────────────────
+// ADMIN — Approve payment → activate Pro
+// ─────────────────────────────────────────
+app.post("/admin/approve/:paymentId", adminAuth, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+    payment.status = "approved";
+    await payment.save();
+
+    // Activate Pro for user
+    const user = await User.findById(payment.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    const now     = new Date();
+    const expires = new Date(now);
+
+    if (payment.plan === "monthly") {
+      expires.setMonth(expires.getMonth() + 1);
+    } else {
+      expires.setFullYear(expires.getFullYear() + 1);
+    }
+
+    user.plan         = "pro";
+    user.proExpiresAt = expires;
+    await user.save();
+
+    res.json({ message: `Pro activated for ${user.email} until ${expires.toDateString()}` });
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// ─────────────────────────────────────────
+// ADMIN — Reject payment
+// ─────────────────────────────────────────
+app.post("/admin/reject/:paymentId", adminAuth, async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.paymentId);
+    if (!payment) return res.status(404).json({ message: "Payment not found" });
+
+    payment.status = "rejected";
+    await payment.save();
+
+    res.json({ message: "Payment rejected" });
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// ─────────────────────────────────────────
 // CHAT
 // ─────────────────────────────────────────
 app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => {
   try {
+
+    // ── Check message limit ──
+    const user  = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ reply: "User not found." });
+
+    const pro   = isProActive(user);
+    const today = todayStr();
+
+    if (!pro) {
+      // Reset count if new day
+      if (user.msgDate !== today) {
+        user.msgCount = 0;
+        user.msgDate  = today;
+      }
+
+      if (user.msgCount >= FREE_LIMIT) {
+        return res.status(429).json({
+          reply:      "limit_reached",
+          msgsLeft:   0,
+          freeLimit:  FREE_LIMIT,
+        });
+      }
+
+      // Increment count
+      user.msgCount += 1;
+      user.msgDate   = today;
+      await user.save();
+    }
 
     // ── Parse messages ──
     let messages;
@@ -155,18 +346,18 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     const trimmed = messages.slice(-MAX_HISTORY);
 
-    // ── ✅ System prompt — inject once only ──
+    // ── System prompt ──
     if (trimmed[0]?.role !== "system") {
       trimmed.unshift({
         role: "system",
         content:
           "You are SG ChatBOT — a smart, helpful AI assistant built by Mohammed Sadid Rahman. " +
-          "Be natural, direct and concise. Never start with generic greetings like 'Hello! How can I assist you today?'. " +
+          "Be natural, direct and concise. Never start with generic greetings. " +
           "Answer the user's question immediately and clearly.",
       });
     }
 
-    // ── ✅ Image support ──
+    // ── Image support ──
     if (req.file) {
       const base64   = req.file.buffer.toString("base64");
       const mimeType = req.file.mimetype;
@@ -174,32 +365,19 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
       if (lastMsg?.role === "user" && mimeType.startsWith("image/")) {
         lastMsg.content = [
-          {
-            type: "text",
-            text: typeof lastMsg.content === "string" && lastMsg.content
-              ? lastMsg.content
-              : "Analyze this image.",
-          },
-          {
-            type: "image_url",
-            image_url: { url: `data:${mimeType};base64,${base64}` },
-          },
+          { type: "text", text: typeof lastMsg.content === "string" && lastMsg.content ? lastMsg.content : "Analyze this image." },
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
         ];
       }
     }
 
-    // ── ✅ FREE models — vision for images, auto for text ──
+    // ── Model selection ──
     const hasImage = trimmed.some(
       m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
     );
 
-    const primaryModel  = hasImage
-      ? "qwen/qwen2.5-vl-72b-instruct:free"  // ✅ best free vision model
-      : "openrouter/free";                    // ✅ auto best free for text
-
-    const fallbackModel = hasImage
-      ? "qwen/qwen2.5-vl-7b-instruct:free"   // vision fallback
-      : "qwen/qwen3-8b:free";                 // text fallback
+    const primaryModel  = hasImage ? "qwen/qwen2.5-vl-72b-instruct:free" : "openrouter/free";
+    const fallbackModel = hasImage ? "qwen/qwen2.5-vl-7b-instruct:free"  : "qwen/qwen3-8b:free";
 
     // ── OpenRouter call ──
     async function callOpenRouter(model) {
@@ -217,23 +395,24 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     let response = await callOpenRouter(primaryModel);
 
-    // ✅ Fallback if primary model fails
     if (!response.ok) {
       const errText = await response.text();
-      console.error(`❌ Primary model (${primaryModel}) failed:`, errText);
+      console.error(`❌ Primary (${primaryModel}) failed:`, errText);
 
       response = await callOpenRouter(fallbackModel);
-
       if (!response.ok) {
-        const fallbackErr = await response.text();
-        console.error(`❌ Fallback model (${fallbackModel}) failed:`, fallbackErr);
+        const fbErr = await response.text();
+        console.error(`❌ Fallback (${fallbackModel}) failed:`, fbErr);
         return res.status(500).json({ reply: "AI temporarily unavailable. Please try again." });
       }
     }
 
     const data  = await response.json();
     const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
-    res.json({ reply });
+
+    // Return remaining messages info
+    const msgsLeft = pro ? null : FREE_LIMIT - user.msgCount;
+    res.json({ reply, msgsLeft, plan: pro ? "pro" : "free" });
 
   } catch (err) {
     console.error("❌ Chat error:", err);
