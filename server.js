@@ -188,9 +188,18 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       }
     }
 
-    // ── ✅ FREE models — openrouter/free auto-selects best available ──
-    const primaryModel  = "openrouter/free";   // auto picks best free model
-    const fallbackModel = "qwen/qwen3-8b:free"; // working free fallback
+    // ── ✅ FREE models — vision for images, auto for text ──
+    const hasImage = trimmed.some(
+      m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
+    );
+
+    const primaryModel  = hasImage
+      ? "qwen/qwen2.5-vl-72b-instruct:free"  // ✅ best free vision model
+      : "openrouter/free";                    // ✅ auto best free for text
+
+    const fallbackModel = hasImage
+      ? "qwen/qwen2.5-vl-7b-instruct:free"   // vision fallback
+      : "qwen/qwen3-8b:free";                 // text fallback
 
     // ── OpenRouter call ──
     async function callOpenRouter(model) {
