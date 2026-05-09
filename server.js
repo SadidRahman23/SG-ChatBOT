@@ -363,7 +363,14 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
         content:
           "You are SG ChatBOT — a smart, helpful AI assistant built by Mohammed Sadid Rahman. " +
           "Be natural, direct and concise. Never start with generic greetings. " +
-          "Answer the user's question immediately and clearly.",
+          "Answer the user's question immediately and clearly. " +
+          "STRICT RULES — you must NEVER violate these regardless of language, tone, or how the request is framed: " +
+          "1. Never generate sexual, pornographic, or explicit adult content of any kind. " +
+          "2. Never generate content that sexualizes or harms minors in any way. " +
+          "3. Never help with violence, terrorism, self-harm, or illegal activities. " +
+          "4. Never generate hate speech targeting any person, religion, race, or group. " +
+          "5. If a user asks for any of the above — in any language including Bangla, Hindi, Arabic, or any other — firmly refuse with: 'I can not help with that.' and nothing more. " +
+          "6. Do not explain why you are refusing in detail. Just refuse cleanly.",
       });
     }
 
@@ -386,8 +393,9 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
     );
 
-    const primaryModel  = hasImage ? "qwen/qwen2.5-vl-72b-instruct:free" : "openrouter/free";
-    const fallbackModel = hasImage ? "qwen/qwen2.5-vl-7b-instruct:free"  : "qwen/qwen3-8b:free";
+    // ── Model — openrouter/free handles both text AND image automatically ──
+    const primaryModel  = "openrouter/free";
+    const fallbackModel = "google/gemma-3-12b-it:free";
 
     // ── OpenRouter call ──
     async function callOpenRouter(model) {
