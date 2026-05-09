@@ -186,6 +186,71 @@
     .bubble li { margin-bottom:3px; }
     .bubble h1,.bubble h2,.bubble h3 { font-weight:700; margin:14px 0 6px; }
 
+    /* ── PASTED CODE BLOCK (user message) ── */
+    .pasted-block {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px; padding: 10px 14px;
+      margin-top: 6px; cursor: pointer;
+      transition: all .2s; max-width: 260px;
+    }
+    .pasted-block:hover { background: rgba(0,0,0,0.45); }
+    .pasted-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .pasted-info { flex: 1; min-width: 0; }
+    .pasted-label { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.9); }
+    .pasted-lines { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+    /* Expanded code modal */
+    .code-modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.85);
+      backdrop-filter: blur(12px); display: none;
+      align-items: center; justify-content: center;
+      z-index: 180; padding: 20px;
+    }
+    .code-modal-overlay.open { display: flex; }
+    .code-modal {
+      background: var(--surface); border: 1px solid var(--border-2);
+      border-radius: 16px; width: 100%; max-width: 800px;
+      max-height: 85vh; display: flex; flex-direction: column;
+      animation: scaleIn .2s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 40px 80px rgba(0,0,0,.6);
+    }
+    .code-modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .code-modal-title { font-size: 13px; font-weight: 700; color: var(--dim); }
+    .code-modal-actions { display: flex; gap: 8px; }
+    .code-modal-copy {
+      padding: 5px 12px; border-radius: 7px; border: 1px solid var(--border-2);
+      background: var(--surface-2); color: var(--dim); font-family: var(--font);
+      font-size: 12px; cursor: pointer; transition: all .2s;
+    }
+    .code-modal-copy:hover { background: var(--surface-3); color: var(--text); }
+    .code-modal-close {
+      width: 28px; height: 28px; border-radius: 7px;
+      border: 1px solid var(--border-2); background: transparent;
+      color: var(--dim); cursor: pointer; display: flex;
+      align-items: center; justify-content: center; font-size: 14px;
+      transition: all .2s;
+    }
+    .code-modal-close:hover { background: var(--surface-2); color: var(--text); }
+    .code-modal-body {
+      flex: 1; overflow: auto; padding: 16px 18px;
+    }
+    .code-modal-body pre {
+      margin: 0; background: transparent; border: none; padding: 0;
+      font-family: monospace; font-size: 13px; color: var(--text);
+      line-height: 1.7; white-space: pre; overflow-x: auto;
+    }
+
     /* copy btn on code blocks */
     .bubble pre .copy-btn {
       position:absolute; top:8px; right:8px;
