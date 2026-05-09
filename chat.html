@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SG ChatBOT | AI Assistant</title>
-  <meta name="description" content="Chat with SG AI — powered by DeepSeek. Ask questions, analyze images, get code help instantly.">
+  <meta name="description" content="Chat with SG AI — powered by SG AI. Ask questions, analyze images, get code help instantly.">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://sg-chatbot-a2h.pages.dev/chat.html">
 
@@ -320,6 +320,22 @@
     .toast.error   { border-color:rgba(255,100,100,.4); color:#ff8080; }
     .toast.success { border-color:rgba(0,212,170,.4);   color:var(--accent2); }
 
+    /* ══ LIMIT POPUP ══ */
+    .limit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:150;padding:16px;}
+    .limit-overlay.open{display:flex;}
+    .limit-card{background:var(--surface);border:1px solid rgba(245,158,11,.3);border-radius:24px;padding:36px 28px;width:100%;max-width:400px;text-align:center;animation:scaleIn .22s cubic-bezier(.34,1.56,.64,1);box-shadow:0 40px 80px rgba(0,0,0,.6);}
+    .limit-icon{font-size:52px;margin-bottom:16px;}
+    .limit-title{font-size:22px;font-weight:800;margin-bottom:8px;}
+    .limit-sub{font-size:14px;color:var(--dim);line-height:1.7;margin-bottom:24px;}
+    .limit-sub strong{color:var(--text);}
+    .limit-upgrade-btn{display:block;width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#f59e0b,#fb923c);color:#000;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer;text-decoration:none;margin-bottom:10px;transition:all .25s;}
+    .limit-upgrade-btn:hover{filter:brightness(1.1);box-shadow:0 8px 30px rgba(245,158,11,.3);}
+    .limit-dismiss{width:100%;padding:11px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;cursor:pointer;transition:all .2s;}
+    .limit-dismiss:hover{background:var(--surface-2);color:var(--text);}
+    .limit-features{display:flex;flex-direction:column;gap:6px;margin-bottom:24px;text-align:left;background:rgba(245,158,11,.05);border:1px solid rgba(245,158,11,.1);border-radius:12px;padding:14px 16px;}
+    .limit-feature{font-size:13px;color:var(--dim);display:flex;align-items:center;gap:8px;}
+    .limit-feature span{color:var(--accent2);}
+
     /* ══ MODAL ══ */
     .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); backdrop-filter:blur(10px); display:none; align-items:center; justify-content:center; z-index:100; padding:16px; }
     .modal-overlay.open { display:flex; }
@@ -405,6 +421,11 @@
     </button>
     <div class="model-badge"><span class="dot"></span>SG ONLINE</div>
     <div class="topbar-right">
+      <span id="msgCounter" style="font-size:12px;color:var(--dim);display:none;">
+        <span id="msgCountNum"></span> left
+      </span>
+      <a href="pricing.html" class="btn-ghost" id="upgradeBtn" style="display:none;border-color:rgba(245,158,11,.4);color:#f59e0b;">⚡ Upgrade</a>
+      <span id="proBadge" style="display:none;padding:5px 12px;border-radius:99px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#f59e0b;font-size:12px;font-weight:700;">⚡ Pro</span>
       <button class="btn-ghost" id="clearBtn">Clear chat</button>
       <button class="btn-primary" id="topAuthBtn">Sign in</button>
     </div>
@@ -453,6 +474,23 @@
     <p class="input-hint">SG is AI and can make mistakes.</p>
   </div>
 </main>
+
+<!-- LIMIT REACHED POPUP -->
+<div class="limit-overlay" id="limitOverlay">
+  <div class="limit-card">
+    <div class="limit-icon">⚡</div>
+    <div class="limit-title">Daily Limit Reached</div>
+    <div class="limit-sub">You've used all <strong>25 free messages</strong> for this 4-hour window.<br>Upgrade to Pro for unlimited access, or wait <strong id="resetTimer">—</strong> for reset!</div>
+    <div class="limit-features">
+      <div class="limit-feature"><span>✓</span> Unlimited messages every day</div>
+      <div class="limit-feature"><span>✓</span> Priority AI responses</div>
+      <div class="limit-feature"><span>✓</span> Image & document analysis</div>
+      <div class="limit-feature"><span>✓</span> ⚡ Pro badge</div>
+    </div>
+    <a href="pricing.html" class="limit-upgrade-btn">Upgrade to Pro — ৳99/mo →</a>
+    <button class="limit-dismiss" id="limitDismiss">Maybe later · Resets in <span id="resetTimerBtn">—</span></button>
+  </div>
+</div>
 
 <!-- AUTH MODAL -->
 <div class="modal-overlay" id="modal">
@@ -597,11 +635,15 @@
       userRoleEl.textContent = 'Signed in';
       avatarEl.textContent   = STATE.email[0].toUpperCase();
       topAuthBtn.textContent = 'Sign out';
+      fetchStatus(); // ✅ load plan info
     } else {
       userNameEl.textContent = 'Guest User';
       userRoleEl.textContent = 'Click to sign in';
       avatarEl.textContent   = 'SG';
       topAuthBtn.textContent = 'Sign in';
+      document.getElementById('msgCounter').style.display  = 'none';
+      document.getElementById('upgradeBtn').style.display  = 'none';
+      document.getElementById('proBadge').style.display    = 'none';
     }
   }
 
@@ -958,8 +1000,34 @@
       sendBtn.classList.remove('loading');
       if (data === null) {
         renderBotMessage('⚠️ **Connection error.** Server may be waking up — please try again in a moment.');
+      } else if (data.reply === 'limit_reached') {
+        // Show limit popup with reset timer
+        const mins = data.minsLeft || 0;
+        const h    = Math.floor(mins / 60);
+        const m    = mins % 60;
+        const timeStr = h > 0 ? `${h}h ${m}m` : `${m} min`;
+        document.getElementById('resetTimer').textContent    = timeStr;
+        document.getElementById('resetTimerBtn').textContent = timeStr;
+        document.getElementById('limitOverlay').classList.add('open');
       } else {
         renderBotMessage(data.reply || 'No response.');
+        // Update counter
+        if (data.msgsLeft !== undefined && data.msgsLeft !== null) {
+          const countNum = document.getElementById('msgCountNum');
+          countNum.textContent = data.msgsLeft;
+          if (data.msgsLeft <= 3) countNum.style.color = '#f87171';
+          else if (data.msgsLeft <= 6) countNum.style.color = '#f59e0b';
+          // Auto show popup when 0 left
+          if (data.msgsLeft === 0) {
+            const mins    = data.minsLeft || 0;
+            const h       = Math.floor(mins / 60);
+            const m       = mins % 60;
+            const timeStr = h > 0 ? `${h}h ${m}m` : `${m} min`;
+            document.getElementById('resetTimer').textContent    = timeStr;
+            document.getElementById('resetTimerBtn').textContent = timeStr;
+            setTimeout(() => document.getElementById('limitOverlay').classList.add('open'), 1500);
+          }
+        }
       }
     } catch {
       typingRow.remove();
@@ -1020,6 +1088,46 @@
     const file=e.dataTransfer.files[0];
     if(file){ const dt=new DataTransfer(); dt.items.add(file); fileInput.files=dt.files; fileInput.dispatchEvent(new Event('change')); }
   });
+
+  document.getElementById('limitDismiss').addEventListener('click', () => {
+    document.getElementById('limitOverlay').classList.remove('open');
+  });
+
+  // ── Fetch user status (plan + messages left) ──
+  async function fetchStatus() {
+    const token = STATE.token;
+    if (!token) return;
+    try {
+      const res  = await fetch(`${API}/status`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+
+      const counter    = document.getElementById('msgCounter');
+      const countNum   = document.getElementById('msgCountNum');
+      const upgradeBtn = document.getElementById('upgradeBtn');
+      const proBadge   = document.getElementById('proBadge');
+
+      if (data.plan === 'pro') {
+        proBadge.style.display   = 'inline-flex';
+        upgradeBtn.style.display = 'none';
+        counter.style.display    = 'none';
+        // Update user role
+        document.getElementById('userRoleEl').textContent = '⚡ Pro Member';
+      } else {
+        proBadge.style.display   = 'none';
+        upgradeBtn.style.display = 'inline-flex';
+        counter.style.display    = 'inline-flex';
+        countNum.textContent     = data.msgsLeft;
+        // Warn when low
+        if (data.msgsLeft <= 3) {
+          countNum.style.color = '#f87171';
+        } else if (data.msgsLeft <= 6) {
+          countNum.style.color = '#f59e0b';
+        } else {
+          countNum.style.color = 'var(--dim)';
+        }
+      }
+    } catch {}
+  }
 
   updateAuthUI();
   bindSuggestions();
