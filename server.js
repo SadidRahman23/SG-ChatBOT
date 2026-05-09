@@ -180,7 +180,18 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     const trimmed = messages.slice(-MAX_HISTORY);
 
-    // IMAGE
+    // ─────────────────────────────────────────
+    // 🔥 SYSTEM PROMPT FIX (NO RANDOM GREETING)
+    // ─────────────────────────────────────────
+    trimmed.unshift({
+      role: "system",
+      content:
+        "You are SG ChatBOT. Be smart, helpful and natural. Reply in Bangla-English mix. Never greet like 'Hello how can I assist you'. Answer directly."
+    });
+
+    // ─────────────────────────────────────────
+    // IMAGE SUPPORT
+    // ─────────────────────────────────────────
     if (req.file) {
       const base64 = req.file.buffer.toString("base64");
       const mimeType = req.file.mimetype;
@@ -192,16 +203,14 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
           { type: "text", text: lastMsg.content || "Analyze this image." },
           {
             type: "image_url",
-            image_url: {
-              url: `data:${mimeType};base64,${base64}`,
-            },
+            image_url: { url: `data:${mimeType};base64,${base64}` },
           },
         ];
       }
     }
 
     // ─────────────────────────────────────────
-    // ✅ STABLE MODEL FIX
+    // 🔥 STABLE MODEL FIX (IMPORTANT)
     // ─────────────────────────────────────────
     const hasImage = trimmed.some(
       m => Array.isArray(m.content) &&
@@ -256,7 +265,7 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 });
 
 // ─────────────────────────────────────────
-// SERVER
+// SERVER START
 // ─────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
