@@ -244,7 +244,37 @@
     }
     @keyframes labelFade { 0%,100%{opacity:.5} 50%{opacity:1} }
 
-    /* ══ INPUT ══ */
+    /* ── TYPEWRITER CURSOR ── */
+    .typewriter-cursor {
+      display: inline-block;
+      width: 2px; height: 1em;
+      background: var(--accent);
+      border-radius: 2px;
+      margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: cursorBlink .6s ease-in-out infinite;
+    }
+    @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── MESSAGE ACTIONS ── */
+    .msg-actions {
+      display: flex; align-items: center; gap: 4px;
+      margin-top: 6px; margin-left: 43px;
+      opacity: 0; transition: opacity var(--anim);
+    }
+    .msg-row.bot:hover .msg-actions { opacity: 1; }
+    .msg-action-btn {
+      width: 28px; height: 28px; border-radius: 7px;
+      border: 1px solid var(--border); background: transparent;
+      color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--anim); flex-shrink: 0;
+    }
+    .msg-action-btn:hover { background: var(--surface-2); border-color: var(--border-2); color: var(--text); }
+    .msg-action-btn.liked    { color: #4ade80; border-color: rgba(74,222,128,.3); background: rgba(74,222,128,.07); }
+    .msg-action-btn.disliked { color: #f87171; border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.07); }
+    .msg-action-btn.copied   { color: var(--accent2); border-color: rgba(0,212,170,.3); background: rgba(0,212,170,.07); }
+    .msg-action-btn svg { width: 13px; height: 13px; }
     .input-area { padding:8px 16px 16px; flex-shrink:0; padding-bottom:max(16px,env(safe-area-inset-bottom)); }
     .input-wrap  { max-width:700px; margin:0 auto; background:var(--surface); border:1px solid var(--border-2); border-radius:var(--r-xl); padding:10px 10px 10px 15px; display:flex; align-items:flex-end; gap:8px; transition:border-color var(--anim),box-shadow var(--anim); }
     .input-wrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
@@ -676,11 +706,122 @@
     bubble.innerHTML = marked.parse(text);
     row.innerHTML = botAvatarHtml(false);
     row.appendChild(bubble);
+
+    // ── Action buttons ──
+    const actions = document.createElement('div');
+    actions.className = 'msg-actions';
+    actions.innerHTML = `
+      <button class="msg-action-btn" title="Copy" data-action="copy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+      </button>
+      <button class="msg-action-btn" title="Good response" data-action="like">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+        </svg>
+      </button>
+      <button class="msg-action-btn" title="Bad response" data-action="dislike">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/>
+        </svg>
+      </button>
+      <button class="msg-action-btn" title="Regenerate" data-action="regenerate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.84"/>
+        </svg>
+      </button>`;
+
+    // Button events
+    actions.querySelector('[data-action="copy"]').addEventListener('click', function() {
+      navigator.clipboard.writeText(text);
+      this.classList.add('copied');
+      showToast('Copied!', 'success');
+      setTimeout(() => this.classList.remove('copied'), 2000);
+    });
+
+    actions.querySelector('[data-action="like"]').addEventListener('click', function() {
+      this.classList.toggle('liked');
+      actions.querySelector('[data-action="dislike"]').classList.remove('disliked');
+      showToast(this.classList.contains('liked') ? '👍 Marked as helpful' : 'Removed', '');
+    });
+
+    actions.querySelector('[data-action="dislike"]').addEventListener('click', function() {
+      this.classList.toggle('disliked');
+      actions.querySelector('[data-action="like"]').classList.remove('liked');
+      showToast(this.classList.contains('disliked') ? '👎 Marked as unhelpful' : 'Removed', '');
+    });
+
+    actions.querySelector('[data-action="regenerate"]').addEventListener('click', async function() {
+      // Remove last assistant message from memory and resend
+      const lastUserIdx = [...STATE.memory].reverse().findIndex(m => m.role === 'user');
+      if (lastUserIdx === -1) return;
+      const idx = STATE.memory.length - 1 - lastUserIdx;
+      STATE.memory = STATE.memory.slice(0, idx + 1);
+      row.remove();
+      const typingRow = renderTyping();
+      try {
+        const formData = new FormData();
+        formData.append('messages', JSON.stringify(STATE.memory));
+        const res  = await fetch(`${API}/chat`, { method:'POST', headers:{'Authorization':`Bearer ${STATE.token}`}, body: formData });
+        const data = await res.json();
+        typingRow.remove();
+        renderBotMessage(data.reply || 'No response.');
+      } catch {
+        typingRow.remove();
+        renderBotMessage('⚠️ **Connection error.** Please try again.');
+      }
+    });
+
+    row.appendChild(actions);
     chatEl.appendChild(row);
-    addCopyButtons(bubble);
     STATE.memory.push({ role:'assistant', content:text });
-    if (window.renderMathInElement) renderMathInElement(bubble, { delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], throwOnError:false });
-    chatEl.scrollTo({ top: chatEl.scrollHeight, behavior:'smooth' });
+
+    // ── Typewriter effect ──
+    bubble.innerHTML = '';
+    const cursor = document.createElement('span');
+    cursor.className = 'typewriter-cursor';
+    bubble.appendChild(cursor);
+
+    const fullHtml = marked.parse(text);
+    const tempDiv  = document.createElement('div');
+    tempDiv.innerHTML = fullHtml;
+    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+    // For short text: char by char. For long: word by word (faster)
+    const words     = plainText.split('');
+    const isLong    = plainText.length > 300;
+    const chunks    = isLong ? plainText.split(/(\s+)/) : words;
+    let   i         = 0;
+    let   displayed = '';
+
+    const speed = isLong ? 8 : 18; // ms per chunk
+
+    function typeNext() {
+      if (i < chunks.length) {
+        displayed += chunks[i];
+        i++;
+        // Re-render markdown progressively every ~10 chunks for performance
+        if (i % 10 === 0 || i === chunks.length) {
+          bubble.innerHTML = marked.parse(displayed) + '<span class="typewriter-cursor"></span>';
+          addCopyButtons(bubble);
+        } else {
+          // Fast path: just append text node
+          const cursorEl = bubble.querySelector('.typewriter-cursor');
+          if (cursorEl) cursorEl.before(document.createTextNode(chunks[i-1]));
+        }
+        chatEl.scrollTo({ top: chatEl.scrollHeight, behavior:'smooth' });
+        setTimeout(typeNext, speed);
+      } else {
+        // Typing done — render final markdown properly
+        bubble.innerHTML = marked.parse(text);
+        addCopyButtons(bubble);
+        if (window.renderMathInElement) renderMathInElement(bubble, { delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}], throwOnError:false });
+        chatEl.scrollTo({ top: chatEl.scrollHeight, behavior:'smooth' });
+      }
+    }
+    setTimeout(typeNext, 60);
+
     const lastUser = STATE.memory.slice().reverse().find(m=>m.role==='user');
     addToHistory(lastUser ? lastUser.content : 'Chat');
   }
