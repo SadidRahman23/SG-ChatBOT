@@ -188,16 +188,9 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       }
     }
 
-    // ── ✅ FREE models only ──
-    const hasImage = trimmed.some(
-      m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
-    );
-
-    const primaryModel  = hasImage
-      ? "meta-llama/llama-3.2-11b-vision-instruct:free"
-      : "deepseek/deepseek-chat-v3-0324:free";
-
-    const fallbackModel = "meta-llama/llama-3.1-8b-instruct:free";
+    // ── ✅ FREE models — openrouter/free auto-selects best available ──
+    const primaryModel  = "openrouter/free";   // auto picks best free model
+    const fallbackModel = "qwen/qwen3-8b:free"; // working free fallback
 
     // ── OpenRouter call ──
     async function callOpenRouter(model) {
