@@ -28,14 +28,27 @@ const app = express();
 
 app.set("trust proxy", 1);
 
+// ✅ FIX: Updated CORS — add your Cloudflare Pages URL here
 app.use(cors({
   origin: [
-    "https://sgchatbotofficial.netlify.app",
+    "https://sgchatbotofficial.netlify.app",   // old netlify (keep for safety)
+    "https://sg-chatbot-a2h.pages.dev",         // ✅ Cloudflare Pages
     "http://localhost:3000",
+    "http://localhost:5173",
     "http://127.0.0.1:5500",
   ],
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 }));
+
 app.use(express.json({ limit: "16kb" }));
+
+// ✅ FIX: multer setup — memory storage so we can read file buffer
+const storage = multer.memoryStorage();
+const upload  = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+});
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -55,31 +68,17 @@ mongoose.connect(process.env.MONGO_URI)
   });
 
 const userSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  email:    { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true },
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-function isValidMessages(messages) {
-  if (!Array.isArray(messages) || messages.length === 0) return false;
-  return messages.every((m) =>
-    m && typeof m === "object" &&
-    ["user", "assistant", "system"].includes(m.role) &&
-    (typeof m.content === "string" || Array.isArray(m.content))
-  );
-}
 
 function auth(req, res, next) {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     return res.status(401).json({ reply: "Authorization token missing." });
   }
-
   try {
     req.user = jwt.verify(header.slice(7), JWT_SECRET);
     next();
@@ -88,10 +87,10 @@ function auth(req, res, next) {
   }
 }
 
+// ── SIGNUP ──────────────────────────────────────────────────────────────────
 app.post("/signup", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required" });
 
@@ -101,17 +100,16 @@ app.post("/signup", authLimiter, async (req, res) => {
 
     const hash = await bcrypt.hash(password, 12);
     await User.create({ email, password: hash });
-
     res.json({ message: "Account created" });
   } catch {
     res.status(500).json({ message: "Signup error" });
   }
 });
 
+// ── LOGIN ────────────────────────────────────────────────────────────────────
 app.post("/login", authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
     if (!user) return res.status(401).json({ message: "Invalid login" });
 
@@ -119,45 +117,72 @@ app.post("/login", authLimiter, async (req, res) => {
     if (!ok) return res.status(401).json({ message: "Invalid login" });
 
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
-
     res.json({ token });
   } catch {
     res.status(500).json({ message: "Login error" });
   }
 });
 
-app.post("/chat", chatLimiter, auth, async (req, res) => {
+// ── CHAT ─────────────────────────────────────────────────────────────────────
+// ✅ FIX: use multer middleware to accept FormData with optional file
+app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => {
   try {
-    const { messages } = req.body;
+    // ✅ FIX: messages comes as a JSON string in FormData
+    let messages;
+    try {
+      messages = JSON.parse(req.body.messages);
+    } catch {
+      return res.status(400).json({ reply: "Invalid messages format." });
+    }
 
-    if (!isValidMessages(messages))
+    if (!Array.isArray(messages) || messages.length === 0)
       return res.status(400).json({ reply: "Invalid messages" });
 
-    const trimmed = messages.slice(-MAX_HISTORY);
+    const trimmed  = messages.slice(-MAX_HISTORY);
+    const fileType = req.body.fileType; // 'image' | 'document' | undefined
+
+    // ✅ If a file was uploaded, inject it into the last user message
+    if (req.file && fileType === "image") {
+      const base64   = req.file.buffer.toString("base64");
+      const mimeType = req.file.mimetype;
+
+      // Replace last user message with vision-ready content
+      const lastMsg = trimmed[trimmed.length - 1];
+      if (lastMsg && lastMsg.role === "user") {
+        const textPart = typeof lastMsg.content === "string"
+          ? lastMsg.content
+          : (Array.isArray(lastMsg.content)
+              ? (lastMsg.content.find(p => p.type === "text")?.text || "")
+              : "");
+
+        lastMsg.content = [
+          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
+          { type: "text",      text: textPart || "Please analyze this image." },
+        ];
+      }
+    }
 
     const model = "deepseek/deepseek-chat-v3-0324:free";
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_KEY}`,
+        Authorization:  `Bearer ${process.env.OPENROUTER_KEY}`,
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://sg-chatbot-a2h.pages.dev",
+        "X-Title":      "SG ChatBOT",
       },
       body: JSON.stringify({ model, messages: trimmed }),
     });
 
-    // ✅ FIX 1: API fail handle
     if (!response.ok) {
-      return res.json({
-        reply: "AI temporarily unavailable. Please try again."
-      });
+      const errText = await response.text();
+      console.error("OpenRouter error:", errText);
+      return res.json({ reply: "AI temporarily unavailable. Please try again." });
     }
 
-    const data = await response.json();
-
-    const reply =
-      data?.choices?.[0]?.message?.content ??
-      "AI cannot respond right now.";
+    const data  = await response.json();
+    const reply = data?.choices?.[0]?.message?.content ?? "AI cannot respond right now.";
 
     res.json({ reply });
 
@@ -167,6 +192,7 @@ app.post("/chat", chatLimiter, auth, async (req, res) => {
   }
 });
 
+// ── HEALTH CHECK ─────────────────────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.json({ message: "SG ChatBOT API running ✅" });
 });
