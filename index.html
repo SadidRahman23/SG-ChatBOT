@@ -287,10 +287,30 @@
     .upload-btn svg { width:15px; height:15px; }
     #fileInput { display:none; }
 
-    .send-btn { width:36px; height:36px; border-radius:10px; border:none; background:var(--accent); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:all var(--anim); }
+    .send-btn { width:36px; height:36px; border-radius:10px; border:none; background:var(--accent); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:background .3s, box-shadow .3s, transform .15s; position:relative; overflow:hidden; }
     .send-btn:hover  { filter:brightness(1.18); transform:scale(1.06); }
     .send-btn:active { transform:scale(.94); }
-    .send-btn svg { width:16px; height:16px; }
+    .send-btn .send-icon { width:16px; height:16px; display:block; transition:all .2s; }
+    .send-btn .stop-icon {
+      width:11px; height:11px;
+      background:#fff; border-radius:2px;
+      display:none; flex-shrink:0;
+    }
+
+    /* Loading/stop state */
+    .send-btn.loading {
+      cursor: default;
+      animation: sendPulse 1s ease-in-out infinite;
+    }
+    .send-btn.loading:hover { filter:none; transform:none; }
+    .send-btn.loading .stop-icon { display:block; }
+    .send-btn.loading .send-icon { display:none; }
+
+    @keyframes sendPulse {
+      0%   { box-shadow: 0 0 0 0   rgba(79,142,255,0.8); }
+      70%  { box-shadow: 0 0 0 10px rgba(79,142,255,0);  }
+      100% { box-shadow: 0 0 0 0   rgba(79,142,255,0);   }
+    }
 
     .input-hint { text-align:center; font-size:11px; color:var(--muted); margin-top:7px; }
 
@@ -424,9 +444,10 @@
       </button>
       <textarea id="input" placeholder="Message SG ChatBOT…" rows="1"></textarea>
       <button class="send-btn" id="sendBtn" aria-label="Send">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/>
         </svg>
+        <div class="stop-icon"></div>
       </button>
     </div>
     <p class="input-hint">SG is AI and can make mistakes.</p>
@@ -879,10 +900,12 @@
 
     STATE.memory.push({ role:'user', content: userContent });
 
+    const sendBtn = document.getElementById('sendBtn');
+    sendBtn.classList.add('loading');
+
     const typingRow = renderTyping();
 
     try {
-      // ✅ FIX: Send as FormData so multer can parse it on the server
       const formData = new FormData();
       formData.append('messages', JSON.stringify(STATE.memory));
       if (file) {
@@ -893,15 +916,16 @@
       const res  = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${STATE.token}` },
-        // ✅ Do NOT set Content-Type header — browser sets multipart/form-data automatically
         body: formData,
       });
       const data = await res.json();
       typingRow.remove();
+      sendBtn.classList.remove('loading');
       if (res.status===401) { signOut(); showToast('Session expired. Please sign in again.','error'); openModal(); return; }
       renderBotMessage(data.reply || 'No response.');
     } catch {
       typingRow.remove();
+      sendBtn.classList.remove('loading');
       renderBotMessage('⚠️ **Connection error.** Please check your server or try again.');
     }
   }
