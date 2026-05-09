@@ -162,7 +162,7 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       }
     }
 
-    const model = "deepseek/deepseek-chat-v3-0324:free";
+    const model = "deepseek/deepseek-r1:free";
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
