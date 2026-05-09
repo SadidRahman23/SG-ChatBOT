@@ -34,12 +34,8 @@ const MAX_HISTORY = 20;
 // APP
 // ─────────────────────────────────────────
 const app = express();
-
 app.set("trust proxy", 1);
 
-// ─────────────────────────────────────────
-// CORS FIX
-// ─────────────────────────────────────────
 app.use(cors({
   origin: [
     "https://sgchatbotofficial.netlify.app",
@@ -61,9 +57,7 @@ const storage = multer.memoryStorage();
 
 const upload = multer({
   storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-  },
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 // ─────────────────────────────────────────
@@ -80,11 +74,11 @@ const chatLimiter = rateLimit({
 });
 
 // ─────────────────────────────────────────
-// DATABASE
+// DB
 // ─────────────────────────────────────────
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
-  .catch((err) => {
+  .catch(err => {
     console.error("❌ MongoDB connection failed:", err.message);
     process.exit(1);
   });
@@ -93,23 +87,14 @@ mongoose.connect(process.env.MONGO_URI)
 // USER MODEL
 // ─────────────────────────────────────────
 const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    lowercase: true,
-    trim: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true },
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
 
 // ─────────────────────────────────────────
-// AUTH MIDDLEWARE
+// AUTH
 // ─────────────────────────────────────────
 function auth(req, res, next) {
   const header = req.headers.authorization;
@@ -138,13 +123,9 @@ app.post("/signup", authLimiter, async (req, res) => {
     }
 
     const exists = await User.findOne({ email });
-
-    if (exists) {
-      return res.status(409).json({ message: "User already exists" });
-    }
+    if (exists) return res.status(409).json({ message: "User already exists" });
 
     const hash = await bcrypt.hash(password, 12);
-
     await User.create({ email, password: hash });
 
     res.json({ message: "Account created" });
@@ -162,20 +143,12 @@ app.post("/login", authLimiter, async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(401).json({ message: "Invalid login" });
-    }
+    if (!user) return res.status(401).json({ message: "Invalid login" });
 
     const ok = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ message: "Invalid login" });
 
-    if (!ok) {
-      return res.status(401).json({ message: "Invalid login" });
-    }
-
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, {
-      expiresIn: "7d",
-    });
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
 
     res.json({ token });
 
@@ -193,11 +166,10 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     let messages;
 
     try {
-      if (typeof req.body.messages === "string") {
-        messages = JSON.parse(req.body.messages);
-      } else {
-        messages = req.body.messages;
-      }
+      messages =
+        typeof req.body.messages === "string"
+          ? JSON.parse(req.body.messages)
+          : req.body.messages;
     } catch {
       return res.status(400).json({ reply: "Invalid messages format." });
     }
@@ -208,48 +180,40 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     const trimmed = messages.slice(-MAX_HISTORY);
 
-    // IMAGE SUPPORT
+    // IMAGE
     if (req.file) {
       const base64 = req.file.buffer.toString("base64");
       const mimeType = req.file.mimetype;
 
       const lastMsg = trimmed[trimmed.length - 1];
 
-      if (lastMsg && lastMsg.role === "user") {
-        const textPart =
-          typeof lastMsg.content === "string"
-            ? lastMsg.content
-            : "";
-
-        if (mimeType.startsWith("image/")) {
-          lastMsg.content = [
-            { type: "text", text: textPart || "Please analyze this image." },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${base64}`,
-              },
+      if (lastMsg?.role === "user" && mimeType.startsWith("image/")) {
+        lastMsg.content = [
+          { type: "text", text: lastMsg.content || "Analyze this image." },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${base64}`,
             },
-          ];
-        }
+          },
+        ];
       }
     }
 
     // ─────────────────────────────────────────
-    // 🔥 FIXED MODEL (ONLY CHANGE)
+    // ✅ STABLE MODEL FIX
     // ─────────────────────────────────────────
     const hasImage = trimmed.some(
-      (m) =>
-        Array.isArray(m.content) &&
-        m.content.some((p) => p.type === "image_url")
+      m => Array.isArray(m.content) &&
+      m.content.some(p => p.type === "image_url")
     );
 
     const model = hasImage
-      ? "meta-llama/llama-3.2-11b-instruct:free"
-      : "mistralai/mistral-7b-instruct:free";
+      ? "meta-llama/llama-3.1-8b-instruct"
+      : "openai/gpt-3.5-turbo";
 
     // ─────────────────────────────────────────
-    // OPENROUTER
+    // OPENROUTER CALL
     // ─────────────────────────────────────────
     const response = await fetch(
       "https://openrouter.ai/api/v1/chat/completions",
@@ -280,45 +244,19 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const data = await response.json();
 
     const reply =
-      data?.choices?.[0]?.message?.content || "No response from AI.";
+      data?.choices?.[0]?.message?.content ||
+      "No response from AI.";
 
     res.json({ reply });
 
   } catch (err) {
     console.error("❌ Chat error:", err);
-
-    res.status(500).json({
-      reply: "Server error. Please try again.",
-    });
+    res.status(500).json({ reply: "Server error. Please try again." });
   }
 });
 
 // ─────────────────────────────────────────
-// HEALTH
-// ─────────────────────────────────────────
-app.get("/health", (req, res) => {
-  res.json({
-    status: "ok",
-    db: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-  });
-});
-
-// ─────────────────────────────────────────
-// ROOT
-// ─────────────────────────────────────────
-app.get("/", (req, res) => {
-  res.json({ message: "SG ChatBOT API running ✅" });
-});
-
-// ─────────────────────────────────────────
-// 404
-// ─────────────────────────────────────────
-app.use((req, res) => {
-  res.status(404).json({ message: "Route not found." });
-});
-
-// ─────────────────────────────────────────
-// START
+// SERVER
 // ─────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
