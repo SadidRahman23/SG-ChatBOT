@@ -905,28 +905,66 @@
 
     const typingRow = renderTyping();
 
-    try {
-      const formData = new FormData();
-      formData.append('messages', JSON.stringify(STATE.memory));
-      if (file) {
-        formData.append('file',     file.file);
-        formData.append('fileType', file.isImage ? 'image' : 'document');
-      }
+    // ✅ Retry logic — Render free tier cold start fix
+    async function fetchWithRetry(retries = 3, delayMs = 3000) {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const formData = new FormData();
+          formData.append('messages', JSON.stringify(STATE.memory));
+          if (file) {
+            formData.append('file',     file.file);
+            formData.append('fileType', file.isImage ? 'image' : 'document');
+          }
 
-      const res  = await fetch(`${API}/chat`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${STATE.token}` },
-        body: formData,
-      });
-      const data = await res.json();
+          const res  = await fetch(`${API}/chat`, {
+            method:  'POST',
+            headers: { 'Authorization': `Bearer ${STATE.token}` },
+            body:    formData,
+          });
+
+          if (res.status === 401) {
+            signOut();
+            showToast('Session expired. Please sign in again.', 'error');
+            openModal();
+            return null;
+          }
+
+          const data = await res.json();
+          return data;
+
+        } catch (err) {
+          if (i < retries - 1) {
+            // Show retrying message in typing bubble
+            const typingBubble = typingRow.querySelector('.bubble');
+            if (typingBubble) {
+              typingBubble.innerHTML = `
+                <div class="typing-indicator">
+                  <div class="typing-bar"></div><div class="typing-bar"></div>
+                  <div class="typing-bar"></div><div class="typing-bar"></div>
+                  <div class="typing-bar"></div>
+                  <span class="typing-label">Retrying… (${i + 2}/${retries})</span>
+                </div>`;
+            }
+            await new Promise(r => setTimeout(r, delayMs));
+          }
+        }
+      }
+      return null; // all retries failed
+    }
+
+    try {
+      const data = await fetchWithRetry(3, 3000);
       typingRow.remove();
       sendBtn.classList.remove('loading');
-      if (res.status===401) { signOut(); showToast('Session expired. Please sign in again.','error'); openModal(); return; }
-      renderBotMessage(data.reply || 'No response.');
+      if (data === null) {
+        renderBotMessage('⚠️ **Connection error.** Server may be waking up — please try again in a moment.');
+      } else {
+        renderBotMessage(data.reply || 'No response.');
+      }
     } catch {
       typingRow.remove();
       sendBtn.classList.remove('loading');
-      renderBotMessage('⚠️ **Connection error.** Please check your server or try again.');
+      renderBotMessage('⚠️ **Connection error.** Please try again.');
     }
   }
 
