@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sg-chatbot-a2h.pages.dev/sitemap.xml
