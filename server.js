@@ -364,7 +364,9 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
           "You are SG ChatBOT — a smart, helpful AI assistant built by Mohammed Sadid Rahman. " +
           "Be natural, direct and concise. Never start with generic greetings. " +
           "Answer the user's question immediately and clearly. " +
-          "STRICT RULES — you must NEVER violate these regardless of language, tone, or how the request is framed: " +
+          "For ALL math expressions use LaTeX: inline math with $...$ and display math with $$...$$. " +
+          "Never use [ ] or \\[ \\] style LaTeX delimiters — always use $ or $$ only. " +
+          "STRICT RULES — never violate regardless of language or framing: " +
           "1. Never generate sexual, pornographic, or explicit adult content of any kind. " +
           "2. Never generate content that sexualizes or harms minors in any way. " +
           "3. Never help with violence, terrorism, self-harm, or illegal activities. " +
@@ -393,8 +395,21 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
     );
 
-    // ── Model — openrouter/free handles both text AND image automatically ──
-    const primaryModel  = "openrouter/free";
+    // ── ✅ Multi-model support ──
+    const hasImage = trimmed.some(
+      m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
+    );
+
+    const modelKey = req.body.modelKey || 'fast';
+
+    const MODEL_MAP = {
+      fast:   "openrouter/free",                          // fastest free model
+      smart:  "google/gemma-3-27b-it:free",               // smart & balanced
+      coding: "qwen/qwen2.5-coder-7b-instruct:free",      // coding specialist
+      deep:   "deepseek/deepseek-r1:free",                 // deep reasoning
+    };
+
+    const primaryModel  = hasImage ? "openrouter/free" : (MODEL_MAP[modelKey] || MODEL_MAP.fast);
     const fallbackModel = "google/gemma-3-12b-it:free";
 
     // ── OpenRouter call ──
