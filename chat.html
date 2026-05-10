@@ -135,8 +135,41 @@
     .hamburger:hover { background:var(--surface-2); color:var(--text); }
     .hamburger svg { width:17px; height:17px; }
 
-    .model-badge { display:flex; align-items:center; gap:7px; padding:5px 12px; border-radius:99px; background:var(--surface-2); border:1px solid var(--border); font-size:11.5px; color:var(--dim); font-weight:600; white-space:nowrap; flex-shrink:0; letter-spacing:.02em; }
-    .model-badge .dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); box-shadow:0 0 7px var(--accent2); animation:pulse 2s infinite; }
+    /* ══ MODEL SELECTOR ══ */
+    .model-selector {
+      display:flex; align-items:center; gap:7px;
+      padding:5px 12px; border-radius:99px;
+      background:var(--surface-2); border:1px solid var(--border);
+      font-size:12px; color:var(--dim); font-weight:600;
+      white-space:nowrap; flex-shrink:0;
+      cursor:pointer; position:relative;
+      transition:all var(--anim); user-select:none;
+    }
+    .model-selector:hover { border-color:var(--border-2); color:var(--text); }
+    .model-selector .dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); box-shadow:0 0 7px var(--accent2); animation:pulse 2s infinite; flex-shrink:0; }
+
+    .model-dropdown {
+      position:absolute; top:calc(100% + 10px); left:0;
+      background:var(--surface); border:1px solid var(--border-2);
+      border-radius:14px; padding:6px; min-width:220px;
+      box-shadow:0 20px 50px rgba(0,0,0,.5);
+      display:none; flex-direction:column; gap:2px;
+      animation:fadeUp .15s ease; z-index:50;
+    }
+    .model-dropdown.open { display:flex; }
+
+    .model-option {
+      display:flex; align-items:center; gap:12px;
+      padding:10px 12px; border-radius:10px;
+      cursor:pointer; transition:background var(--anim);
+    }
+    .model-option:hover { background:var(--surface-2); }
+    .model-option.active { background:var(--surface-3); }
+    .model-opt-icon { font-size:20px; flex-shrink:0; }
+    .model-opt-name { font-size:13px; font-weight:700; color:var(--text); }
+    .model-opt-desc { font-size:11px; color:var(--muted); margin-top:1px; }
+
+    /* ══ MODEL SELECTOR ══ */
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
     .topbar-right { display:flex; align-items:center; gap:8px; margin-left:auto; }
@@ -634,7 +667,42 @@
         <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
       </svg>
     </button>
-    <div class="model-badge"><span class="dot"></span>SG ONLINE</div>
+    <div class="model-selector" id="modelSelector">
+      <span class="dot"></span>
+      <span id="modelLabel">⚡ Fast</span>
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <!-- Model dropdown -->
+      <div class="model-dropdown" id="modelDropdown">
+        <div class="model-option active" data-model="fast">
+          <span class="model-opt-icon">⚡</span>
+          <div>
+            <div class="model-opt-name">Fast</div>
+            <div class="model-opt-desc">Quick replies, everyday tasks</div>
+          </div>
+        </div>
+        <div class="model-option" data-model="smart">
+          <span class="model-opt-icon">🧠</span>
+          <div>
+            <div class="model-opt-name">Smart</div>
+            <div class="model-opt-desc">Balanced, detailed answers</div>
+          </div>
+        </div>
+        <div class="model-option" data-model="coding">
+          <span class="model-opt-icon">💻</span>
+          <div>
+            <div class="model-opt-name">Coding</div>
+            <div class="model-opt-desc">Best for code & debugging</div>
+          </div>
+        </div>
+        <div class="model-option" data-model="deep">
+          <span class="model-opt-icon">🔬</span>
+          <div>
+            <div class="model-opt-name">Deep Thinking</div>
+            <div class="model-opt-desc">Complex reasoning & analysis</div>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="topbar-right">
       <span id="msgCounter" style="font-size:12px;color:var(--dim);display:none;">
         <span id="msgCountNum"></span> left
@@ -816,6 +884,38 @@
 
 <script>
   const API = 'https://sg-chatbot-z8hp.onrender.com';
+
+  // ── Model config ──
+  const MODELS = {
+    fast:   { label:'⚡ Fast',         key:'fast' },
+    smart:  { label:'🧠 Smart',        key:'smart' },
+    coding: { label:'💻 Coding',       key:'coding' },
+    deep:   { label:'🔬 Deep Thinking',key:'deep' },
+  };
+  let selectedModel = 'fast';
+
+  // Model selector
+  const modelSelector = document.getElementById('modelSelector');
+  const modelDropdown = document.getElementById('modelDropdown');
+  const modelLabel    = document.getElementById('modelLabel');
+
+  modelSelector.addEventListener('click', (e) => {
+    e.stopPropagation();
+    modelDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', () => modelDropdown.classList.remove('open'));
+
+  document.querySelectorAll('.model-option').forEach(opt => {
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedModel = opt.dataset.model;
+      modelLabel.textContent = MODELS[selectedModel].label;
+      document.querySelectorAll('.model-option').forEach(o=>o.classList.remove('active'));
+      opt.classList.add('active');
+      modelDropdown.classList.remove('open');
+      showToast(`Switched to ${MODELS[selectedModel].label} mode`,'success');
+    });
+  });
 
   const TRIGGERS = {
     name:  ['tumar nam ki','your name','tomar nam','ki tomar nam'],
@@ -1138,10 +1238,33 @@
     });
   }
 
+  function renderMath(el) {
+    if (!window.renderMathInElement) return;
+    renderMathInElement(el, {
+      delimiters: [
+        { left: '$$',   right: '$$',   display: true  },
+        { left: '$',    right: '$',    display: false },
+        { left: '\\[',  right: '\\]',  display: true  },
+        { left: '\\(',  right: '\\)',  display: false },
+      ],
+      throwOnError: false,
+      ignoredTags: ['script','noscript','style','textarea','pre','code'],
+    });
+  }
+
+  // Pre-process AI text to fix LaTeX delimiters before markdown parse
+  function preprocessLatex(text) {
+    // Convert [ ... ] style to \[ ... \] for KaTeX
+    return text
+      .replace(/\[\s*(\\[\s\S]*?)\s*\]/g, (match, inner) => `\\[${inner}\\]`)
+      .replace(/\(\s*(\\[\s\S]*?)\s*\)/g, (match, inner) => `\\(${inner}\\)`);
+  }
+
   function renderBotMessage(text) {
     const row=document.createElement('div'); row.className='msg-row bot';
     const bubble=document.createElement('div'); bubble.className='bubble';
-    bubble.innerHTML=marked.parse(text);
+    // ✅ preprocess LaTeX before markdown
+    bubble.innerHTML=marked.parse(preprocessLatex(text));
     row.innerHTML=botAvatarHtml(false); row.appendChild(bubble);
 
     // Action buttons
@@ -1185,11 +1308,12 @@
     chatEl.appendChild(row);
     addCopyButtons(bubble);
     STATE.memory.push({role:'assistant',content:text});
-    if (window.renderMathInElement) renderMathInElement(bubble,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});
+    renderMath(bubble);
 
     // Typewriter
     bubble.innerHTML='';
-    const tempDiv=document.createElement('div'); tempDiv.innerHTML=marked.parse(text);
+    const processed = preprocessLatex(text);
+    const tempDiv=document.createElement('div'); tempDiv.innerHTML=marked.parse(processed);
     const plain=tempDiv.textContent||'';
     const chunks=plain.length>300?plain.split(/(\s+)/):plain.split('');
     let i=0, displayed='';
@@ -1197,13 +1321,13 @@
     function typeNext(){
       if (i<chunks.length){
         displayed+=chunks[i++];
-        if (i%10===0||i===chunks.length){ bubble.innerHTML=marked.parse(displayed)+'<span class="typewriter-cursor"></span>'; addCopyButtons(bubble); }
+        if (i%10===0||i===chunks.length){ bubble.innerHTML=marked.parse(preprocessLatex(displayed))+'<span class="typewriter-cursor"></span>'; addCopyButtons(bubble); }
         else { const cur=bubble.querySelector('.typewriter-cursor'); if(cur) cur.before(document.createTextNode(chunks[i-1])); }
         chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
         setTimeout(typeNext,speed);
       } else {
-        bubble.innerHTML=marked.parse(text); addCopyButtons(bubble);
-        if (window.renderMathInElement) renderMathInElement(bubble,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}],throwOnError:false});
+        bubble.innerHTML=marked.parse(processed); addCopyButtons(bubble);
+        renderMath(bubble);
         chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
         if (STATE.lastWasVoice){ speakText(text); STATE.lastWasVoice=false; }
       }
@@ -1304,14 +1428,54 @@
         const data=await res.json();
         const reply=data.reply||'Sorry, I could not respond.';
         STATE.memory.push({role:'assistant',content:reply});
-        renderBotMessage(reply);
-        voiceConvStatus.textContent='SG is speaking…'; voiceConvStatus.className='voice-conv-status speaking'; voiceConvOrb.className='voice-conv-orb speaking';
-        voiceConvStart.textContent='Start Talking'; voiceConvStart.classList.remove('active');
+
+        // ✅ Speak BEFORE rendering (avoid typewriter delay conflict)
+        voiceConvStatus.textContent='SG is speaking…';
+        voiceConvStatus.className='voice-conv-status speaking';
+        voiceConvOrb.className='voice-conv-orb speaking';
+        voiceConvStart.textContent='Start Talking';
+        voiceConvStart.classList.remove('active');
         voiceConvTranscript.textContent=reply.slice(0,120)+(reply.length>120?'…':'');
-        const clean=reply.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').slice(0,500);
-        const utt=new SpeechSynthesisUtterance(clean); utt.rate=1.05; utt.pitch=1; utt.lang='en-US';
-        utt.onend=()=>{ voiceConvStatus.textContent='Tap to start talking'; voiceConvStatus.className='voice-conv-status'; voiceConvOrb.className='voice-conv-orb'; voiceConvTranscript.classList.remove('show'); if(convActive) setTimeout(startVoiceConvListen,600); };
-        speechSynth.cancel(); speechSynth.speak(utt);
+
+        // Render in chat (without typewriter for voice conv)
+        const row=document.createElement('div'); row.className='msg-row bot';
+        const bubble=document.createElement('div'); bubble.className='bubble';
+        bubble.innerHTML=marked.parse(reply);
+        row.innerHTML=botAvatarHtml(false); row.appendChild(bubble);
+        chatEl.appendChild(row); addCopyButtons(bubble);
+        STATE.memory.push({role:'assistant',content:reply});
+        chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+
+        // ✅ Speak with proper voice
+        const clean=reply.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').slice(0,600);
+        speechSynth.cancel();
+
+        function doSpeak() {
+          const utt=new SpeechSynthesisUtterance(clean);
+          // Pick a good voice if available
+          const voices=speechSynth.getVoices();
+          const preferred=voices.find(v=>v.lang.startsWith('en')&&v.name.includes('Google'))||
+                           voices.find(v=>v.lang.startsWith('en'))||
+                           voices[0];
+          if (preferred) utt.voice=preferred;
+          utt.rate=1.0; utt.pitch=1.1; utt.volume=1; utt.lang='en-US';
+          utt.onend=()=>{
+            voiceConvStatus.textContent='Tap to start talking';
+            voiceConvStatus.className='voice-conv-status';
+            voiceConvOrb.className='voice-conv-orb';
+            voiceConvTranscript.classList.remove('show');
+            if(convActive) setTimeout(startVoiceConvListen,800);
+          };
+          utt.onerror=(e)=>{ console.error('Speech error:',e); };
+          speechSynth.speak(utt);
+        }
+
+        // Voices may not be loaded yet — wait if needed
+        if (speechSynth.getVoices().length > 0) {
+          doSpeak();
+        } else {
+          speechSynthesis.onvoiceschanged = () => { doSpeak(); };
+        }
       } catch { voiceConvStatus.textContent='Connection error. Try again.'; voiceConvOrb.className='voice-conv-orb'; }
     };
     convRecognition.onerror=()=>{ convListening=false; voiceConvStatus.textContent='Could not hear you. Try again.'; voiceConvOrb.className='voice-conv-orb'; voiceConvStart.textContent='Start Talking'; voiceConvStart.classList.remove('active'); };
@@ -1365,6 +1529,7 @@
       for (let i=0;i<retries;i++) {
         try {
           const fd=new FormData(); fd.append('messages',JSON.stringify(STATE.memory));
+          fd.append('modelKey', selectedModel);
           if (file) { fd.append('file',file.file); fd.append('fileType',file.isImage?'image':'document'); }
           const res=await fetch(`${API}/chat`,{method:'POST',headers:{'Authorization':`Bearer ${STATE.token}`},body:fd});
           if (res.status===401) { signOut(); showToast('Session expired.','error'); openModal(); return null; }
