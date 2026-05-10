@@ -390,11 +390,6 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       }
     }
 
-    // ── Model selection ──
-    const hasImage = trimmed.some(
-      m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
-    );
-
     // ── ✅ Multi-model support ──
     const hasImage = trimmed.some(
       m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
