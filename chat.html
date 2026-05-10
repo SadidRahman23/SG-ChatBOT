@@ -592,6 +592,26 @@
   </div>
 </main>
 
+<!-- CODE MODAL -->
+<div class="code-modal-overlay" id="codeModalOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="code-modal">
+    <div class="code-modal-header">
+      <span class="code-modal-title">📋 Pasted Content</span>
+      <div class="code-modal-actions">
+        <button class="code-modal-copy" onclick="
+          navigator.clipboard.writeText(document.getElementById('codeModalPre').textContent);
+          this.textContent='Copied!';
+          setTimeout(()=>this.textContent='Copy',2000)
+        ">Copy</button>
+        <button class="code-modal-close" onclick="document.getElementById('codeModalOverlay').classList.remove('open')">✕</button>
+      </div>
+    </div>
+    <div class="code-modal-body">
+      <pre id="codeModalPre"></pre>
+    </div>
+  </div>
+</div>
+
 <!-- PRO EXPIRY WARNING POPUP -->
 <div class="expiry-overlay" id="expiryOverlay">
   <div class="expiry-card">
@@ -843,6 +863,7 @@
     const row = document.createElement('div');
     row.className = 'msg-row user';
     let content = '';
+
     if (file) {
       if (file.isImage) {
         content += `<div class="msg-file-preview"><img src="data:${file.mimeType};base64,${file.base64}" alt="uploaded"></div>`;
@@ -850,10 +871,47 @@
         content += `<div class="msg-doc-preview"><div class="doc-icon">${docIcon(file.file.name)}</div><div class="doc-info"><div class="doc-name">${escapeHtml(file.file.name)}</div><div class="doc-size">${formatBytes(file.file.size)}</div></div></div>`;
       }
     }
-    if (text) content += `<div class="bubble">${escapeHtml(text)}</div>`;
+
+    if (text) {
+      const lines    = text.split('\n').length;
+      const isLong   = text.length > 300 || lines > 8;
+      const looksCode = /^[\s]*[<{(\[\/]|function |const |let |var |import |def |class |#include|<!DOCTYPE/i.test(text.trimStart());
+
+      if (isLong || looksCode) {
+        // ✅ PASTED block — like Claude
+        const preview   = text.slice(0, 60).replace(/\n/g,' ') + (text.length > 60 ? '…' : '');
+        const lineCount = text.split('\n').length;
+        const blockId   = 'pasted-' + Date.now();
+
+        content += `
+          <div class="pasted-block" onclick="openCodeModal('${blockId}')">
+            <div class="pasted-icon">📋</div>
+            <div class="pasted-info">
+              <div class="pasted-label">PASTED</div>
+              <div class="pasted-lines">${lineCount} lines · click to expand</div>
+            </div>
+          </div>`;
+
+        // Store full text for modal
+        window._pastedCode = window._pastedCode || {};
+        window._pastedCode[blockId] = text;
+
+      } else {
+        content += `<div class="bubble">${escapeHtml(text)}</div>`;
+      }
+    }
+
     row.innerHTML = content;
     chatEl.appendChild(row);
     chatEl.scrollTo({ top: chatEl.scrollHeight, behavior:'smooth' });
+  }
+
+  function openCodeModal(blockId) {
+    const code = window._pastedCode?.[blockId] || '';
+    const modal = document.getElementById('codeModalOverlay');
+    const pre   = document.getElementById('codeModalPre');
+    if (pre) pre.textContent = code;
+    if (modal) modal.classList.add('open');
   }
 
   function renderTyping() {
