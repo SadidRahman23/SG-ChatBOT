@@ -221,6 +221,16 @@
     .bubble h1,.bubble h2,.bubble h3 { font-weight:700; margin:14px 0 6px; }
 
     /* ── PASTED CODE BLOCK (user message) ── */
+    /* ══ CONTEXT BOX (above input) ══ */
+    .context-box { max-width:700px; margin:0 auto 6px; border-radius:var(--r-md); overflow:hidden; border:1px solid var(--border-2); background:var(--surface-2); animation:fadeUp .2s ease; display:none; }
+    .context-box.visible { display:block; }
+    .context-box-header { display:flex; align-items:center; justify-content:space-between; padding:7px 12px; background:var(--surface-3); border-bottom:1px solid var(--border); }
+    .context-box-label { display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; color:var(--dim); }
+    .context-box-remove { width:22px; height:22px; border-radius:6px; border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; transition:all var(--anim); }
+    .context-box-remove:hover { background:rgba(255,80,80,.1); color:#f87171; }
+    .context-box-text { padding:10px 12px; font-size:12px; color:var(--dim); font-family:monospace; line-height:1.6; max-height:80px; overflow:hidden; white-space:pre-wrap; word-break:break-all; }
+    .context-box-img { width:100%; max-height:140px; object-fit:cover; display:block; }
+
     .pasted-block {
       display: flex; align-items: center; gap: 10px;
       background: rgba(0,0,0,0.3);
@@ -731,6 +741,17 @@
     </div>
   </div>
 
+  <!-- Context box (pasted text / image preview) -->
+  <div class="context-box" id="contextBox">
+    <div class="context-box-header">
+      <div class="context-box-label" id="contextBoxLabel">
+        <span>📋</span> Pasted text
+      </div>
+      <button class="context-box-remove" id="contextBoxRemove">✕</button>
+    </div>
+    <div id="contextBoxBody"></div>
+  </div>
+
   <!-- File preview bar -->
   <div class="file-preview-bar" id="filePreviewBar">
     <div id="filePreviewThumb"></div>
@@ -1025,18 +1046,118 @@
     return {pdf:'📄',doc:'📝',docx:'📝',txt:'📃',csv:'📊',xlsx:'📊',xls:'📊'}[ext]||'📎';
   }
 
-  fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0]; if (!file) return;
-    fileInput.value = '';
-    if (file.size > MAX_SIZE_MB*1024*1024) { showToast(`Max ${MAX_SIZE_MB}MB allowed.`,'error'); return; }
-    const isImage = IMAGE_TYPES.includes(file.type);
-    const base64  = await new Promise((res,rej) => {
+  // ══ CONTEXT BOX ══
+  const contextBox       = document.getElementById('contextBox');
+  const contextBoxLabel  = document.getElementById('contextBoxLabel');
+  const contextBoxBody   = document.getElementById('contextBoxBody');
+  const contextBoxRemove = document.getElementById('contextBoxRemove');
+  let   pastedContext    = null; // { type: 'text'|'image', content, display }
+
+  function showContextBox(type, content, display) {
+    pastedContext = { type, content };
+    contextBoxLabel.innerHTML = type === 'text'
+      ? '<span>📋</span> Pasted text'
+      : '<span>🖼️</span> Image';
+    contextBoxBody.innerHTML = type === 'text'
+      ? `<div class="context-box-text">${escapeHtml(display||content).slice(0,300)}${content.length>300?'…':''}</div>`
+      : `<img class="context-box-img" src="${display}" alt="pasted image">`;
+    contextBox.classList.add('visible');
+  }
+
+  function clearContextBox() {
+    pastedContext = null;
+    contextBox.classList.remove('visible');
+    contextBoxBody.innerHTML = '';
+  }
+
+  contextBoxRemove.addEventListener('click', clearContextBox);
+
+  // ✅ Paste detection on input
+  inputEl.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      // Image paste
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        // ✅ Compress image before sending
+        const compressed = await compressImage(file, 800, 0.7);
+        const base64 = await fileToBase64(compressed);
+        STATE.pendingFile = { file: compressed, base64, isImage: true, mimeType: compressed.type };
+        showContextBox('image', base64, `data:${compressed.type};base64,${base64}`);
+        showToast('Image pasted ✓', 'success');
+        return;
+      }
+    }
+
+    // Text paste — check if long
+    setTimeout(() => {
+      const text = inputEl.value;
+      const lines = text.split('\n').length;
+      const isLong = text.length > 200 || lines > 5;
+      const looksCode = /^[\s]*[<{(\[\/]|function |const |let |var |import |def |class |#include|<!DOCTYPE/i.test(text.trimStart());
+      if (isLong || looksCode) {
+        showContextBox('text', text, text);
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+        inputEl.placeholder = 'Ask a question about the pasted content…';
+      }
+    }, 10);
+  });
+
+  // ✅ Image compression function
+  function compressImage(file, maxWidth = 800, quality = 0.75) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        if (width > maxWidth) { height = Math.round(height * maxWidth / width); width = maxWidth; }
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          resolve(new File([blob], file.name || 'image.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', quality);
+      };
+      img.src = url;
+    });
+  }
+
+  function fileToBase64(file) {
+    return new Promise((res, rej) => {
       const r = new FileReader();
       r.onload  = () => res(r.result.split(',')[1]);
       r.onerror = () => rej();
       r.readAsDataURL(file);
     });
+  }
+
+  fileInput.addEventListener('change', async (e) => {
+    let file = e.target.files[0]; if (!file) return;
+    fileInput.value = '';
+    if (file.size > MAX_SIZE_MB*1024*1024) { showToast(`Max ${MAX_SIZE_MB}MB allowed.`,'error'); return; }
+    const isImage = IMAGE_TYPES.includes(file.type);
+
+    // ✅ Compress image if >1MB
+    if (isImage && file.size > 1024*1024) {
+      showToast('Compressing image…','');
+      file = await compressImage(file, 1024, 0.8);
+    }
+
+    const base64 = await fileToBase64(file);
     STATE.pendingFile = { file, base64, isImage, mimeType: file.type };
+
+    // ✅ Show in context box if image
+    if (isImage) {
+      showContextBox('image', base64, `data:${file.type};base64,${base64}`);
+    }
+
     filePreviewThumb.innerHTML = isImage
       ? `<img class="file-preview-thumb" src="data:${file.type};base64,${base64}" alt="preview">`
       : `<div class="file-preview-doc-icon">${docIcon(file.name)}</div>`;
@@ -1508,20 +1629,48 @@
   }
 
   async function send() {
-    const text=inputEl.value.trim(), file=STATE.pendingFile;
-    if (!text&&!file) return;
+    const text = inputEl.value.trim();
+    const file = STATE.pendingFile || (pastedContext?.type==='image' ? {
+      file: new File([], 'pasted.jpg'),
+      base64: pastedContext.content,
+      isImage: true,
+      mimeType: 'image/jpeg',
+      fromContext: true,
+    } : null);
+
+    // Include pasted text as context
+    let finalText = text;
+    if (pastedContext?.type === 'text') {
+      finalText = text
+        ? `${text}\n\n\`\`\`\n${pastedContext.content}\n\`\`\``
+        : pastedContext.content;
+    }
+
+    if (!finalText && !file) return;
     if (!STATE.token) { showToast('Please sign in to chat','error'); openModal(); return; }
+
     inputEl.value=''; inputEl.style.height='auto';
-    renderUserMessage(text,file); clearPendingFile();
-    if (text&&checkTriggers(text)) return;
+    inputEl.placeholder = 'Message SG ChatBOT…';
+    renderUserMessage(finalText, file);
+    clearPendingFile();
+    clearContextBox();
+
+    if (finalText && checkTriggers(finalText)) return;
 
     let userContent;
-    if (file) {
+    if (file && !file.fromContext) {
       const parts=[];
-      if (file.isImage) { parts.push({type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}}); parts.push({type:'text',text:text||'Analyze this image.'}); }
-      else { parts.push({type:'text',text:text?`[Attached: ${file.file.name}]\n\n${text}`:`[Attached: ${file.file.name}]`}); }
+      if (file.isImage) { parts.push({type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}}); parts.push({type:'text',text:finalText||'Analyze this image.'}); }
+      else { parts.push({type:'text',text:finalText?`[Attached: ${file.file.name}]\n\n${finalText}`:`[Attached: ${file.file.name}]`}); }
       userContent=parts.length===1?parts[0].text:parts;
-    } else { userContent=text; }
+    } else if (file?.fromContext) {
+      userContent=[
+        {type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}},
+        {type:'text',text:finalText||'Analyze this image.'},
+      ];
+    } else {
+      userContent=finalText;
+    }
     STATE.memory.push({role:'user',content:userContent});
 
     const sendBtnEl=document.getElementById('sendBtn');
