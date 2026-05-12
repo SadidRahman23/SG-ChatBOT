@@ -372,6 +372,11 @@
       opacity: 0; transition: opacity var(--anim);
     }
     .msg-row.bot:hover .msg-actions { opacity: 1; }
+
+    /* ✅ Mobile — always visible */
+    @media (max-width: 768px) {
+      .msg-actions { opacity: 1; }
+    }
     .msg-action-btn {
       width: 28px; height: 28px; border-radius: 7px;
       border: 1px solid var(--border); background: transparent;
@@ -384,6 +389,12 @@
     .msg-action-btn.disliked { color: #f87171; border-color: rgba(248,113,113,.3); background: rgba(248,113,113,.07); }
     .msg-action-btn.copied   { color: var(--accent2); border-color: rgba(0,212,170,.3); background: rgba(0,212,170,.07); }
     .msg-action-btn svg { width: 13px; height: 13px; }
+
+    @media (max-width: 768px) {
+      .msg-action-btn { width: 32px; height: 32px; border-radius: 8px; }
+      .msg-action-btn svg { width: 14px; height: 14px; }
+      .msg-actions { margin-left: 36px; gap: 6px; }
+    }
     .input-area { padding:8px 16px 16px; flex-shrink:0; padding-bottom:max(16px,env(safe-area-inset-bottom)); }
     .input-wrap  { max-width:700px; margin:0 auto; background:var(--surface); border:1px solid var(--border-2); border-radius:var(--r-xl); padding:10px 10px 10px 15px; display:flex; align-items:flex-end; gap:8px; transition:border-color var(--anim),box-shadow var(--anim); }
     .input-wrap:focus-within { border-color:var(--accent); box-shadow:0 0 0 3px var(--glow); }
