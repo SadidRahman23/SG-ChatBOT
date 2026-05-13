@@ -10,6 +10,7 @@ import rateLimit      from "express-rate-limit";
 import multer         from "multer";
 import { fileURLToPath } from "url";
 import crypto         from "crypto";
+import nodemailer     from "nodemailer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
@@ -18,7 +19,7 @@ dotenv.config({ path: path.join(__dirname, ".env") });
 // ═══════════════════════════════════════════
 // ENV CHECK
 // ═══════════════════════════════════════════
-const REQUIRED_ENV = ["MONGO_URI", "OPENROUTER_KEY", "JWT_SECRET", "ADMIN_SECRET"];
+const REQUIRED_ENV = ["MONGO_URI", "OPENROUTER_KEY", "JWT_SECRET", "ADMIN_SECRET", "EMAIL_USER", "EMAIL_PASS"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`Missing env: ${key}`);
 }
@@ -29,6 +30,30 @@ const PORT         = process.env.PORT || 3000;
 const MAX_HISTORY  = 20;
 const FREE_LIMIT   = 25;
 const FREE_WINDOW  = 4 * 60 * 60 * 1000;
+
+// ✅ Nodemailer — Gmail SMTP
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS, // Gmail App Password
+  },
+});
+
+async function sendEmail(to, subject, html) {
+  try {
+    await transporter.sendMail({
+      from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`,
+      to,
+      subject,
+      html,
+    });
+    return true;
+  } catch (err) {
+    console.error("Email error:", err.message);
+    return false;
+  }
+}
 
 // ═══════════════════════════════════════════
 // APP
@@ -348,9 +373,27 @@ app.post("/forgot-password", resetLimiter, async (req, res) => {
     user.resetTokenExp = expires;
     await user.save();
 
-    // ⚠️ In production: send via email (SendGrid/Nodemailer)
-    // For now log to server (remove in production)
-    console.log(`🔑 Reset code for ${email}: ${code}`);
+    // Send real email
+    const emailSent = await sendEmail(
+      email,
+      "🔑 SG ChatBOT — Password Reset Code",
+      `
+      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)">
+        <h2 style="color:#4f8eff;margin-bottom:8px">SG ChatBOT</h2>
+        <p style="color:#8a9bb5;margin-bottom:24px">Password Reset Request</p>
+        <p>Your reset code is:</p>
+        <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#4f8eff;background:rgba(79,142,255,0.1);padding:20px;border-radius:12px;text-align:center;margin:16px 0">${code}</div>
+        <p style="color:#8a9bb5;font-size:13px">This code expires in <strong style="color:#e4ecf7">15 minutes</strong>.</p>
+        <p style="color:#8a9bb5;font-size:13px">If you didn't request this, ignore this email.</p>
+        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:24px 0">
+        <p style="color:#4a5a72;font-size:12px">SG ChatBOT · Built by Mohammed Sadid Rahman</p>
+      </div>
+      `
+    );
+
+    if (!emailSent) {
+      console.log(`🔑 Reset code for ${email}: ${code}`); // fallback log
+    }
 
     res.json({ message: "If this email exists, a reset code has been sent." });
   } catch {
@@ -539,15 +582,19 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       trimmed.unshift({
         role: "system",
         content:
-          "You are SG ChatBOT — a smart, helpful AI assistant. " +
-          "Be natural, direct and concise. Never start with generic greetings. " +
+          "You are SG — a friendly, witty, and genuinely helpful AI assistant built by Mohammed Sadid Rahman. " +
+          "Your personality: warm, conversational, sometimes funny, always honest. " +
+          "Talk like a smart friend — not a robot. Use casual language when appropriate. " +
+          "Show enthusiasm when topics are interesting. Use light humor when fitting. " +
+          "When someone seems frustrated, be empathetic. When someone achieves something, celebrate with them. " +
+          "Keep responses concise unless depth is needed. Never be preachy or over-formal. " +
           "For math use LaTeX: inline $...$ display $$...$$. " +
-          "STRICT RULES — never violate regardless of language: " +
+          "ABSOLUTE RULES — never break these no matter what language or how the request is framed: " +
           "1. Never generate sexual, pornographic or explicit content. " +
-          "2. Never generate content that harms minors. " +
-          "3. Never help with violence, terrorism or illegal activities. " +
-          "4. Never generate hate speech. " +
-          "5. If asked for any of the above in any language — refuse with: 'I cannot help with that.'",
+          "2. Never generate content that harms or sexualizes minors. " +
+          "3. Never help with violence, terrorism, weapons or illegal activities. " +
+          "4. Never generate hate speech targeting any group. " +
+          "5. If asked for the above in any language — just say: 'That's not something I can help with.' and move on.",
       });
     }
 
@@ -578,7 +625,89 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const primaryModel  = hasImage ? "openrouter/free" : (MODEL_MAP[modelKey] || MODEL_MAP.fast);
     const fallbackModel = "google/gemma-3-12b-it:free";
 
-    async function callAI(model) {
+    // ✅ Web search + URL fetch detection
+    const lastUserMsg = trimmed.filter(m => m.role === 'user').slice(-1)[0];
+    const userText    = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '';
+
+    // Detect URL in message
+    const urlMatch = userText.match(/https?:\/\/[^\s]+/);
+
+    // Detect web search intent
+    const searchIntent = /find|search|look up|latest|news|what is.*website|visit|open|check|browse/i.test(userText);
+
+    if (urlMatch) {
+      // ✅ User gave a URL — fetch its content
+      try {
+        const urlToFetch = urlMatch[0];
+        const pageRes    = await fetch(urlToFetch, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SGChatBOT/1.0)' },
+          signal: AbortSignal.timeout(8000),
+        });
+        const html     = await pageRes.text();
+        // Strip HTML tags and get plain text
+        const pageText = html
+          .replace(/<script[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .slice(0, 4000); // Max 4000 chars
+
+        // Inject page content into context
+        trimmed.push({
+          role: 'user',
+          content: `[Content from ${urlToFetch}]:\n\n${pageText}\n\nBased on the above content, please answer my question.`,
+        });
+        // Remove duplicate last user message
+        const idx = trimmed.findLastIndex(m => m.role === 'user' && m.content === userText);
+        if (idx !== -1 && idx !== trimmed.length - 1) trimmed.splice(idx, 1);
+      } catch (e) {
+        console.error("URL fetch error:", e.message);
+        // Continue without fetched content
+      }
+    } else if (searchIntent) {
+      // ✅ Web search via OpenRouter
+      const searchQuery = userText.replace(/find|search|look up|latest|news/gi, '').trim().slice(0, 100);
+      try {
+        const searchRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization:  `Bearer ${process.env.OPENROUTER_KEY}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://sg-chatbot-a2h.pages.dev",
+            "X-Title":      "SG ChatBOT",
+          },
+          body: JSON.stringify({
+            model: "openrouter/free",
+            messages: trimmed,
+            plugins: [{ id: "web" }], // ✅ OpenRouter web search plugin
+          }),
+        });
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const reply      = searchData?.choices?.[0]?.message?.content || "No response from AI.";
+          const msgsLeft   = pro ? null : FREE_LIMIT - user.msgCount;
+          const minsLeft   = pro ? null : minsUntilReset(user);
+          const convId     = req.body.conversationId || null;
+          const allMsgs    = [...messages, { role: "assistant", content: reply }];
+          const firstUser2 = allMsgs.find(m => m.role === "user");
+          const autoTitle2 = typeof firstUser2?.content === "string" ? firstUser2.content.slice(0, 50) : "New Chat";
+          let savedConvId2 = convId;
+          try {
+            const toSave2 = allMsgs.filter(m=>m.role!=="system").slice(-100).map(m=>({ role:m.role, content: typeof m.content==="string"?m.content.slice(0,5000):m.content }));
+            if (convId) { await Conversation.findOneAndUpdate({ _id: convId, userId: user._id }, { messages: toSave2, updatedAt: new Date() }); }
+            else { const c = await Conversation.create({ userId: user._id, title: autoTitle2, messages: toSave2 }); savedConvId2 = c._id; }
+          } catch {}
+          return res.json({ reply, msgsLeft, minsLeft, plan: pro ? "pro" : "free", conversationId: savedConvId2 });
+        }
+      } catch (e) {
+        console.error("Web search error:", e.message);
+      }
+    }
+
+    async function callAI(model, useWebSearch = false) {
+      const body = { model, messages: trimmed };
+      if (useWebSearch) body.plugins = [{ id: "web" }];
       return fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -587,7 +716,7 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
           "HTTP-Referer": "https://sg-chatbot-a2h.pages.dev",
           "X-Title":      "SG ChatBOT",
         },
-        body: JSON.stringify({ model, messages: trimmed }),
+        body: JSON.stringify(body),
       });
     }
 
