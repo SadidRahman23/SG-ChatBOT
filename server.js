@@ -616,14 +616,24 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const modelKey  = ["fast","smart","coding","deep"].includes(req.body.modelKey) ? req.body.modelKey : "fast";
 
     const MODEL_MAP = {
-      fast:   "openrouter/free",
-      smart:  "google/gemma-3-27b-it:free",
+      fast:   "meta-llama/llama-3.3-8b-instruct:free",
+      smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
       coding: "qwen/qwen2.5-coder-7b-instruct:free",
-      deep:   "deepseek/deepseek-r1:free",
+      deep:   "deepseek/deepseek-r1-distill-llama-70b:free",
     };
 
-    const primaryModel  = hasImage ? "openrouter/free" : (MODEL_MAP[modelKey] || MODEL_MAP.fast);
-    const fallbackModel = "google/gemma-3-12b-it:free";
+    const FALLBACKS = [
+      "meta-llama/llama-3.3-8b-instruct:free",
+      "mistralai/mistral-small-3.1-24b-instruct:free",
+      "qwen/qwen3-8b:free",
+      "google/gemma-3-4b-it:free",
+      "microsoft/phi-4-reasoning-plus:free",
+      "deepseek/deepseek-r1-distill-qwen-14b:free",
+    ];
+
+    const primaryModel = hasImage
+      ? "meta-llama/llama-3.2-11b-vision-instruct:free"
+      : (MODEL_MAP[modelKey] || MODEL_MAP.fast);
 
     // ✅ Web search + URL fetch detection
     const lastUserMsg = trimmed.filter(m => m.role === 'user').slice(-1)[0];
@@ -721,15 +731,17 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     }
 
     let response = await callAI(primaryModel);
-
     if (!response.ok) {
-      const errText = await response.text();
-      console.error(`❌ Primary (${primaryModel}):`, errText);
-      response = await callAI(fallbackModel);
-      if (!response.ok) {
-        const fbErr = await response.text();
-        console.error(`❌ Fallback (${fallbackModel}):`, fbErr);
-        return res.status(500).json({ reply: "AI temporarily unavailable. Please try again." });
+      console.error(`❌ Primary (${primaryModel}):`, await response.text());
+      let fallbackUsed = false;
+      for (const fb of FALLBACKS) {
+        if (fb === primaryModel) continue;
+        response = await callAI(fb);
+        if (response.ok) { console.log(`✅ Fallback: ${fb}`); fallbackUsed = true; break; }
+        console.error(`❌ Fallback (${fb}) failed`);
+      }
+      if (!fallbackUsed && !response.ok) {
+        return res.status(500).json({ reply: "AI temporarily unavailable. Please try again in a few minutes." });
       }
     }
 
