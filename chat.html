@@ -107,9 +107,13 @@
     .sidebar-label { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); padding:10px 8px 5px; }
     .history-list  { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; }
     .history-list::-webkit-scrollbar { width:0; }
-    .history-item  { padding:8px 11px; border-radius:var(--r-sm); font-size:13px; color:var(--dim); cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:all var(--anim); }
+    .history-item  { padding:8px 11px; border-radius:var(--r-sm); font-size:13px; color:var(--dim); cursor:pointer; transition:all var(--anim); display:flex; align-items:center; gap:6px; }
     .history-item:hover  { background:var(--surface-2); color:var(--text); }
     .history-item.active { background:var(--surface-3); color:var(--text); }
+    .hist-title { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hist-del { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:4px; opacity:0; transition:all var(--anim); flex-shrink:0; }
+    .history-item:hover .hist-del { opacity:1; }
+    .hist-del:hover { color:#f87171; background:rgba(248,113,113,.1); }
 
     .sidebar-footer { border-top:1px solid var(--border); padding-top:12px; }
     .sidebar-user   { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:var(--r-md); cursor:pointer; transition:background var(--anim); }
@@ -887,6 +891,37 @@
   </div>
 </div>
 
+<!-- PASSWORD RESET MODAL -->
+<div class="modal-overlay" id="resetModal">
+  <div class="modal-card">
+    <div>
+      <div class="modal-title">Reset Password</div>
+      <div class="modal-subtitle">Enter your email to get a reset code</div>
+    </div>
+    <div id="resetStep1">
+      <div class="field-group" style="margin-bottom:12px;">
+        <div class="field-label">Email</div>
+        <input class="modal-input" id="resetEmail" type="email" placeholder="you@example.com">
+      </div>
+      <div class="modal-error" id="resetError1"></div>
+      <button class="btn-full" id="sendResetBtn">Send Reset Code</button>
+    </div>
+    <div id="resetStep2" style="display:none;">
+      <div class="field-group" style="margin-bottom:12px;">
+        <div class="field-label">Reset Code</div>
+        <input class="modal-input" id="resetCode" type="text" placeholder="6-digit code">
+      </div>
+      <div class="field-group" style="margin-bottom:12px;">
+        <div class="field-label">New Password</div>
+        <input class="modal-input" id="resetNewPass" type="password" placeholder="Min 8 characters">
+      </div>
+      <div class="modal-error" id="resetError2"></div>
+      <button class="btn-full" id="confirmResetBtn">Reset Password</button>
+    </div>
+    <button class="btn-cancel" id="resetCancelBtn" style="margin-top:8px;">Cancel</button>
+  </div>
+</div>
+
 <!-- AUTH MODAL -->
 <div class="modal-overlay" id="modal">
   <div class="modal-card">
@@ -909,6 +944,7 @@
     <div class="modal-error" id="modalError"></div>
     <div style="display:flex;flex-direction:column;gap:8px;margin-top:2px;">
       <button class="btn-full"   id="submitBtn">Sign in</button>
+      <button class="btn-cancel" id="forgotBtn" style="font-size:12px;color:var(--muted);background:transparent;border:none;cursor:pointer;padding:4px;">Forgot password?</button>
       <button class="btn-cancel" id="cancelBtn">Cancel</button>
     </div>
   </div>
@@ -970,6 +1006,7 @@
     pendingFile: null,
     historyAdded: false,
     lastWasVoice: false,
+    conversationId: null, // ✅ current conversation ID
   };
 
   // ── DOM refs ──
@@ -1243,6 +1280,84 @@
         else countNum.style.color='var(--dim)';
       }
     } catch {}
+
+    // ✅ Load conversation history
+    loadConversations();
+  }
+
+  // ✅ Load conversations from server
+  async function loadConversations() {
+    if (!STATE.token) return;
+    try {
+      const res  = await fetch(`${API}/conversations`, { headers:{ Authorization:`Bearer ${STATE.token}` } });
+      const data = await res.json();
+      const hist = document.getElementById('history');
+      hist.innerHTML = '';
+      data.forEach(conv => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.dataset.id = conv._id;
+        item.innerHTML = `
+          <span class="hist-title">${escapeHtml(conv.title)}</span>
+          <button class="hist-del" data-id="${conv._id}" title="Delete">🗑</button>`;
+        item.addEventListener('click', (e) => {
+          if (e.target.closest('.hist-del')) return;
+          loadConversation(conv._id);
+          if (window.innerWidth<=768) closeSidebar();
+        });
+        item.querySelector('.hist-del').addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!confirm('Delete this chat?')) return;
+          await fetch(`${API}/conversations/${conv._id}`, {
+            method:'DELETE', headers:{ Authorization:`Bearer ${STATE.token}` }
+          });
+          item.remove();
+          if (STATE.conversationId === conv._id) clearChat();
+        });
+        hist.appendChild(item);
+      });
+    } catch {}
+  }
+
+  // ✅ Load a specific conversation
+  async function loadConversation(id) {
+    if (!STATE.token) return;
+    try {
+      const res  = await fetch(`${API}/conversations/${id}`, { headers:{ Authorization:`Bearer ${STATE.token}` } });
+      const conv = await res.json();
+
+      // Clear chat and load messages
+      chatEl.innerHTML = '';
+      STATE.welcomeVisible = false;
+      STATE.memory = [];
+      STATE.conversationId = id;
+      STATE.historyAdded = true;
+
+      // Mark active in sidebar
+      document.querySelectorAll('.history-item').forEach(i=>{
+        i.classList.toggle('active', i.dataset.id === id);
+      });
+
+      // Render all messages
+      conv.messages.forEach(msg => {
+        if (msg.role === 'user') {
+          renderUserMessage(typeof msg.content === 'string' ? msg.content : '', null);
+          STATE.memory.push({ role:'user', content: msg.content });
+        } else if (msg.role === 'assistant') {
+          // Render without typewriter for history
+          const row = document.createElement('div'); row.className='msg-row bot';
+          const bubble = document.createElement('div'); bubble.className='bubble';
+          bubble.innerHTML = marked.parse(preprocessLatex(typeof msg.content==='string'?msg.content:''));
+          row.innerHTML = botAvatarHtml(false); row.appendChild(bubble);
+          chatEl.appendChild(row);
+          addCopyButtons(bubble);
+          renderMath(bubble);
+          STATE.memory.push({ role:'assistant', content: msg.content });
+        }
+      });
+
+      chatEl.scrollTo({ top: chatEl.scrollHeight, behavior:'smooth' });
+    } catch { showToast('Failed to load chat','error'); }
   }
 
   // ══ MODAL ══
@@ -1445,29 +1560,43 @@
     STATE.memory.push({role:'assistant',content:text});
     renderMath(bubble);
 
-    // Typewriter
+    // ✅ Smart typewriter — instant for large, animated for small
     bubble.innerHTML='';
     const processed = preprocessLatex(text);
-    const tempDiv=document.createElement('div'); tempDiv.innerHTML=marked.parse(processed);
-    const plain=tempDiv.textContent||'';
-    const chunks=plain.length>300?plain.split(/(\s+)/):plain.split('');
-    let i=0, displayed='';
-    const speed=plain.length>300?8:18;
-    function typeNext(){
-      if (i<chunks.length){
-        displayed+=chunks[i++];
-        if (i%10===0||i===chunks.length){ bubble.innerHTML=marked.parse(preprocessLatex(displayed))+'<span class="typewriter-cursor"></span>'; addCopyButtons(bubble); }
-        else { const cur=bubble.querySelector('.typewriter-cursor'); if(cur) cur.before(document.createTextNode(chunks[i-1])); }
-        chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
-        setTimeout(typeNext,speed);
-      } else {
-        bubble.innerHTML=marked.parse(processed); addCopyButtons(bubble);
-        renderMath(bubble);
-        chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
-        if (STATE.lastWasVoice){ speakText(text); STATE.lastWasVoice=false; }
+    const plain = (new DOMParser().parseFromString(marked.parse(processed),'text/html')).body.textContent||'';
+
+    // Large response (>800 chars or has code blocks) → instant render, no freeze
+    const hasCodeBlock = text.includes('```') || text.includes('~~~');
+    if (plain.length > 800 || hasCodeBlock) {
+      bubble.innerHTML = marked.parse(processed);
+      addCopyButtons(bubble);
+      renderMath(bubble);
+      chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+      if (STATE.lastWasVoice){ speakText(text); STATE.lastWasVoice=false; }
+    } else {
+      // Small response → smooth typewriter word by word
+      const words = plain.split(/(\s+)/);
+      let i=0, displayed='';
+      function typeNext(){
+        if (i < words.length) {
+          displayed += words[i++];
+          // Re-render every 3 words for performance
+          if (i % 3 === 0 || i === words.length) {
+            bubble.innerHTML = marked.parse(preprocessLatex(displayed)) + '<span class="typewriter-cursor"></span>';
+            addCopyButtons(bubble);
+          }
+          chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+          setTimeout(typeNext, 22);
+        } else {
+          bubble.innerHTML = marked.parse(processed);
+          addCopyButtons(bubble);
+          renderMath(bubble);
+          chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+          if (STATE.lastWasVoice){ speakText(text); STATE.lastWasVoice=false; }
+        }
       }
+      setTimeout(typeNext, 40);
     }
-    setTimeout(typeNext,60);
     const lastUser=STATE.memory.slice().reverse().find(m=>m.role==='user');
     addToHistory(lastUser?lastUser.content:'Chat');
   }
@@ -1691,9 +1820,14 @@
     async function fetchWithRetry(retries=3,delayMs=3000) {
       for (let i=0;i<retries;i++) {
         try {
-          const fd=new FormData(); fd.append('messages',JSON.stringify(STATE.memory));
+          const fd=new FormData();
+          fd.append('messages', JSON.stringify(STATE.memory));
           fd.append('modelKey', selectedModel);
-          if (file) { fd.append('file',file.file); fd.append('fileType',file.isImage?'image':'document'); }
+          if (STATE.conversationId) fd.append('conversationId', STATE.conversationId);
+          if (file && !file.fromContext) {
+            fd.append('file', file.file);
+            fd.append('fileType', file.isImage?'image':'document');
+          }
           const res=await fetch(`${API}/chat`,{method:'POST',headers:{'Authorization':`Bearer ${STATE.token}`},body:fd});
           if (res.status===401) { signOut(); showToast('Session expired.','error'); openModal(); return null; }
           return await res.json();
@@ -1711,14 +1845,23 @@
     try {
       const data=await fetchWithRetry();
       typingRow.remove(); sendBtnEl.classList.remove('loading');
-      if (!data) { renderBotMessage('⚠️ **Connection error.** Server may be waking up — please try again.'); }
-      else if (data.reply==='limit_reached') {
+      if (!data) {
+        // ✅ Pop last user message so retry works cleanly
+        STATE.memory.pop();
+        renderBotMessage('⚠️ **Connection error.** Please try again.');
+      } else if (data.reply==='limit_reached') {
+        STATE.memory.pop();
         const mins=data.minsLeft||0, h=Math.floor(mins/60), m=mins%60;
         const ts=h>0?`${h}h ${m}m`:`${m} min`;
         document.getElementById('resetTimer').textContent=ts;
         document.getElementById('resetTimerBtn').textContent=ts;
         document.getElementById('limitOverlay').classList.add('open');
       } else {
+        // ✅ Save conversationId and refresh sidebar
+        if (data.conversationId) {
+          STATE.conversationId = data.conversationId;
+          loadConversations();
+        }
         renderBotMessage(data.reply||'No response.');
         if (data.msgsLeft!=null) {
           const cn=document.getElementById('msgCountNum');
@@ -1734,11 +1877,15 @@
           }
         }
       }
-    } catch { typingRow.remove(); sendBtnEl.classList.remove('loading'); renderBotMessage('⚠️ **Connection error.** Please try again.'); }
+    } catch {
+      typingRow.remove(); sendBtnEl.classList.remove('loading');
+      STATE.memory.pop();
+      renderBotMessage('⚠️ **Connection error.** Please try again.');
+    }
   }
 
   function clearChat() {
-    STATE.memory=[]; STATE.historyAdded=false; clearPendingFile(); warnShown=false;
+    STATE.memory=[]; STATE.historyAdded=false; STATE.conversationId=null; clearPendingFile(); warnShown=false;
     chatEl.innerHTML=`
       <div class="welcome" id="welcome">
         <div class="welcome-icon">✦</div>
@@ -1762,6 +1909,59 @@
       });
     });
   }
+
+  // ══ PASSWORD RESET ══
+  document.getElementById('forgotBtn').addEventListener('click', () => {
+    closeModal();
+    document.getElementById('resetModal').classList.add('open');
+    document.getElementById('resetStep1').style.display='block';
+    document.getElementById('resetStep2').style.display='none';
+    document.getElementById('resetEmail').value='';
+    document.getElementById('resetError1').classList.remove('show');
+  });
+
+  document.getElementById('resetCancelBtn').addEventListener('click', () => {
+    document.getElementById('resetModal').classList.remove('open');
+  });
+
+  document.getElementById('sendResetBtn').addEventListener('click', async () => {
+    const email = document.getElementById('resetEmail').value.trim();
+    const errEl = document.getElementById('resetError1');
+    errEl.classList.remove('show');
+    if (!email) { errEl.textContent='Enter your email.'; errEl.classList.add('show'); return; }
+    const btn = document.getElementById('sendResetBtn');
+    btn.disabled=true; btn.textContent='Sending…';
+    try {
+      const res  = await fetch(`${API}/forgot-password`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email}) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent=data.message||'Error.'; errEl.classList.add('show'); return; }
+      document.getElementById('resetStep1').style.display='none';
+      document.getElementById('resetStep2').style.display='block';
+      showToast('Reset code sent!','success');
+    } catch { errEl.textContent='Network error.'; errEl.classList.add('show'); }
+    finally { btn.disabled=false; btn.textContent='Send Reset Code'; }
+  });
+
+  document.getElementById('confirmResetBtn').addEventListener('click', async () => {
+    const email   = document.getElementById('resetEmail').value.trim();
+    const code    = document.getElementById('resetCode').value.trim();
+    const newPass = document.getElementById('resetNewPass').value;
+    const errEl   = document.getElementById('resetError2');
+    errEl.classList.remove('show');
+    if (!code||!newPass) { errEl.textContent='Fill all fields.'; errEl.classList.add('show'); return; }
+    if (newPass.length<8) { errEl.textContent='Password min 8 characters.'; errEl.classList.add('show'); return; }
+    const btn = document.getElementById('confirmResetBtn');
+    btn.disabled=true; btn.textContent='Resetting…';
+    try {
+      const res  = await fetch(`${API}/reset-password`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,code,newPassword:newPass}) });
+      const data = await res.json();
+      if (!res.ok) { errEl.textContent=data.message||'Error.'; errEl.classList.add('show'); return; }
+      document.getElementById('resetModal').classList.remove('open');
+      showToast('Password reset! Please sign in.','success');
+      openModal();
+    } catch { errEl.textContent='Network error.'; errEl.classList.add('show'); }
+    finally { btn.disabled=false; btn.textContent='Reset Password'; }
+  });
 
   // ══ EVENTS ══
   document.getElementById('sendBtn').addEventListener('click', send);
