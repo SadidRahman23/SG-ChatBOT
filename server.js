@@ -141,8 +141,20 @@ const paymentSchema = new mongoose.Schema({
   plan:          { type: String, enum: ["monthly", "yearly"], required: true },
   status:        { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
 }, { timestamps: true });
-
 const Payment = mongoose.model("Payment", paymentSchema);
+
+// ✅ Conversation model for chat history
+const conversationSchema = new mongoose.Schema({
+  userId:   { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  title:    { type: String, default: "New Chat" },
+  messages: [{
+    role:    { type: String, enum: ["user","assistant","system"] },
+    content: { type: mongoose.Schema.Types.Mixed },
+    createdAt: { type: Date, default: Date.now },
+  }],
+  updatedAt: { type: Date, default: Date.now },
+}, { timestamps: true });
+const Conversation = mongoose.model("Conversation", conversationSchema);
 
 // ═══════════════════════════════════════════
 // HELPERS
@@ -597,7 +609,32 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     const msgsLeft = pro ? null : FREE_LIMIT - user.msgCount;
     const minsLeft = pro ? null : minsUntilReset(user);
-    res.json({ reply, msgsLeft, minsLeft, plan: pro ? "pro" : "free" });
+
+    // ✅ Auto-save conversation
+    const convId = req.body.conversationId || null;
+    const allMessages = [...messages, { role: "assistant", content: reply }];
+    const firstUser   = allMessages.find(m => m.role === "user");
+    const autoTitle   = typeof firstUser?.content === "string"
+      ? firstUser.content.slice(0, 50) : "New Chat";
+
+    let savedConvId = convId;
+    try {
+      const toSave = allMessages.filter(m=>m.role!=="system").slice(-100).map(m=>({
+        role: m.role,
+        content: typeof m.content==="string" ? m.content.slice(0,5000) : m.content,
+      }));
+      if (convId) {
+        await Conversation.findOneAndUpdate(
+          { _id: convId, userId: user._id },
+          { messages: toSave, updatedAt: new Date() }
+        );
+      } else {
+        const conv = await Conversation.create({ userId: user._id, title: autoTitle, messages: toSave });
+        savedConvId = conv._id;
+      }
+    } catch(e) { console.error("Conv save error:", e.message); }
+
+    res.json({ reply, msgsLeft, minsLeft, plan: pro ? "pro" : "free", conversationId: savedConvId });
 
   } catch (err) {
     console.error("❌ Chat error:", err);
@@ -616,6 +653,88 @@ app.use((err, req, res, next) => {
 // ✅ 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: "Not found." });
+});
+
+// ═══════════════════════════════════════════
+// CONVERSATION ROUTES
+// ═══════════════════════════════════════════
+
+// Get all conversations for user
+app.get("/conversations", auth, async (req, res) => {
+  try {
+    const convs = await Conversation.find({ userId: req.user.id })
+      .select("title updatedAt _id")
+      .sort({ updatedAt: -1 })
+      .limit(50);
+    res.json(convs);
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// Get single conversation messages
+app.get("/conversations/:id", auth, async (req, res) => {
+  try {
+    const conv = await Conversation.findOne({ _id: req.params.id, userId: req.user.id });
+    if (!conv) return res.status(404).json({ message: "Not found" });
+    res.json(conv);
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// Save/update conversation
+app.post("/conversations/save", auth, async (req, res) => {
+  try {
+    const { conversationId, messages, title } = req.body;
+
+    if (!Array.isArray(messages) || messages.length === 0)
+      return res.status(400).json({ message: "No messages" });
+
+    // Filter out system messages before saving
+    const toSave = messages
+      .filter(m => m.role !== "system")
+      .slice(-100) // max 100 messages saved
+      .map(m => ({
+        role:    m.role,
+        content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content,
+      }));
+
+    // Auto-generate title from first user message
+    const firstUser = toSave.find(m => m.role === "user");
+    const autoTitle = typeof firstUser?.content === "string"
+      ? firstUser.content.slice(0, 50)
+      : "New Chat";
+
+    if (conversationId) {
+      // Update existing
+      await Conversation.findOneAndUpdate(
+        { _id: conversationId, userId: req.user.id },
+        { messages: toSave, title: title || autoTitle, updatedAt: new Date() }
+      );
+      res.json({ conversationId });
+    } else {
+      // Create new
+      const conv = await Conversation.create({
+        userId:   req.user.id,
+        title:    title || autoTitle,
+        messages: toSave,
+      });
+      res.json({ conversationId: conv._id });
+    }
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
+});
+
+// Delete conversation
+app.delete("/conversations/:id", auth, async (req, res) => {
+  try {
+    await Conversation.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+    res.json({ message: "Deleted" });
+  } catch {
+    res.status(500).json({ message: "Error" });
+  }
 });
 
 // ═══════════════════════════════════════════
