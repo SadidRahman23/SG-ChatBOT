@@ -616,19 +616,21 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const modelKey  = ["fast","smart","coding","deep"].includes(req.body.modelKey) ? req.body.modelKey : "fast";
 
     const MODEL_MAP = {
-      fast:   "meta-llama/llama-3.3-8b-instruct:free",
+      fast:   "meta-llama/llama-3.3-70b-instruct:free",
       smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
-      coding: "qwen/qwen2.5-coder-7b-instruct:free",
-      deep:   "deepseek/deepseek-r1-distill-llama-70b:free",
+      coding: "qwen/qwen3-coder:free",
+      deep:   "deepseek/deepseek-r1:free",
     };
 
     const FALLBACKS = [
-      "meta-llama/llama-3.3-8b-instruct:free",
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "deepseek/deepseek-r1:free",
       "mistralai/mistral-small-3.1-24b-instruct:free",
+      "qwen/qwen3-14b:free",
       "qwen/qwen3-8b:free",
-      "google/gemma-3-4b-it:free",
-      "microsoft/phi-4-reasoning-plus:free",
-      "deepseek/deepseek-r1-distill-qwen-14b:free",
+      "google/gemma-3-27b-it:free",
+      "google/gemma-3-12b-it:free",
+      "nvidia/llama-3.1-nemotron-70b-instruct:free",
     ];
 
     const primaryModel = hasImage
