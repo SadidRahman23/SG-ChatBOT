@@ -615,136 +615,66 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const hasImage  = trimmed.some(m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url"));
     const modelKey  = ["fast","smart","coding","deep"].includes(req.body.modelKey) ? req.body.modelKey : "fast";
 
-const GROQ_MODELS = {
+    // ✅ Groq models
+    const GROQ_MODELS = {
       fast:   "llama-3.3-70b-versatile",
       smart:  "llama-3.3-70b-versatile",
       coding: "qwen-qwen2.5-coder-32b",
       deep:   "deepseek-r1-distill-llama-70b",
     };
 
-    // ✅ Groq API call — fast & free
+    // ✅ OpenRouter models + fallbacks
+    const OR_MODELS = {
+      fast:   "meta-llama/llama-3.3-70b-instruct:free",
+      smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
+      coding: "qwen/qwen3-coder:free",
+      deep:   "deepseek/deepseek-r1:free",
+    };
+    const OR_FALLBACKS = [
+      "meta-llama/llama-3.3-70b-instruct:free",
+      "deepseek/deepseek-r1:free",
+      "mistralai/mistral-small-3.1-24b-instruct:free",
+      "qwen/qwen3-14b:free",
+      "qwen/qwen3-8b:free",
+      "google/gemma-3-27b-it:free",
+      "nvidia/llama-3.1-nemotron-70b-instruct:free",
+    ];
+
+    // ✅ Web search + URL fetch
+    const lastUserMsg = trimmed.filter(m => m.role === 'user').slice(-1)[0];
+    const userText    = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '';
+    const urlMatch    = userText.match(/https?:\/\/[^\s]+/);
+    const searchIntent = /find|search|look up|latest|news/i.test(userText);
+
+    if (urlMatch) {
+      try {
+        const pageRes  = await fetch(urlMatch[0], { headers:{'User-Agent':'Mozilla/5.0'}, signal: AbortSignal.timeout(8000) });
+        const html     = await pageRes.text();
+        const pageText = html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,4000);
+        trimmed.push({ role:'user', content:`[Content from ${urlMatch[0]}]:\n\n${pageText}\n\nBased on this, answer my question.` });
+        const idx = trimmed.findLastIndex(m => m.role==='user' && m.content===userText);
+        if (idx !== -1 && idx !== trimmed.length-1) trimmed.splice(idx,1);
+      } catch(e) { console.error("URL fetch:", e.message); }
+    }
+
+    // ✅ Groq API call
     async function callGroq(model) {
       return fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
-        headers: {
-          Authorization:  `Bearer ${process.env.GROQ_API_KEY}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization:`Bearer ${process.env.GROQ_API_KEY}`, "Content-Type":"application/json" },
         body: JSON.stringify({
           model,
-          messages: trimmed.filter(m => !Array.isArray(m.content)), // Groq text only
+          messages: trimmed.filter(m => !Array.isArray(m.content)),
           max_tokens: 4096,
           temperature: 0.7,
         }),
       });
     }
 
-    // ✅ Try Groq first (fast & free), fallback to OpenRouter
-    let response;
-    let usedGroq = false;
-
-    if (!hasImage && process.env.GROQ_API_KEY) {
-      const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
-      try {
-        response = await callGroq(groqModel);
-        if (response.ok) {
-          usedGroq = true;
-          console.log(`✅ Groq: ${groqModel}`);
-        } else {
-          const err = await response.text();
-          console.error(`❌ Groq (${groqModel}):`, err);
-        }
-      } catch (e) {
-        console.error("Groq error:", e.message);
-      }
-    }
-
-    // If Groq failed or image request → use OpenRouter
-    if (!usedGroq) {
-
-    // ✅ Web search + URL fetch detection
-    const lastUserMsg = trimmed.filter(m => m.role === 'user').slice(-1)[0];
-    const userText    = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '';
-
-    // Detect URL in message
-    const urlMatch = userText.match(/https?:\/\/[^\s]+/);
-
-    // Detect web search intent
-    const searchIntent = /find|search|look up|latest|news|what is.*website|visit|open|check|browse/i.test(userText);
-
-    if (urlMatch) {
-      // ✅ User gave a URL — fetch its content
-      try {
-        const urlToFetch = urlMatch[0];
-        const pageRes    = await fetch(urlToFetch, {
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SGChatBOT/1.0)' },
-          signal: AbortSignal.timeout(8000),
-        });
-        const html     = await pageRes.text();
-        // Strip HTML tags and get plain text
-        const pageText = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .slice(0, 4000); // Max 4000 chars
-
-        // Inject page content into context
-        trimmed.push({
-          role: 'user',
-          content: `[Content from ${urlToFetch}]:\n\n${pageText}\n\nBased on the above content, please answer my question.`,
-        });
-        // Remove duplicate last user message
-        const idx = trimmed.findLastIndex(m => m.role === 'user' && m.content === userText);
-        if (idx !== -1 && idx !== trimmed.length - 1) trimmed.splice(idx, 1);
-      } catch (e) {
-        console.error("URL fetch error:", e.message);
-        // Continue without fetched content
-      }
-    } else if (searchIntent) {
-      // ✅ Web search via OpenRouter
-      const searchQuery = userText.replace(/find|search|look up|latest|news/gi, '').trim().slice(0, 100);
-      try {
-        const searchRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization:  `Bearer ${process.env.OPENROUTER_KEY}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://sg-chatbot-a2h.pages.dev",
-            "X-Title":      "SG ChatBOT",
-          },
-          body: JSON.stringify({
-            model: "openrouter/free",
-            messages: trimmed,
-            plugins: [{ id: "web" }], // ✅ OpenRouter web search plugin
-          }),
-        });
-        if (searchRes.ok) {
-          const searchData = await searchRes.json();
-          const reply      = searchData?.choices?.[0]?.message?.content || "No response from AI.";
-          const msgsLeft   = pro ? null : FREE_LIMIT - user.msgCount;
-          const minsLeft   = pro ? null : minsUntilReset(user);
-          const convId     = req.body.conversationId || null;
-          const allMsgs    = [...messages, { role: "assistant", content: reply }];
-          const firstUser2 = allMsgs.find(m => m.role === "user");
-          const autoTitle2 = typeof firstUser2?.content === "string" ? firstUser2.content.slice(0, 50) : "New Chat";
-          let savedConvId2 = convId;
-          try {
-            const toSave2 = allMsgs.filter(m=>m.role!=="system").slice(-100).map(m=>({ role:m.role, content: typeof m.content==="string"?m.content.slice(0,5000):m.content }));
-            if (convId) { await Conversation.findOneAndUpdate({ _id: convId, userId: user._id }, { messages: toSave2, updatedAt: new Date() }); }
-            else { const c = await Conversation.create({ userId: user._id, title: autoTitle2, messages: toSave2 }); savedConvId2 = c._id; }
-          } catch {}
-          return res.json({ reply, msgsLeft, minsLeft, plan: pro ? "pro" : "free", conversationId: savedConvId2 });
-        }
-      } catch (e) {
-        console.error("Web search error:", e.message);
-      }
-    }
-
-    async function callAI(model, useWebSearch = false) {
+    // ✅ OpenRouter API call
+    async function callAI(model) {
       const body = { model, messages: trimmed };
-      if (useWebSearch) body.plugins = [{ id: "web" }];
+      if (searchIntent && !urlMatch) body.plugins = [{ id:"web" }];
       return fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -757,36 +687,42 @@ const GROQ_MODELS = {
       });
     }
 
-    // If Groq failed or image request → use OpenRouter
-    if (!usedGroq) {
-      const OR_MODELS = {
-        fast:   "meta-llama/llama-3.3-70b-instruct:free",
-        smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
-        coding: "qwen/qwen3-coder:free",
-        deep:   "deepseek/deepseek-r1:free",
-      };
-      const OR_FALLBACKS = [
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "deepseek/deepseek-r1:free",
-        "mistralai/mistral-small-3.1-24b-instruct:free",
-        "qwen/qwen3-14b:free",
-        "qwen/qwen3-8b:free",
-        "google/gemma-3-27b-it:free",
-        "nvidia/llama-3.1-nemotron-70b-instruct:free",
-      ];
+    // ✅ Try Groq first → then OpenRouter fallbacks
+    let response;
+    let useGroq = !hasImage && !!process.env.GROQ_API_KEY;
+
+    if (useGroq) {
+      const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
+      try {
+        response = await callGroq(groqModel);
+        if (response.ok) {
+          console.log(`✅ Groq: ${groqModel}`);
+        } else {
+          const err = await response.text();
+          console.error(`❌ Groq failed:`, err);
+          useGroq = false;
+        }
+      } catch(e) {
+        console.error("Groq error:", e.message);
+        useGroq = false;
+      }
+    }
+
+    if (!useGroq) {
       const primaryModel = hasImage
         ? "meta-llama/llama-3.2-11b-vision-instruct:free"
         : (OR_MODELS[modelKey] || OR_MODELS.fast);
 
       response = await callAI(primaryModel);
+
       if (!response.ok) {
         const errText = await response.text();
         console.error(`❌ Primary (${primaryModel}):`, errText);
         let errObj = {};
         try { errObj = JSON.parse(errText); } catch {}
         if (errObj?.error?.code === 429) {
-          const retryAfter = errObj?.error?.metadata?.retry_after_seconds || 5;
-          await new Promise(r => setTimeout(r, Math.min(retryAfter * 1000, 10000)));
+          const wait = Math.min((errObj?.error?.metadata?.retry_after_seconds||5)*1000, 10000);
+          await new Promise(r => setTimeout(r, wait));
           response = await callAI(primaryModel);
         }
         if (!response.ok) {
@@ -804,6 +740,7 @@ const GROQ_MODELS = {
       }
     }
 
+    // ── Parse final response ──
     const data  = await response.json();
     const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
 
