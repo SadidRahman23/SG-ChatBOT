@@ -615,27 +615,52 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const hasImage  = trimmed.some(m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url"));
     const modelKey  = ["fast","smart","coding","deep"].includes(req.body.modelKey) ? req.body.modelKey : "fast";
 
-    const MODEL_MAP = {
-      fast:   "meta-llama/llama-3.3-70b-instruct:free",
-      smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
-      coding: "qwen/qwen3-coder:free",
-      deep:   "deepseek/deepseek-r1:free",
+const GROQ_MODELS = {
+      fast:   "llama-3.3-70b-versatile",
+      smart:  "llama-3.3-70b-versatile",
+      coding: "qwen-qwen2.5-coder-32b",
+      deep:   "deepseek-r1-distill-llama-70b",
     };
 
-    const FALLBACKS = [
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "deepseek/deepseek-r1:free",
-      "mistralai/mistral-small-3.1-24b-instruct:free",
-      "qwen/qwen3-14b:free",
-      "qwen/qwen3-8b:free",
-      "google/gemma-3-27b-it:free",
-      "google/gemma-3-12b-it:free",
-      "nvidia/llama-3.1-nemotron-70b-instruct:free",
-    ];
+    // ✅ Groq API call — fast & free
+    async function callGroq(model) {
+      return fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization:  `Bearer ${process.env.GROQ_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: trimmed.filter(m => !Array.isArray(m.content)), // Groq text only
+          max_tokens: 4096,
+          temperature: 0.7,
+        }),
+      });
+    }
 
-    const primaryModel = hasImage
-      ? "meta-llama/llama-3.2-11b-vision-instruct:free"
-      : (MODEL_MAP[modelKey] || MODEL_MAP.fast);
+    // ✅ Try Groq first (fast & free), fallback to OpenRouter
+    let response;
+    let usedGroq = false;
+
+    if (!hasImage && process.env.GROQ_API_KEY) {
+      const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
+      try {
+        response = await callGroq(groqModel);
+        if (response.ok) {
+          usedGroq = true;
+          console.log(`✅ Groq: ${groqModel}`);
+        } else {
+          const err = await response.text();
+          console.error(`❌ Groq (${groqModel}):`, err);
+        }
+      } catch (e) {
+        console.error("Groq error:", e.message);
+      }
+    }
+
+    // If Groq failed or image request → use OpenRouter
+    if (!usedGroq) {
 
     // ✅ Web search + URL fetch detection
     const lastUserMsg = trimmed.filter(m => m.role === 'user').slice(-1)[0];
@@ -732,34 +757,48 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       });
     }
 
-    let response = await callAI(primaryModel);
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error(`❌ Primary (${primaryModel}):`, errText);
+    // If Groq failed or image request → use OpenRouter
+    if (!usedGroq) {
+      const OR_MODELS = {
+        fast:   "meta-llama/llama-3.3-70b-instruct:free",
+        smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
+        coding: "qwen/qwen3-coder:free",
+        deep:   "deepseek/deepseek-r1:free",
+      };
+      const OR_FALLBACKS = [
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "deepseek/deepseek-r1:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
+        "qwen/qwen3-14b:free",
+        "qwen/qwen3-8b:free",
+        "google/gemma-3-27b-it:free",
+        "nvidia/llama-3.1-nemotron-70b-instruct:free",
+      ];
+      const primaryModel = hasImage
+        ? "meta-llama/llama-3.2-11b-vision-instruct:free"
+        : (OR_MODELS[modelKey] || OR_MODELS.fast);
 
-      // Check if rate limited — wait and retry primary
-      let errObj = {};
-      try { errObj = JSON.parse(errText); } catch {}
-      if (errObj?.error?.code === 429) {
-        const retryAfter = errObj?.error?.metadata?.retry_after_seconds || 5;
-        console.log(`⏳ Rate limited. Waiting ${retryAfter}s then retrying...`);
-        await new Promise(r => setTimeout(r, Math.min(retryAfter * 1000, 10000)));
-        response = await callAI(primaryModel);
-        if (response.ok) console.log(`✅ Retry succeeded for ${primaryModel}`);
-      }
-
-      // If still failing, try fallbacks
+      response = await callAI(primaryModel);
       if (!response.ok) {
-        let fallbackUsed = false;
-        for (const fb of FALLBACKS) {
-          if (fb === primaryModel) continue;
-          response = await callAI(fb);
-          if (response.ok) { console.log(`✅ Fallback: ${fb}`); fallbackUsed = true; break; }
-          console.error(`❌ Fallback (${fb}) failed`);
-          // Small delay between fallback attempts
-          await new Promise(r => setTimeout(r, 500));
+        const errText = await response.text();
+        console.error(`❌ Primary (${primaryModel}):`, errText);
+        let errObj = {};
+        try { errObj = JSON.parse(errText); } catch {}
+        if (errObj?.error?.code === 429) {
+          const retryAfter = errObj?.error?.metadata?.retry_after_seconds || 5;
+          await new Promise(r => setTimeout(r, Math.min(retryAfter * 1000, 10000)));
+          response = await callAI(primaryModel);
         }
-        if (!fallbackUsed && !response.ok) {
+        if (!response.ok) {
+          for (const fb of OR_FALLBACKS) {
+            if (fb === primaryModel) continue;
+            response = await callAI(fb);
+            if (response.ok) { console.log(`✅ OR Fallback: ${fb}`); break; }
+            console.error(`❌ Fallback (${fb}) failed`);
+            await new Promise(r => setTimeout(r, 500));
+          }
+        }
+        if (!response.ok) {
           return res.status(429).json({ reply: "⚠️ AI is busy right now. Please wait 30 seconds and try again." });
         }
       }
