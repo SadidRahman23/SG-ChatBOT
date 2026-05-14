@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SG ChatBOT — Admin Panel</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#050709;--surface:#0b0f17;--surface-2:#111827;--surface-3:#1a2336;--border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);--text:#e4ecf7;--muted:#4a5a72;--dim:#8a9bb5;--accent:#4f8eff;--accent2:#00d4aa;--gold:#f59e0b;--green:#4ade80;--red:#f87171;--font:'Cabinet Grotesk',sans-serif;}
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+    body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(79,142,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,255,0.025) 1px,transparent 1px);background-size:60px 60px;}
+
+    .login-wrap{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+    .login-card{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;text-align:center;}
+    .login-icon{font-size:40px;margin-bottom:16px;}
+    .login-title{font-size:22px;font-weight:800;margin-bottom:6px;}
+    .login-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+    .login-input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:14px;outline:none;margin-bottom:12px;transition:border-color .2s;}
+    .login-input:focus{border-color:var(--accent);}
+    .login-btn{width:100%;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+    .login-btn:hover{filter:brightness(1.15);}
+    .login-error{font-size:12px;color:var(--red);margin-top:8px;display:none;}
+
+    .admin-wrap{display:none;position:relative;z-index:1;min-height:100vh;}
+    .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;background:rgba(5,7,9,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
+    .topbar-logo{font-size:16px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .topbar-badge{padding:4px 12px;border-radius:99px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:11px;font-weight:700;}
+    .logout-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .2s;}
+    .logout-btn:hover{background:var(--surface-2);color:var(--text);}
+
+    .content{max-width:1100px;margin:0 auto;padding:32px 24px;}
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:32px;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;}
+    .stat-num{font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
+    .stat-label{font-size:12px;color:var(--muted);font-weight:500;}
+
+    .tabs{display:flex;gap:4px;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:24px;width:fit-content;}
+    .tab{padding:8px 18px;border-radius:7px;border:none;background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+    .tab.active{background:var(--surface-3);color:var(--text);}
+
+    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;overflow-x:auto;}
+    .table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .table-title{font-size:15px;font-weight:700;}
+    .refresh-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .2s;}
+    .refresh-btn:hover{background:var(--surface-2);color:var(--text);}
+
+    table{width:100%;border-collapse:collapse;min-width:700px;}
+    th{text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:12px 16px;border-bottom:1px solid var(--border);}
+    td{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--dim);}
+    tr:last-child td{border-bottom:none;}
+    tr:hover td{background:rgba(255,255,255,0.015);}
+    td.email{color:var(--text);font-weight:500;}
+    td.trxid{font-family:monospace;color:var(--accent);font-size:12px;letter-spacing:.05em;}
+
+    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;}
+    .badge.pending {background:rgba(245,158,11,.12);color:var(--gold);border:1px solid rgba(245,158,11,.25);}
+    .badge.approved{background:rgba(74,222,128,.1); color:var(--green);border:1px solid rgba(74,222,128,.25);}
+    .badge.rejected{background:rgba(248,113,113,.1);color:var(--red);  border:1px solid rgba(248,113,113,.25);}
+
+    .action-btns{display:flex;gap:6px;flex-wrap:wrap;}
+    .approve-btn{padding:5px 12px;border-radius:7px;border:1px solid rgba(74,222,128,.2);background:rgba(74,222,128,.1);color:var(--green);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+    .approve-btn:hover{background:rgba(74,222,128,.2);}
+    .reject-btn{padding:5px 12px;border-radius:7px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--red);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
+    .reject-btn:hover{background:rgba(248,113,113,.18);}
+
+    .empty{padding:48px;text-align:center;color:var(--muted);font-size:14px;}
+    .empty-icon{font-size:36px;margin-bottom:12px;}
+
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:200;white-space:nowrap;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    .toast.success{border-color:rgba(74,222,128,.4);color:var(--green);}
+    .toast.error{border-color:rgba(248,113,113,.4);color:var(--red);}
+
+    .loading{text-align:center;padding:40px;color:var(--muted);}
+    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    @media(max-width:768px){
+      .topbar{padding:0 16px;}
+      .content{padding:20px 14px;}
+      .stats-grid{grid-template-columns:1fr 1fr;}
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap" id="loginWrap">
+  <div class="login-card">
+    <div class="login-icon">🔐</div>
+    <div class="login-title">Admin Panel</div>
+    <div class="login-sub">SG ChatBOT · Restricted Access</div>
+    <input class="login-input" id="adminSecret" type="password" placeholder="Enter admin secret">
+    <button class="login-btn" id="loginBtn">Access Panel</button>
+    <div class="login-error" id="loginError">Invalid secret. Try again.</div>
+  </div>
+</div>
+
+<div class="admin-wrap" id="adminWrap">
+  <div class="topbar">
+    <div class="topbar-logo">⚡ SG Admin</div>
+    <div class="topbar-badge">🔒 Admin Only</div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span id="lastRefresh" style="font-size:11px;color:var(--muted)"></span>
+      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--gold)">—</div><div class="stat-label">⏳ Pending</div></div>
+      <div class="stat-card"><div class="stat-num" id="statApproved" style="color:var(--green)">—</div><div class="stat-label">✅ Approved</div></div>
+      <div class="stat-card"><div class="stat-num" id="statRevenue" style="color:var(--accent)">—</div><div class="stat-label">💰 Revenue</div></div>
+      <div class="stat-card"><div class="stat-num" id="statTotal" style="color:var(--accent2)">—</div><div class="stat-label">📋 Total</div></div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('pending')">⏳ Pending</button>
+      <button class="tab" onclick="switchTab('all')">📋 All Payments</button>
+    </div>
+
+    <div class="table-wrap">
+      <div class="table-header">
+        <div class="table-title" id="tableTitle">Pending Payments</div>
+        <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+      </div>
+      <div id="tableBody"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API = 'https://sg-chatbot-z8hp.onrender.com';
+  let adminSecret = '';
+  let currentTab  = 'pending';
+  let allPayments = [];
+
+  document.getElementById('loginBtn').addEventListener('click', login);
+  document.getElementById('adminSecret').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
+
+  async function login() {
+    const secret = document.getElementById('adminSecret').value.trim();
+    if (!secret) return;
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true; btn.textContent = 'Verifying…';
+    try {
+      const res = await fetch(`${API}/admin/payments`, { headers:{'x-admin-secret':secret} });
+      if (res.status === 403) {
+        document.getElementById('loginError').style.display='block';
+        return;
+      }
+      adminSecret = secret;
+      sessionStorage.setItem('sg_admin', secret);
+      document.getElementById('loginWrap').style.display='none';
+      document.getElementById('adminWrap').style.display='block';
+      allPayments = await res.json();
+      renderStats(); renderTable(); updateTime();
+      setInterval(() => { if(adminSecret) loadData(); }, 30000);
+    } catch {
+      document.getElementById('loginError').style.display='block';
+      document.getElementById('loginError').textContent='Connection error.';
+    }
+    btn.disabled=false; btn.textContent='Access Panel';
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    adminSecret=''; sessionStorage.removeItem('sg_admin');
+    document.getElementById('adminWrap').style.display='none';
+    document.getElementById('loginWrap').style.display='flex';
+    document.getElementById('adminSecret').value='';
+  });
+
+  const saved = sessionStorage.getItem('sg_admin');
+  if (saved) { document.getElementById('adminSecret').value=saved; login(); }
+
+  async function loadData() {
+    try {
+      const res = await fetch(`${API}/admin/payments`, { headers:{'x-admin-secret':adminSecret} });
+      if (!res.ok) return;
+      allPayments = await res.json();
+      renderStats(); renderTable(); updateTime();
+    } catch { showToast('Refresh failed','error'); }
+  }
+
+  function updateTime() {
+    const n=new Date();
+    document.getElementById('lastRefresh').textContent=`Updated: ${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;
+  }
+
+  function renderStats() {
+    const pending  = allPayments.filter(p=>p.status==='pending').length;
+    const approved = allPayments.filter(p=>p.status==='approved').length;
+    const revenue  = allPayments.filter(p=>p.status==='approved').reduce((s,p)=>s+(p.amount||0),0);
+    document.getElementById('statPending').textContent  = pending;
+    document.getElementById('statApproved').textContent = approved;
+    document.getElementById('statRevenue').textContent  = '৳'+revenue.toLocaleString();
+    document.getElementById('statTotal').textContent    = allPayments.length;
+  }
+
+  function switchTab(tab) {
+    currentTab=tab;
+    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',(tab==='pending'&&i===0)||(tab==='all'&&i===1)));
+    document.getElementById('tableTitle').textContent = tab==='pending'?'Pending Payments':'All Payments';
+    renderTable();
+  }
+
+  function renderTable() {
+    const data = currentTab==='pending' ? allPayments.filter(p=>p.status==='pending') : allPayments;
+    if (!data.length) {
+      document.getElementById('tableBody').innerHTML=`<div class="empty"><div class="empty-icon">${currentTab==='pending'?'🎉':'📭'}</div>${currentTab==='pending'?'No pending payments!':'No payments yet.'}</div>`;
+      return;
+    }
+    document.getElementById('tableBody').innerHTML=`
+      <table>
+        <thead><tr><th>Email</th><th>Method</th><th>TrxID</th><th>Amount</th><th>Plan</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${data.map(p=>`
+          <tr id="row-${p._id}">
+            <td class="email">${p.email}</td>
+            <td style="text-transform:capitalize">${p.method}</td>
+            <td class="trxid">${p.transactionId}</td>
+            <td style="color:var(--gold);font-weight:700">৳${p.amount}</td>
+            <td style="text-transform:capitalize">${p.plan}</td>
+            <td style="color:var(--muted)">${new Date(p.createdAt).toLocaleDateString('en-GB')}</td>
+            <td><span class="badge ${p.status}">${p.status}</span></td>
+            <td>${p.status==='pending'?`
+              <div class="action-btns">
+                <button class="approve-btn" onclick="approvePayment('${p._id}')">✅ Approve</button>
+                <button class="reject-btn"  onclick="rejectPayment('${p._id}')">❌ Reject</button>
+              </div>`:`<span style="color:var(--muted);font-size:12px">${p.status==='approved'?'✅ Done':'❌ Rejected'}</span>`}
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  async function approvePayment(id) {
+    if (!confirm('Approve this payment and activate Pro?')) return;
+    try {
+      const res  = await fetch(`${API}/admin/approve/${id}`,{method:'POST',headers:{'x-admin-secret':adminSecret}});
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message||'Error','error'); return; }
+      showToast('✅ Pro activated!','success');
+      allPayments.find(x=>x._id===id).status='approved';
+      renderStats(); renderTable();
+    } catch { showToast('Network error','error'); }
+  }
+
+  async function rejectPayment(id) {
+    if (!confirm('Reject this payment?')) return;
+    try {
+      const res  = await fetch(`${API}/admin/reject/${id}`,{method:'POST',headers:{'x-admin-secret':adminSecret}});
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message||'Error','error'); return; }
+      showToast('Payment rejected','');
+      allPayments.find(x=>x._id===id).status='rejected';
+      renderStats(); renderTable();
+    } catch { showToast('Network error','error'); }
+  }
+
+  let toastTimer;
+  function showToast(msg,type='') {
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.className='toast show '+type;
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>t.className='toast',3500);
+  }
+</script>
+</body>
+</html>
