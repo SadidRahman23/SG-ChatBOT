@@ -734,16 +734,34 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     let response = await callAI(primaryModel);
     if (!response.ok) {
-      console.error(`❌ Primary (${primaryModel}):`, await response.text());
-      let fallbackUsed = false;
-      for (const fb of FALLBACKS) {
-        if (fb === primaryModel) continue;
-        response = await callAI(fb);
-        if (response.ok) { console.log(`✅ Fallback: ${fb}`); fallbackUsed = true; break; }
-        console.error(`❌ Fallback (${fb}) failed`);
+      const errText = await response.text();
+      console.error(`❌ Primary (${primaryModel}):`, errText);
+
+      // Check if rate limited — wait and retry primary
+      let errObj = {};
+      try { errObj = JSON.parse(errText); } catch {}
+      if (errObj?.error?.code === 429) {
+        const retryAfter = errObj?.error?.metadata?.retry_after_seconds || 5;
+        console.log(`⏳ Rate limited. Waiting ${retryAfter}s then retrying...`);
+        await new Promise(r => setTimeout(r, Math.min(retryAfter * 1000, 10000)));
+        response = await callAI(primaryModel);
+        if (response.ok) console.log(`✅ Retry succeeded for ${primaryModel}`);
       }
-      if (!fallbackUsed && !response.ok) {
-        return res.status(500).json({ reply: "AI temporarily unavailable. Please try again in a few minutes." });
+
+      // If still failing, try fallbacks
+      if (!response.ok) {
+        let fallbackUsed = false;
+        for (const fb of FALLBACKS) {
+          if (fb === primaryModel) continue;
+          response = await callAI(fb);
+          if (response.ok) { console.log(`✅ Fallback: ${fb}`); fallbackUsed = true; break; }
+          console.error(`❌ Fallback (${fb}) failed`);
+          // Small delay between fallback attempts
+          await new Promise(r => setTimeout(r, 500));
+        }
+        if (!fallbackUsed && !response.ok) {
+          return res.status(429).json({ reply: "⚠️ AI is busy right now. Please wait 30 seconds and try again." });
+        }
       }
     }
 
@@ -788,21 +806,10 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 // ═══════════════════════════════════════════
 // ✅ Global error handler — hide stack traces
 // ═══════════════════════════════════════════
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err.message);
-  res.status(500).json({ message: "Something went wrong." });
-});
-
-// ✅ 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: "Not found." });
-});
-
 // ═══════════════════════════════════════════
 // CONVERSATION ROUTES
 // ═══════════════════════════════════════════
 
-// Get all conversations for user
 app.get("/conversations", auth, async (req, res) => {
   try {
     const convs = await Conversation.find({ userId: req.user.id })
@@ -815,7 +822,6 @@ app.get("/conversations", auth, async (req, res) => {
   }
 });
 
-// Get single conversation messages
 app.get("/conversations/:id", auth, async (req, res) => {
   try {
     const conv = await Conversation.findOne({ _id: req.params.id, userId: req.user.id });
@@ -826,43 +832,25 @@ app.get("/conversations/:id", auth, async (req, res) => {
   }
 });
 
-// Save/update conversation
 app.post("/conversations/save", auth, async (req, res) => {
   try {
     const { conversationId, messages, title } = req.body;
-
     if (!Array.isArray(messages) || messages.length === 0)
       return res.status(400).json({ message: "No messages" });
-
-    // Filter out system messages before saving
     const toSave = messages
       .filter(m => m.role !== "system")
-      .slice(-100) // max 100 messages saved
-      .map(m => ({
-        role:    m.role,
-        content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content,
-      }));
-
-    // Auto-generate title from first user message
+      .slice(-100)
+      .map(m => ({ role: m.role, content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content }));
     const firstUser = toSave.find(m => m.role === "user");
-    const autoTitle = typeof firstUser?.content === "string"
-      ? firstUser.content.slice(0, 50)
-      : "New Chat";
-
+    const autoTitle = typeof firstUser?.content === "string" ? firstUser.content.slice(0, 50) : "New Chat";
     if (conversationId) {
-      // Update existing
       await Conversation.findOneAndUpdate(
         { _id: conversationId, userId: req.user.id },
         { messages: toSave, title: title || autoTitle, updatedAt: new Date() }
       );
       res.json({ conversationId });
     } else {
-      // Create new
-      const conv = await Conversation.create({
-        userId:   req.user.id,
-        title:    title || autoTitle,
-        messages: toSave,
-      });
+      const conv = await Conversation.create({ userId: req.user.id, title: title || autoTitle, messages: toSave });
       res.json({ conversationId: conv._id });
     }
   } catch {
@@ -870,7 +858,6 @@ app.post("/conversations/save", auth, async (req, res) => {
   }
 });
 
-// Delete conversation
 app.delete("/conversations/:id", auth, async (req, res) => {
   try {
     await Conversation.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
@@ -885,6 +872,17 @@ app.delete("/conversations/:id", auth, async (req, res) => {
 // ═══════════════════════════════════════════
 app.get("/", (req, res) => {
   res.json({ message: "SG ChatBOT API running ✅" });
+});
+
+// ✅ Global error handler — must be after all routes
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err.message);
+  res.status(500).json({ message: "Something went wrong." });
+});
+
+// ✅ 404 handler — must be LAST
+app.use((req, res) => {
+  res.status(404).json({ message: "Not found." });
 });
 
 app.listen(PORT, () => {
