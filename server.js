@@ -603,9 +603,15 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       const base64   = req.file.buffer.toString("base64");
       const mimeType = req.file.mimetype;
       const lastMsg  = trimmed[trimmed.length - 1];
+
       if (lastMsg?.role === "user" && mimeType.startsWith("image/")) {
+        // ✅ Get text from imageText field OR from message content
+        const imageText = req.body.imageText ||
+          (typeof lastMsg.content === "string" ? lastMsg.content : "") ||
+          "Analyze this image in detail.";
+
         lastMsg.content = [
-          { type: "text", text: typeof lastMsg.content === "string" && lastMsg.content ? lastMsg.content : "Analyze this image." },
+          { type: "text", text: imageText },
           { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
         ];
       }
