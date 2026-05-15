@@ -1453,9 +1453,13 @@
     document.getElementById('codeModalOverlay').classList.add('open');
   });
 
-  function renderTyping() {
+  // ✅ AbortController for stopping generation
+  let currentAbortController = null;
+
+  function renderTyping(isImage = false) {
     const row=document.createElement('div'); row.className='msg-row bot'; row.id='typing-row';
-    row.innerHTML=botAvatarHtml(false)+`<div class="bubble"><div class="typing-indicator"><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><span class="typing-label">Thinking…</span></div></div>`;
+    const label = isImage ? 'Analyzing image…' : 'Thinking…';
+    row.innerHTML=botAvatarHtml(false)+`<div class="bubble"><div class="typing-indicator"><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><span class="typing-label">${label}</span></div></div>`;
     chatEl.appendChild(row);
     requestAnimationFrame(()=>requestAnimationFrame(()=>{ row.querySelector('.bot-avatar-wrap')?.classList.add('thinking'); }));
     chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
@@ -1597,8 +1601,6 @@
       }
       setTimeout(typeNext, 40);
     }
-    const lastUser=STATE.memory.slice().reverse().find(m=>m.role==='user');
-    addToHistory(lastUser?lastUser.content:'Chat');
   }
 
   function addToHistory(content) {
@@ -1813,12 +1815,19 @@
     }
     STATE.memory.push({role:'user',content:userContent});
 
-    const sendBtnEl=document.getElementById('sendBtn');
+    const sendBtnEl = document.getElementById('sendBtn');
     sendBtnEl.classList.add('loading');
-    const typingRow=renderTyping();
 
-    async function fetchWithRetry(retries=3,delayMs=3000) {
-      for (let i=0;i<retries;i++) {
+    // ✅ Show "Analyzing" for images
+    const isImageRequest = !!(file?.isImage || file?.fromContext);
+    const typingRow = renderTyping(isImageRequest);
+
+    // ✅ AbortController for stop generation
+    currentAbortController = new AbortController();
+    const signal = currentAbortController.signal;
+
+    async function fetchWithRetry(retries=3, delayMs=3000) {
+      for (let i=0; i<retries; i++) {
         try {
           const fd=new FormData();
           fd.append('messages', JSON.stringify(STATE.memory));
@@ -1828,10 +1837,20 @@
             fd.append('file', file.file);
             fd.append('fileType', file.isImage?'image':'document');
           }
-          const res=await fetch(`${API}/chat`,{method:'POST',headers:{'Authorization':`Bearer ${STATE.token}`},body:fd});
+          // ✅ Fix image text: send text separately so AI sees both
+          if (file?.isImage && finalText) {
+            fd.append('imageText', finalText);
+          }
+          const res = await fetch(`${API}/chat`, {
+            method:'POST',
+            headers:{'Authorization':`Bearer ${STATE.token}`},
+            body: fd,
+            signal,
+          });
           if (res.status===401) { signOut(); showToast('Session expired.','error'); openModal(); return null; }
           return await res.json();
         } catch(err) {
+          if (err.name === 'AbortError') return 'aborted';
           if (i<retries-1) {
             const tb=typingRow.querySelector('.bubble');
             if(tb) tb.innerHTML=`<div class="typing-indicator"><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><span class="typing-label">Retrying… (${i+2}/${retries})</span></div>`;
@@ -1845,6 +1864,13 @@
     try {
       const data=await fetchWithRetry();
       typingRow.remove(); sendBtnEl.classList.remove('loading');
+      currentAbortController = null;
+
+      if (data === 'aborted') {
+        STATE.memory.pop();
+        showToast('Generation stopped','');
+        return;
+      }
       if (!data) {
         // ✅ Pop last user message so retry works cleanly
         STATE.memory.pop();
@@ -1860,6 +1886,7 @@
         // ✅ Save conversationId and refresh sidebar
         if (data.conversationId) {
           STATE.conversationId = data.conversationId;
+          // ✅ Only refresh sidebar, don't add duplicate history item
           loadConversations();
         }
         renderBotMessage(data.reply||'No response.');
@@ -1964,7 +1991,15 @@
   });
 
   // ══ EVENTS ══
-  document.getElementById('sendBtn').addEventListener('click', send);
+  document.getElementById('sendBtn').addEventListener('click', () => {
+    // ✅ If generating, stop it
+    if (currentAbortController) {
+      currentAbortController.abort();
+      currentAbortController = null;
+      return;
+    }
+    send();
+  });
   document.getElementById('clearBtn').addEventListener('click', clearChat);
   document.getElementById('cancelBtn').addEventListener('click', closeModal);
   document.getElementById('submitBtn').addEventListener('click', handleSubmit);
@@ -1977,7 +2012,12 @@
   inputEl.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); } });
   emailInput.addEventListener('keydown',e=>{ if(e.key==='Enter') passwordInput.focus(); });
   passwordInput.addEventListener('keydown',e=>{ if(e.key==='Enter') handleSubmit(); });
-  document.addEventListener('keydown',e=>{ if(e.key==='Escape'){ closeModal(); closeVoiceConv(); } });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      if(currentAbortController){ currentAbortController.abort(); currentAbortController=null; showToast('Generation stopped',''); return; }
+      closeModal(); closeVoiceConv();
+    }
+  });
   document.getElementById('expiryDismiss').addEventListener('click',()=>{ document.getElementById('expiryOverlay').classList.remove('open'); sessionStorage.setItem('expiryDismissed','1'); });
   document.getElementById('limitDismiss').addEventListener('click',()=>{ document.getElementById('limitOverlay').classList.remove('open'); });
 
