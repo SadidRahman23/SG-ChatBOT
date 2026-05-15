@@ -619,7 +619,7 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     const GROQ_MODELS = {
       fast:   "llama-3.3-70b-versatile",
       smart:  "llama-3.3-70b-versatile",
-      coding: "qwen-qwen2.5-coder-32b",
+      coding: "llama-3.3-70b-versatile",
       deep:   "deepseek-r1-distill-llama-70b",
     };
 
