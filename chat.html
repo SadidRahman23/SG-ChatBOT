@@ -190,6 +190,30 @@
     #chat::-webkit-scrollbar-thumb { background:var(--surface-3); border-radius:99px; }
 
     /* ── WELCOME ── */
+    /* ── REPLY QUOTE ── */
+    .reply-preview {
+      display:none; max-width:700px; margin:0 auto 6px;
+      padding:8px 12px; border-radius:var(--r-md);
+      background:var(--surface-2); border-left:3px solid var(--accent);
+      border:1px solid var(--border-2); border-left:3px solid var(--accent);
+      font-size:12px; color:var(--dim); position:relative;
+      animation:fadeUp .15s ease;
+    }
+    .reply-preview.visible { display:flex; align-items:center; gap:10px; }
+    .reply-preview-text { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reply-preview-label { font-size:11px; color:var(--accent); font-weight:700; display:block; margin-bottom:2px; }
+    .reply-preview-remove { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:14px; flex-shrink:0; }
+    .reply-preview-remove:hover { color:var(--red); }
+
+    /* ── QUOTED MESSAGE in bubble ── */
+    .quoted-msg {
+      background:rgba(79,142,255,0.07); border-left:3px solid var(--accent);
+      border-radius:6px; padding:6px 10px; margin-bottom:8px;
+      font-size:12px; color:var(--dim); white-space:nowrap;
+      overflow:hidden; text-overflow:ellipsis;
+    }
+    .quoted-msg-label { font-size:10px; color:var(--accent); font-weight:700; margin-bottom:2px; }
+
     .welcome { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:40px 20px; animation:fadeUp .5s ease; }
     .welcome-icon { width:64px; height:64px; border-radius:20px; background:linear-gradient(135deg,rgba(79,142,255,.2),rgba(0,212,170,.12)); border:1px solid var(--border-2); display:flex; align-items:center; justify-content:center; font-size:28px; margin-bottom:4px; box-shadow:0 0 40px rgba(79,142,255,.15); }
     .welcome h1 { font-size:clamp(20px,3vw,26px); font-weight:800; letter-spacing:-.5px; text-align:center; }
@@ -756,6 +780,15 @@
     </div>
   </div>
 
+  <!-- Reply preview -->
+  <div class="reply-preview" id="replyPreview">
+    <div style="flex:1;min-width:0;">
+      <div class="reply-preview-label">↩ Replying to</div>
+      <div class="reply-preview-text" id="replyPreviewText"></div>
+    </div>
+    <button class="reply-preview-remove" id="replyPreviewRemove">✕</button>
+  </div>
+
   <!-- Context box (pasted text / image preview) -->
   <div class="context-box" id="contextBox">
     <div class="context-box-header">
@@ -1095,6 +1128,24 @@
   }
 
   // ══ CONTEXT BOX ══
+  // ── REPLY SYSTEM ──
+  let replyingTo = null;
+  const replyPreview       = document.getElementById('replyPreview');
+  const replyPreviewText   = document.getElementById('replyPreviewText');
+  const replyPreviewRemove = document.getElementById('replyPreviewRemove');
+  replyPreviewRemove.addEventListener('click', clearReply);
+  function setReply(text) {
+    replyingTo = text;
+    replyPreviewText.textContent = text.slice(0,100)+(text.length>100?'…':'');
+    replyPreview.classList.add('visible');
+    inputEl.focus();
+  }
+  function clearReply() {
+    replyingTo = null;
+    replyPreview.classList.remove('visible');
+  }
+
+  // ── CONTEXT BOX ──
   const contextBox       = document.getElementById('contextBox');
   const contextBoxLabel  = document.getElementById('contextBoxLabel');
   const contextBoxBody   = document.getElementById('contextBoxBody');
@@ -1230,6 +1281,32 @@
   }
 
   // ══ AUTH UI ══
+  function getGreeting() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function getUserFirstName() {
+    if (!STATE.email) return null;
+    const name = STATE.email.split('@')[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  }
+
+  function updateWelcomeMessage() {
+    const h1 = document.querySelector('#welcome h1');
+    const p  = document.querySelector('#welcome p');
+    if (!h1) return;
+    if (STATE.token && STATE.email) {
+      const name = getUserFirstName();
+      h1.textContent = `${getGreeting()}, ${name}! 👋`;
+      if (p) p.textContent = "What can I help you with today?";
+    } else {
+      h1.textContent = "How can I help you?";
+      if (p) p.textContent = "Ask anything — powered by SG AI";
+    }
+  }
   function updateAuthUI() {
     if (STATE.token && STATE.email) {
       userNameEl.textContent = STATE.email;
@@ -1246,6 +1323,7 @@
       document.getElementById('upgradeBtn').style.display  = 'none';
       document.getElementById('proBadge').style.display    = 'none';
     }
+    updateWelcomeMessage();
   }
 
   // ══ FETCH STATUS ══
@@ -1524,11 +1602,15 @@
     // Action buttons
     const actions=document.createElement('div'); actions.className='msg-actions';
     actions.innerHTML=`
+      <button class="msg-action-btn" title="Reply" data-action="reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg></button>
       <button class="msg-action-btn" title="Copy" data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
       <button class="msg-action-btn" title="Good" data-action="like"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg></button>
       <button class="msg-action-btn" title="Bad" data-action="dislike"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg></button>
       <button class="msg-action-btn" title="Regenerate" data-action="regenerate"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.84"/></svg></button>`;
 
+    actions.querySelector('[data-action="reply"]').addEventListener('click',function(){
+      setReply(text);
+    });
     actions.querySelector('[data-action="copy"]').addEventListener('click',function(){
       navigator.clipboard.writeText(text);
       this.classList.add('copied'); showToast('Copied!','success');
@@ -1788,6 +1870,12 @@
         : pastedContext.content;
     }
 
+    // Include reply context
+    if (replyingTo) {
+      finalText = `[Replying to: "${replyingTo.slice(0,100)}"]\n\n${finalText}`;
+      clearReply();
+    }
+
     if (!finalText && !file) return;
     if (!STATE.token) { showToast('Please sign in to chat','error'); openModal(); return; }
 
@@ -1912,12 +2000,16 @@
   }
 
   function clearChat() {
-    STATE.memory=[]; STATE.historyAdded=false; STATE.conversationId=null; clearPendingFile(); warnShown=false;
+    STATE.memory=[]; STATE.historyAdded=false; STATE.conversationId=null;
+    clearPendingFile(); clearReply(); warnShown=false;
+    const name     = getUserFirstName();
+    const greeting = STATE.token && name ? `${getGreeting()}, ${name}! 👋` : 'How can I help you?';
+    const subtext  = STATE.token ? 'What can I help you with today?' : 'Ask anything — powered by SG AI';
     chatEl.innerHTML=`
       <div class="welcome" id="welcome">
         <div class="welcome-icon">✦</div>
-        <h1>How can I help you?</h1>
-        <p>Ask anything — powered by SG AI</p>
+        <h1>${greeting}</h1>
+        <p>${subtext}</p>
         <div class="suggestion-grid">
           <button class="suggestion-card" data-prompt="Explain quantum computing in simple terms"><strong>Explain a concept</strong>Quantum computing, simplified</button>
           <button class="suggestion-card" data-prompt="Write a Python function to sort a list of dictionaries by a key"><strong>Write some code</strong>Sort a list in Python</button>
