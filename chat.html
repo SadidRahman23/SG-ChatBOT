@@ -189,8 +189,41 @@
     #chat::-webkit-scrollbar-track { background:transparent; }
     #chat::-webkit-scrollbar-thumb { background:var(--surface-3); border-radius:99px; }
 
-    /* ── WELCOME ── */
-    /* ── REPLY QUOTE ── */
+    /* ── MESSAGES — Centered layout like ChatGPT ── */
+    .msg-row { display:flex; padding:6px 0; gap:11px; animation:fadeUp .18s ease; max-width:760px; margin:0 auto; width:100%; padding-left:24px; padding-right:24px; }
+    .msg-row.user { justify-content:flex-end; }
+    .msg-row.bot  { justify-content:flex-start; align-items:flex-start; }
+
+    /* Wider bubbles */
+    .bubble { max-width:min(680px,85%); padding:13px 18px; border-radius:18px; font-size:var(--chat-font-size,14.5px); line-height:1.75; word-break:break-word; }
+    .msg-row.user .bubble { background:var(--accent); color:#fff; border-bottom-right-radius:4px; box-shadow:0 4px 18px rgba(79,142,255,.2); }
+    .msg-row.bot  .bubble { background:var(--surface-2); border:1px solid var(--border); border-bottom-left-radius:4px; max-width:min(720px,90%); }
+    .bubble p { margin-bottom:10px; } .bubble p:last-child { margin-bottom:0; }
+    .bubble code { background:rgba(79,142,255,.12); color:var(--accent); padding:2px 6px; border-radius:5px; font-size:13px; }
+    .bubble pre  { background:var(--surface-3); border:1px solid var(--border-2); border-radius:10px; padding:14px; overflow-x:auto; margin:10px 0; position:relative; }
+    .bubble pre code { background:none; padding:0; color:var(--text); font-size:13px; }
+    .bubble strong { color:#fff; font-weight:700; }
+    .bubble ul,.bubble ol { padding-left:22px; margin-bottom:10px; }
+    .bubble li { margin-bottom:4px; }
+    .bubble h1,.bubble h2,.bubble h3 { font-weight:700; margin:14px 0 6px; }
+    .bubble table { width:100%; border-collapse:collapse; margin:10px 0; font-size:13px; }
+    .bubble th { background:var(--surface-3); padding:8px 12px; text-align:left; font-weight:700; border:1px solid var(--border-2); }
+    .bubble td { padding:8px 12px; border:1px solid var(--border); }
+
+    /* Actions centered too */
+    .msg-actions { display:flex; align-items:center; gap:4px; margin-top:6px; margin-left:43px; opacity:0; transition:opacity var(--anim); max-width:760px; width:calc(100% - 48px); }
+    .msg-row.bot:hover .msg-actions { opacity:1; }
+    @media(max-width:768px){ .msg-actions { opacity:1; } }
+
+    /* ── EDIT MESSAGE ── */
+    .edit-btn { background:transparent; border:none; color:var(--muted); cursor:pointer; font-size:11px; padding:3px 6px; border-radius:6px; transition:all var(--anim); display:none; }
+    .msg-row.user:hover .edit-btn { display:inline-flex; align-items:center; gap:4px; }
+    .edit-btn:hover { background:var(--surface-2); color:var(--text); }
+    .editing-bubble { background:var(--surface-2) !important; border:1px solid var(--accent) !important; color:var(--text) !important; }
+    .edit-textarea { width:100%; background:transparent; border:none; outline:none; color:var(--text); font-family:var(--font); font-size:var(--chat-font-size,14.5px); line-height:1.75; resize:none; min-height:40px; }
+    .edit-actions { display:flex; gap:6px; margin-top:8px; justify-content:flex-end; }
+    .edit-save-btn { padding:5px 14px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-family:var(--font); font-size:12px; font-weight:700; cursor:pointer; }
+    .edit-cancel-btn { padding:5px 12px; border-radius:8px; border:1px solid var(--border-2); background:transparent; color:var(--dim); font-family:var(--font); font-size:12px; cursor:pointer; }
     .reply-preview {
       display:none; max-width:700px; margin:0 auto 6px;
       padding:8px 12px; border-radius:var(--r-md);
@@ -702,6 +735,9 @@
   <div class="history-list" id="history"></div>
 
   <div class="sidebar-footer">
+    <a href="settings.html" style="display:flex;align-items:center;gap:8px;padding:8px 11px;border-radius:var(--r-md);color:var(--dim);text-decoration:none;font-size:13px;transition:background var(--anim);margin-bottom:4px;" onmouseover="this.style.background='var(--surface-2)'" onmouseout="this.style.background='transparent'">
+      <span>⚙️</span> Settings
+    </a>
     <div class="sidebar-user" id="sidebarUserBtn">
       <div class="avatar" id="avatarEl">SG</div>
       <div class="user-info">
@@ -1039,7 +1075,9 @@
     pendingFile: null,
     historyAdded: false,
     lastWasVoice: false,
-    conversationId: null, // ✅ current conversation ID
+    conversationId: null,
+    displayName: '',
+    settings: {},
   };
 
   // ── DOM refs ──
@@ -1289,6 +1327,7 @@
   }
 
   function getUserFirstName() {
+    if (STATE.displayName) return STATE.displayName;
     if (!STATE.email) return null;
     const name = STATE.email.split('@')[0];
     return name.charAt(0).toUpperCase() + name.slice(1);
@@ -1359,7 +1398,36 @@
       }
     } catch {}
 
-    // ✅ Load conversation history
+    // ✅ Load user settings & apply
+    try {
+      const sRes  = await fetch(`${API}/settings`, { headers:{ Authorization:`Bearer ${STATE.token}` } });
+      const sData = await sRes.json();
+      STATE.displayName = sData.displayName || '';
+      STATE.settings    = sData.settings || {};
+
+      // Apply theme
+      if (STATE.settings.theme === 'light') {
+        document.documentElement.style.setProperty('--bg','#f0f4f8');
+        document.documentElement.style.setProperty('--surface','#ffffff');
+        document.documentElement.style.setProperty('--surface-2','#f4f6f9');
+        document.documentElement.style.setProperty('--surface-3','#e8ecf2');
+        document.documentElement.style.setProperty('--text','#1a2236');
+        document.documentElement.style.setProperty('--dim','#5a6a82');
+        document.documentElement.style.setProperty('--muted','#9aa5b4');
+        document.documentElement.style.setProperty('--border','rgba(0,0,0,0.07)');
+        document.documentElement.style.setProperty('--border-2','rgba(0,0,0,0.12)');
+      }
+
+      // Apply font size
+      const fontSizes = { sm:'13px', md:'14.5px', lg:'16px' };
+      if (STATE.settings.fontSize) {
+        document.documentElement.style.setProperty('--chat-font-size', fontSizes[STATE.settings.fontSize]||'14.5px');
+      }
+
+      // Update welcome with display name
+      updateWelcomeMessage();
+    } catch {}
+
     loadConversations();
   }
 
@@ -1501,18 +1569,25 @@
     if (file) {
       if (file.isImage) {
         content+=`<div class="msg-file-preview"><img src="data:${file.mimeType};base64,${file.base64}" alt="uploaded"></div>`;
+        // ✅ If image + text, show text as small bubble below image, NOT as PASTED block
+        if (text) content+=`<div class="bubble" style="margin-top:6px;border-top-right-radius:var(--r-lg)">${escapeHtml(text)}</div>`;
+        row.innerHTML=content;
+        chatEl.appendChild(row);
+        chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+        return;
       } else {
         content+=`<div class="msg-doc-preview"><div class="doc-icon">${docIcon(file.file.name)}</div><div class="doc-info"><div class="doc-name">${escapeHtml(file.file.name)}</div><div class="doc-size">${formatBytes(file.file.size)}</div></div></div>`;
       }
     }
     if (text) {
-      const lines=text.split('\n').length;
-      const isLong=text.length>300||lines>8;
-      const looksCode=/^[\s]*[<{(\[\/]|function |const |let |var |import |def |class |#include|<!DOCTYPE/i.test(text.trimStart());
-      if (isLong||looksCode) {
-        const blockId='pb_'+Date.now();
-        window._pastedCode=window._pastedCode||{};
-        window._pastedCode[blockId]=text;
+      const lines    = text.split('\n').length;
+      const isLong   = text.length > 300 || lines > 8;
+      const looksCode = /^[\s]*[<{(\[\/]|function |const |let |var |import |def |class |#include|<!DOCTYPE/i.test(text.trimStart());
+      // ✅ Only show PASTED if no file attached
+      if (!file && (isLong || looksCode)) {
+        const blockId = 'pb_'+Date.now();
+        window._pastedCode = window._pastedCode||{};
+        window._pastedCode[blockId] = text;
         content+=`<div class="pasted-block" data-id="${blockId}"><div class="pasted-icon">📋</div><div class="pasted-info"><div class="pasted-label">PASTED</div><div class="pasted-lines">${lines} lines · click to expand</div></div></div>`;
       } else {
         content+=`<div class="bubble">${escapeHtml(text)}</div>`;
