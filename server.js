@@ -153,6 +153,17 @@ const userSchema = new mongoose.Schema({
   resetTokenExp:  { type: Date, default: null },
   loginAttempts:  { type: Number, default: 0 },
   lockUntil:      { type: Date, default: null },
+  // ✅ User settings
+  displayName:    { type: String, default: "", maxlength: 50 },
+  settings: {
+    theme:           { type: String, enum: ["dark","light","system"], default: "dark" },
+    language:        { type: String, default: "en" },
+    parentalControl: { type: Boolean, default: false },
+    typewriter:      { type: Boolean, default: true },
+    fontSize:        { type: String, enum: ["sm","md","lg"], default: "md" },
+    soundEnabled:    { type: Boolean, default: false },
+    autoSaveChats:   { type: Boolean, default: true },
+  },
 }, { timestamps: true });
 
 const User = mongoose.model("User", userSchema);
@@ -578,6 +589,8 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     }));
 
     // ✅ System prompt — inject once
+    // ✅ Extra parental control if enabled
+    const parentalActive = user.settings?.parentalControl;
     if (trimmed[0]?.role !== "system") {
       trimmed.unshift({
         role: "system",
@@ -596,6 +609,9 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
           "- If you don't know something, say so honestly. " +
           "- For math use LaTeX: inline $...$ and display $$...$$. " +
           "- When someone replies to a message (marked [Replying to: ...]), understand that context and respond accordingly. " +
+          (parentalActive ?
+          "SAFE MODE IS ON: You must keep ALL responses strictly appropriate for children under 13. " +
+          "No violence, no adult themes, no scary content, no profanity, no romance. Keep everything educational, positive and kind. " : "") +
           "HARD RULES — never break these: " +
           "1. No sexual, explicit, or adult content. " +
           "2. No content harming or sexualizing minors. " +
@@ -643,7 +659,12 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       coding: "qwen/qwen3-coder:free",
       deep:   "deepseek/deepseek-r1:free",
     };
-    const OR_FALLBACKS = [
+    const OR_FALLBACKS = hasImage ? [
+      "google/gemini-2.0-flash-exp:free",
+      "google/gemini-flash-1.5:free",
+      "qwen/qwen2.5-vl-7b-instruct:free",
+      "meta-llama/llama-3.2-11b-vision-instruct:free",
+    ] : [
       "meta-llama/llama-3.3-70b-instruct:free",
       "deepseek/deepseek-r1:free",
       "mistralai/mistral-small-3.1-24b-instruct:free",
@@ -723,8 +744,8 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     if (!useGroq) {
       const primaryModel = hasImage
-        ? "meta-llama/llama-3.2-11b-vision-instruct:free"
-        : (OR_MODELS[modelKey] || OR_MODELS.fast);
+      ? "google/gemini-2.0-flash-exp:free"
+      : (OR_MODELS[modelKey] || OR_MODELS.fast);
 
       response = await callAI(primaryModel);
 
@@ -795,6 +816,96 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 // ═══════════════════════════════════════════
 // ✅ Global error handler — hide stack traces
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// SETTINGS ROUTES
+// ═══════════════════════════════════════════
+
+// Get settings
+app.get("/settings", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select("-password -resetToken");
+    if (!user) return res.status(404).json({ message: "Not found" });
+    res.json({
+      email:       user.email,
+      displayName: user.displayName || "",
+      settings:    user.settings || {},
+      plan:        user.plan,
+      proExpires:  user.proExpiresAt,
+      createdAt:   user.createdAt,
+    });
+  } catch { res.status(500).json({ message: "Error" }); }
+});
+
+// Update settings
+app.post("/settings", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "Not found" });
+
+    const { displayName, settings } = req.body;
+
+    if (displayName !== undefined) {
+      user.displayName = sanitize(displayName).slice(0, 50);
+    }
+
+    if (settings) {
+      const s = settings;
+      if (s.theme !== undefined && ["dark","light","system"].includes(s.theme))
+        user.settings.theme = s.theme;
+      if (s.language !== undefined)
+        user.settings.language = sanitize(s.language).slice(0, 10);
+      if (s.parentalControl !== undefined)
+        user.settings.parentalControl = !!s.parentalControl;
+      if (s.typewriter !== undefined)
+        user.settings.typewriter = !!s.typewriter;
+      if (s.fontSize !== undefined && ["sm","md","lg"].includes(s.fontSize))
+        user.settings.fontSize = s.fontSize;
+      if (s.soundEnabled !== undefined)
+        user.settings.soundEnabled = !!s.soundEnabled;
+      if (s.autoSaveChats !== undefined)
+        user.settings.autoSaveChats = !!s.autoSaveChats;
+    }
+
+    user.markModified('settings');
+    await user.save();
+    res.json({ message: "Settings saved" });
+  } catch { res.status(500).json({ message: "Error" }); }
+});
+
+// Change password
+app.post("/settings/change-password", auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = sanitize(req.body);
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ message: "All fields required" });
+    if (newPassword.length < 8)
+      return res.status(400).json({ message: "Password min 8 characters" });
+
+    const user = await User.findById(req.user.id);
+    const ok   = await bcrypt.compare(currentPassword, user.password);
+    if (!ok) return res.status(401).json({ message: "Current password incorrect" });
+
+    user.password = await bcrypt.hash(newPassword, 12);
+    await user.save();
+    res.json({ message: "Password changed successfully" });
+  } catch { res.status(500).json({ message: "Error" }); }
+});
+
+// Delete account
+app.delete("/settings/account", auth, async (req, res) => {
+  try {
+    const { password } = sanitize(req.body);
+    const user = await User.findById(req.user.id);
+    const ok   = await bcrypt.compare(password, user.password);
+    if (!ok) return res.status(401).json({ message: "Incorrect password" });
+
+    await Conversation.deleteMany({ userId: user._id });
+    await Payment.deleteMany({ userId: user._id });
+    await User.findByIdAndDelete(user._id);
+    res.json({ message: "Account deleted" });
+  } catch { res.status(500).json({ message: "Error" }); }
+});
+
 // ═══════════════════════════════════════════
 // CONVERSATION ROUTES
 // ═══════════════════════════════════════════
