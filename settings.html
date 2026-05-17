@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — SG ChatBOT</title>
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root{--bg:#050709;--surface:#0b0f17;--surface-2:#111827;--surface-3:#1a2336;--border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);--text:#e4ecf7;--muted:#4a5a72;--dim:#8a9bb5;--accent:#4f8eff;--accent2:#00d4aa;--gold:#f59e0b;--red:#f87171;--green:#4ade80;--font:'Cabinet Grotesk',sans-serif;}
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
+    body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(79,142,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,255,0.025) 1px,transparent 1px);background-size:60px 60px;}
+
+    /* NAV */
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;background:rgba(5,7,9,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);}
+    .nav-logo{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;}
+    .nav-back{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;cursor:pointer;text-decoration:none;transition:all .2s;}
+    .nav-back:hover{background:var(--surface-2);color:var(--text);}
+
+    /* LAYOUT */
+    .page{position:relative;z-index:1;max-width:860px;margin:0 auto;padding:80px 24px 60px;display:grid;grid-template-columns:220px 1fr;gap:28px;}
+    @media(max-width:768px){.page{grid-template-columns:1fr;padding:80px 16px 40px;}}
+
+    /* SIDEBAR NAV */
+    .settings-nav{position:sticky;top:80px;height:fit-content;}
+    .settings-nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;font-size:13px;font-weight:500;color:var(--dim);cursor:pointer;transition:all .2s;margin-bottom:2px;}
+    .settings-nav-item:hover{background:var(--surface);color:var(--text);}
+    .settings-nav-item.active{background:var(--surface-2);color:var(--text);border:1px solid var(--border-2);}
+    .settings-nav-item .nav-icon{font-size:16px;width:20px;text-align:center;}
+
+    /* SECTIONS */
+    .settings-section{display:none;}
+    .settings-section.active{display:block;}
+    .section-title{font-size:22px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px;}
+    .section-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+
+    /* CARDS */
+    .settings-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:16px;}
+    .settings-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--border);gap:16px;}
+    .settings-row:last-child{border-bottom:none;}
+    .settings-row-info{flex:1;min-width:0;}
+    .settings-row-label{font-size:14px;font-weight:600;margin-bottom:3px;}
+    .settings-row-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+
+    /* TOGGLE */
+    .toggle{position:relative;width:44px;height:24px;flex-shrink:0;}
+    .toggle input{opacity:0;width:0;height:0;}
+    .toggle-slider{position:absolute;inset:0;background:var(--surface-3);border-radius:99px;cursor:pointer;transition:.3s;}
+    .toggle-slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.3s;}
+    .toggle input:checked + .toggle-slider{background:var(--accent);}
+    .toggle input:checked + .toggle-slider::before{transform:translateX(20px);}
+
+    /* SELECT */
+    .settings-select{padding:7px 12px;border-radius:8px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:13px;outline:none;cursor:pointer;transition:border-color .2s;}
+    .settings-select:focus{border-color:var(--accent);}
+
+    /* INPUT */
+    .settings-input{width:100%;padding:10px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:14px;outline:none;transition:all .2s;margin-bottom:10px;}
+    .settings-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,142,255,.12);}
+
+    /* AVATAR */
+    .avatar-section{display:flex;align-items:center;gap:20px;padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;}
+    .avatar-big{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;flex-shrink:0;}
+    .avatar-info{flex:1;}
+    .avatar-name{font-size:18px;font-weight:700;margin-bottom:4px;}
+    .avatar-email{font-size:13px;color:var(--muted);}
+    .avatar-plan{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;margin-top:6px;}
+    .avatar-plan.free{background:rgba(255,255,255,.05);color:var(--dim);border:1px solid var(--border-2);}
+    .avatar-plan.pro{background:rgba(245,158,11,.12);color:var(--gold);border:1px solid rgba(245,158,11,.25);}
+
+    /* THEME CARDS */
+    .theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;}
+    .theme-card{padding:12px;border-radius:10px;border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .2s;background:var(--surface-2);}
+    .theme-card:hover{border-color:var(--border-2);}
+    .theme-card.selected{border-color:var(--accent);background:rgba(79,142,255,.06);}
+    .theme-card-icon{font-size:24px;margin-bottom:6px;}
+    .theme-card-name{font-size:12px;font-weight:600;color:var(--dim);}
+    .theme-card.selected .theme-card-name{color:var(--accent);}
+
+    /* FONT SIZE */
+    .font-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+    .font-card{padding:10px;border-radius:10px;border:2px solid var(--border);cursor:pointer;text-align:center;transition:all .2s;background:var(--surface-2);}
+    .font-card:hover{border-color:var(--border-2);}
+    .font-card.selected{border-color:var(--accent);background:rgba(79,142,255,.06);}
+    .font-card-preview{font-weight:700;color:var(--dim);margin-bottom:4px;}
+    .font-card-label{font-size:11px;color:var(--muted);}
+    .font-card.selected .font-card-label{color:var(--accent);}
+
+    /* BUTTONS */
+    .btn-primary{padding:10px 20px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+    .btn-primary:hover{filter:brightness(1.12);}
+    .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+    .btn-danger{padding:10px 20px;border-radius:10px;border:1px solid rgba(248,113,113,.3);background:rgba(248,113,113,.07);color:var(--red);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+    .btn-danger:hover{background:rgba(248,113,113,.14);}
+    .btn-outline{padding:10px 20px;border-radius:10px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
+    .btn-outline:hover{background:var(--surface-2);color:var(--text);}
+
+    /* PLAN CARD */
+    .plan-card{padding:20px;border-radius:14px;border:1px solid var(--border-2);background:var(--surface);margin-bottom:16px;}
+    .plan-card.pro-active{border-color:rgba(245,158,11,.3);background:linear-gradient(135deg,rgba(245,158,11,.05),rgba(251,146,60,.03));}
+    .plan-name{font-size:18px;font-weight:800;margin-bottom:4px;}
+    .plan-detail{font-size:13px;color:var(--muted);margin-bottom:16px;}
+    .plan-features{display:flex;flex-direction:column;gap:6px;margin-bottom:20px;}
+    .plan-feature{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);}
+    .plan-feature .check{color:var(--accent2);font-size:14px;}
+
+    /* DANGER ZONE */
+    .danger-zone{background:rgba(248,113,113,.05);border:1px solid rgba(248,113,113,.2);border-radius:14px;padding:20px;}
+    .danger-title{font-size:14px;font-weight:700;color:var(--red);margin-bottom:6px;}
+    .danger-desc{font-size:13px;color:var(--muted);margin-bottom:14px;}
+
+    /* TOAST */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:200;white-space:nowrap;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    .toast.success{border-color:rgba(74,222,128,.4);color:var(--green);}
+    .toast.error{border-color:rgba(248,113,113,.4);color:var(--red);}
+
+    /* LOADING */
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:6px;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    @media(max-width:768px){
+      .theme-grid{grid-template-columns:1fr 1fr 1fr;}
+      .settings-nav{display:flex;flex-wrap:wrap;gap:6px;position:static;margin-bottom:20px;}
+      .settings-nav-item{padding:7px 12px;border-radius:99px;border:1px solid var(--border-2);margin-bottom:0;}
+      .settings-nav-item.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="index.html" class="nav-logo">
+    <img src="logo.svg" width="26" height="26" style="border-radius:7px">SG ChatBOT
+  </a>
+  <a href="chat.html" class="nav-back">← Back to Chat</a>
+</nav>
+
+<div class="page">
+  <!-- Settings Nav -->
+  <div class="settings-nav">
+    <div class="settings-nav-item active" onclick="switchSection('profile')"><span class="nav-icon">👤</span> Profile</div>
+    <div class="settings-nav-item" onclick="switchSection('appearance')"><span class="nav-icon">🎨</span> Appearance</div>
+    <div class="settings-nav-item" onclick="switchSection('chat')"><span class="nav-icon">💬</span> Chat</div>
+    <div class="settings-nav-item" onclick="switchSection('parental')"><span class="nav-icon">👨‍👩‍👧</span> Parental Control</div>
+    <div class="settings-nav-item" onclick="switchSection('plan')"><span class="nav-icon">⚡</span> Plan</div>
+    <div class="settings-nav-item" onclick="switchSection('security')"><span class="nav-icon">🔒</span> Security</div>
+    <div class="settings-nav-item" onclick="switchSection('account')"><span class="nav-icon">⚠️</span> Account</div>
+  </div>
+
+  <!-- Main Content -->
+  <div>
+
+    <!-- PROFILE -->
+    <div class="settings-section active" id="section-profile">
+      <div class="section-title">Profile</div>
+      <div class="section-sub">Manage your account info and display name</div>
+
+      <div class="avatar-section">
+        <div class="avatar-big" id="avatarBig">?</div>
+        <div class="avatar-info">
+          <div class="avatar-name" id="profileName">—</div>
+          <div class="avatar-email" id="profileEmail">—</div>
+          <div class="avatar-plan free" id="profilePlan">Free</div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;">
+          <div class="settings-row-label">Display Name</div>
+          <div class="settings-row-desc" style="margin-bottom:10px;">This name appears in your welcome greeting</div>
+          <input class="settings-input" id="displayName" type="text" placeholder="Your name" maxlength="50" style="margin-bottom:0">
+        </div>
+        <div class="settings-row" style="justify-content:flex-end;padding-top:12px;">
+          <button class="btn-primary" onclick="saveProfile()">Save Profile</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- APPEARANCE -->
+    <div class="settings-section" id="section-appearance">
+      <div class="section-title">Appearance</div>
+      <div class="section-sub">Customize how SG ChatBOT looks</div>
+
+      <div class="settings-card">
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;">
+          <div class="settings-row-label" style="margin-bottom:12px;">Theme</div>
+          <div class="theme-grid" style="width:100%">
+            <div class="theme-card selected" id="theme-dark" onclick="selectTheme('dark')">
+              <div class="theme-card-icon">🌙</div>
+              <div class="theme-card-name">Dark</div>
+            </div>
+            <div class="theme-card" id="theme-light" onclick="selectTheme('light')">
+              <div class="theme-card-icon">☀️</div>
+              <div class="theme-card-name">Light</div>
+            </div>
+            <div class="theme-card" id="theme-system" onclick="selectTheme('system')">
+              <div class="theme-card-icon">💻</div>
+              <div class="theme-card-name">System</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;">
+          <div class="settings-row-label" style="margin-bottom:12px;">Font Size</div>
+          <div class="font-grid" style="width:100%">
+            <div class="font-card" id="font-sm" onclick="selectFont('sm')">
+              <div class="font-card-preview" style="font-size:13px">Aa</div>
+              <div class="font-card-label">Small</div>
+            </div>
+            <div class="font-card selected" id="font-md" onclick="selectFont('md')">
+              <div class="font-card-preview" style="font-size:16px">Aa</div>
+              <div class="font-card-label">Medium</div>
+            </div>
+            <div class="font-card" id="font-lg" onclick="selectFont('lg')">
+              <div class="font-card-preview" style="font-size:20px">Aa</div>
+              <div class="font-card-label">Large</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:right">
+        <button class="btn-primary" onclick="saveAppearance()">Save Appearance</button>
+      </div>
+    </div>
+
+    <!-- CHAT -->
+    <div class="settings-section" id="section-chat">
+      <div class="section-title">Chat Settings</div>
+      <div class="section-sub">Control how your chat experience works</div>
+
+      <div class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Typewriter Effect</div>
+            <div class="settings-row-desc">AI responses appear letter by letter like typing</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="toggleTypewriter" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Auto-save Chats</div>
+            <div class="settings-row-desc">Automatically save conversations to history</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="toggleAutoSave" checked><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Sound Effects</div>
+            <div class="settings-row-desc">Play a sound when AI finishes responding</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="toggleSound"><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+
+      <div style="text-align:right">
+        <button class="btn-primary" onclick="saveChat()">Save Chat Settings</button>
+      </div>
+    </div>
+
+    <!-- PARENTAL CONTROL -->
+    <div class="settings-section" id="section-parental">
+      <div class="section-title">Parental Control</div>
+      <div class="section-sub">Keep conversations safe and appropriate</div>
+
+      <div class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">🛡️ Safe Mode</div>
+            <div class="settings-row-desc">Filters adult content, violence, and inappropriate topics. Recommended for younger users.</div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="toggleParental"><span class="toggle-slider"></span></label>
+        </div>
+        <div class="settings-row" style="background:rgba(79,142,255,0.04);">
+          <div class="settings-row-info">
+            <div class="settings-row-label" style="color:var(--dim);font-weight:500">When Safe Mode is ON:</div>
+            <div class="settings-row-desc">
+              ✅ Blocks explicit or adult content<br>
+              ✅ Blocks violent or harmful topics<br>
+              ✅ Keeps language clean and appropriate<br>
+              ✅ Suitable for children under 13
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align:right">
+        <button class="btn-primary" onclick="saveParental()">Save Settings</button>
+      </div>
+    </div>
+
+    <!-- PLAN -->
+    <div class="settings-section" id="section-plan">
+      <div class="section-title">Your Plan</div>
+      <div class="section-sub">Manage your subscription</div>
+
+      <div class="plan-card" id="planCard">
+        <div class="plan-name" id="planName">Free Plan</div>
+        <div class="plan-detail" id="planDetail">25 messages per 4 hours</div>
+        <div class="plan-features" id="planFeatures"></div>
+        <div id="planAction"></div>
+      </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div class="settings-section" id="section-security">
+      <div class="section-title">Security</div>
+      <div class="section-sub">Keep your account secure</div>
+
+      <div class="settings-card">
+        <div class="settings-row" style="flex-direction:column;align-items:flex-start;">
+          <div class="settings-row-label" style="margin-bottom:16px;">Change Password</div>
+          <input class="settings-input" id="currentPassword" type="password" placeholder="Current password">
+          <input class="settings-input" id="newPassword" type="password" placeholder="New password (min 8 chars)">
+          <input class="settings-input" id="confirmPassword" type="password" placeholder="Confirm new password" style="margin-bottom:0">
+        </div>
+        <div class="settings-row" style="justify-content:flex-end">
+          <button class="btn-primary" onclick="changePassword()">Update Password</button>
+        </div>
+      </div>
+
+      <div class="settings-card">
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Account Created</div>
+            <div class="settings-row-desc" id="createdAt">—</div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-info">
+            <div class="settings-row-label">Email</div>
+            <div class="settings-row-desc" id="secEmail">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACCOUNT -->
+    <div class="settings-section" id="section-account">
+      <div class="section-title">Account</div>
+      <div class="section-sub">Manage or delete your account</div>
+
+      <div class="danger-zone">
+        <div class="danger-title">⚠️ Delete Account</div>
+        <div class="danger-desc">This will permanently delete your account, all conversations, and cancel any active subscription. This cannot be undone.</div>
+        <input class="settings-input" id="deletePassword" type="password" placeholder="Enter your password to confirm">
+        <button class="btn-danger" onclick="deleteAccount()">Delete My Account</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API   = 'https://sg-chatbot-z8hp.onrender.com';
+  const token = localStorage.getItem('sg_token');
+
+  if (!token) { window.location.href = 'chat.html'; }
+
+  let currentSettings = {};
+  let selectedTheme   = 'dark';
+  let selectedFont    = 'md';
+
+  // ── LOAD SETTINGS ──
+  async function loadSettings() {
+    try {
+      const res  = await fetch(`${API}/settings`, { headers:{ Authorization:`Bearer ${token}` } });
+      if (res.status === 401) { window.location.href = 'chat.html'; return; }
+      const data = await res.json();
+      currentSettings = data;
+
+      // Profile
+      const name = data.displayName || data.email.split('@')[0];
+      document.getElementById('avatarBig').textContent = name[0].toUpperCase();
+      document.getElementById('profileName').textContent = name;
+      document.getElementById('profileEmail').textContent = data.email;
+      document.getElementById('displayName').value = data.displayName || '';
+      document.getElementById('secEmail').textContent = data.email;
+      document.getElementById('createdAt').textContent = new Date(data.createdAt).toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' });
+
+      // Plan
+      const isPro = data.plan === 'pro';
+      const planEl = document.getElementById('profilePlan');
+      planEl.textContent = isPro ? '⚡ Pro' : 'Free';
+      planEl.className = `avatar-plan ${isPro ? 'pro' : 'free'}`;
+      renderPlan(data);
+
+      // Settings
+      const s = data.settings || {};
+      selectedTheme = s.theme || 'dark';
+      selectedFont  = s.fontSize || 'md';
+      document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById(`theme-${selectedTheme}`)?.classList.add('selected');
+      document.querySelectorAll('.font-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById(`font-${selectedFont}`)?.classList.add('selected');
+      document.getElementById('toggleTypewriter').checked = s.typewriter !== false;
+      document.getElementById('toggleAutoSave').checked   = s.autoSaveChats !== false;
+      document.getElementById('toggleSound').checked      = !!s.soundEnabled;
+      document.getElementById('toggleParental').checked   = !!s.parentalControl;
+
+      // Apply theme
+      applyTheme(selectedTheme);
+      applyFont(selectedFont);
+    } catch { showToast('Failed to load settings', 'error'); }
+  }
+
+  function renderPlan(data) {
+    const isPro   = data.plan === 'pro';
+    const card    = document.getElementById('planCard');
+    const name    = document.getElementById('planName');
+    const detail  = document.getElementById('planDetail');
+    const features= document.getElementById('planFeatures');
+    const action  = document.getElementById('planAction');
+
+    if (isPro) {
+      card.classList.add('pro-active');
+      name.textContent = '⚡ Pro Plan';
+      const exp = data.proExpires ? new Date(data.proExpires).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}) : 'Unknown';
+      detail.textContent = `Active until ${exp}`;
+      features.innerHTML = `
+        <div class="plan-feature"><span class="check">✓</span> Unlimited messages</div>
+        <div class="plan-feature"><span class="check">✓</span> Priority AI responses</div>
+        <div class="plan-feature"><span class="check">✓</span> Image & document analysis</div>
+        <div class="plan-feature"><span class="check">✓</span> All AI modes (Fast, Smart, Coding, Deep)</div>`;
+      action.innerHTML = `<button class="btn-outline" onclick="window.location.href='pricing.html'">Manage Subscription</button>`;
+    } else {
+      name.textContent = 'Free Plan';
+      detail.textContent = '25 messages per 4 hours';
+      features.innerHTML = `
+        <div class="plan-feature"><span class="check">✓</span> 25 messages / 4 hours</div>
+        <div class="plan-feature"><span class="check">✓</span> AI chat assistant</div>
+        <div class="plan-feature"><span class="check">✓</span> Image analysis</div>
+        <div class="plan-feature" style="opacity:.5"><span>✕</span> Unlimited messages</div>
+        <div class="plan-feature" style="opacity:.5"><span>✕</span> Priority responses</div>`;
+      action.innerHTML = `<a href="pricing.html" style="display:inline-block;padding:11px 24px;border-radius:10px;background:linear-gradient(135deg,#f59e0b,#fb923c);color:#000;font-weight:800;font-size:13px;text-decoration:none">Upgrade to Pro →</a>`;
+    }
+  }
+
+  // ── THEME ──
+  function selectTheme(t) {
+    selectedTheme = t;
+    document.querySelectorAll('.theme-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById(`theme-${t}`)?.classList.add('selected');
+  }
+  function applyTheme(t) {
+    if (t === 'light') {
+      document.documentElement.style.setProperty('--bg','#f0f4f8');
+      document.documentElement.style.setProperty('--surface','#ffffff');
+      document.documentElement.style.setProperty('--surface-2','#f4f6f9');
+      document.documentElement.style.setProperty('--surface-3','#e8ecf2');
+      document.documentElement.style.setProperty('--text','#1a2236');
+      document.documentElement.style.setProperty('--dim','#5a6a82');
+      document.documentElement.style.setProperty('--muted','#9aa5b4');
+      document.documentElement.style.setProperty('--border','rgba(0,0,0,0.07)');
+      document.documentElement.style.setProperty('--border-2','rgba(0,0,0,0.12)');
+    } else {
+      document.documentElement.style.removeProperty('--bg');
+      document.documentElement.style.removeProperty('--surface');
+      document.documentElement.style.removeProperty('--surface-2');
+      document.documentElement.style.removeProperty('--surface-3');
+      document.documentElement.style.removeProperty('--text');
+      document.documentElement.style.removeProperty('--dim');
+      document.documentElement.style.removeProperty('--muted');
+      document.documentElement.style.removeProperty('--border');
+      document.documentElement.style.removeProperty('--border-2');
+    }
+  }
+
+  // ── FONT ──
+  function selectFont(f) {
+    selectedFont = f;
+    document.querySelectorAll('.font-card').forEach(c=>c.classList.remove('selected'));
+    document.getElementById(`font-${f}`)?.classList.add('selected');
+    applyFont(f);
+  }
+  function applyFont(f) {
+    const sizes = { sm:'13px', md:'14.5px', lg:'16px' };
+    document.documentElement.style.setProperty('--chat-font-size', sizes[f]||'14.5px');
+  }
+
+  // ── SAVE FUNCTIONS ──
+  async function saveProfile() {
+    const name = document.getElementById('displayName').value.trim();
+    const res  = await postSettings({ displayName: name });
+    if (res) {
+      document.getElementById('profileName').textContent = name || currentSettings.email.split('@')[0];
+      document.getElementById('avatarBig').textContent   = (name || currentSettings.email)[0].toUpperCase();
+      showToast('Profile saved ✓', 'success');
+    }
+  }
+
+  async function saveAppearance() {
+    const res = await postSettings({ settings:{ theme: selectedTheme, fontSize: selectedFont } });
+    if (res) { applyTheme(selectedTheme); showToast('Appearance saved ✓', 'success'); }
+  }
+
+  async function saveChat() {
+    const res = await postSettings({ settings:{
+      typewriter:   document.getElementById('toggleTypewriter').checked,
+      autoSaveChats:document.getElementById('toggleAutoSave').checked,
+      soundEnabled: document.getElementById('toggleSound').checked,
+    }});
+    if (res) showToast('Chat settings saved ✓', 'success');
+  }
+
+  async function saveParental() {
+    const res = await postSettings({ settings:{ parentalControl: document.getElementById('toggleParental').checked } });
+    if (res) showToast(document.getElementById('toggleParental').checked ? '🛡️ Safe Mode enabled' : 'Safe Mode disabled', 'success');
+  }
+
+  async function postSettings(body) {
+    try {
+      const res  = await fetch(`${API}/settings`, { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message||'Error', 'error'); return false; }
+      return true;
+    } catch { showToast('Network error', 'error'); return false; }
+  }
+
+  async function changePassword() {
+    const cur  = document.getElementById('currentPassword').value;
+    const nw   = document.getElementById('newPassword').value;
+    const conf = document.getElementById('confirmPassword').value;
+    if (!cur||!nw||!conf) { showToast('Fill all fields', 'error'); return; }
+    if (nw !== conf) { showToast('Passwords do not match', 'error'); return; }
+    if (nw.length < 8) { showToast('Password min 8 characters', 'error'); return; }
+    try {
+      const res  = await fetch(`${API}/settings/change-password`, { method:'POST', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ currentPassword:cur, newPassword:nw }) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message||'Error', 'error'); return; }
+      document.getElementById('currentPassword').value = '';
+      document.getElementById('newPassword').value     = '';
+      document.getElementById('confirmPassword').value = '';
+      showToast('Password changed ✓', 'success');
+    } catch { showToast('Network error', 'error'); }
+  }
+
+  async function deleteAccount() {
+    const pw = document.getElementById('deletePassword').value;
+    if (!pw) { showToast('Enter your password', 'error'); return; }
+    if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+    try {
+      const res  = await fetch(`${API}/settings/account`, { method:'DELETE', headers:{ Authorization:`Bearer ${token}`, 'Content-Type':'application/json' }, body: JSON.stringify({ password: pw }) });
+      const data = await res.json();
+      if (!res.ok) { showToast(data.message||'Error','error'); return; }
+      localStorage.clear();
+      showToast('Account deleted. Goodbye! 👋', '');
+      setTimeout(() => window.location.href = 'index.html', 1500);
+    } catch { showToast('Network error','error'); }
+  }
+
+  // ── NAV ──
+  function switchSection(id) {
+    document.querySelectorAll('.settings-section').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.settings-nav-item').forEach(n=>n.classList.remove('active'));
+    document.getElementById(`section-${id}`)?.classList.add('active');
+    event.currentTarget.classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+
+  // ── TOAST ──
+  let toastTimer;
+  function showToast(msg,type='') {
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.className='toast show '+type;
+    clearTimeout(toastTimer);
+    toastTimer=setTimeout(()=>t.className='toast',3200);
+  }
+
+  loadSettings();
+</script>
+</body>
+</html>
