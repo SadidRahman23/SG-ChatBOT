@@ -31,12 +31,14 @@ const MAX_HISTORY  = 20;
 const FREE_LIMIT   = 25;
 const FREE_WINDOW  = 4 * 60 * 60 * 1000;
 
-// ✅ Nodemailer — Gmail SMTP
+// ═══════════════════════════════════════════
+// NODEMAILER — Gmail SMTP
+// ═══════════════════════════════════════════
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  service: "gmail",
   auth: {
     user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS, // Gmail App Password
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -56,12 +58,12 @@ async function sendEmail(to, subject, html) {
 }
 
 // ═══════════════════════════════════════════
-// APP
+// APP SETUP
 // ═══════════════════════════════════════════
 const app = express();
 app.set("trust proxy", 1);
 
-// ✅ Security 1: Force HTTPS in production
+// Force HTTPS in production
 app.use((req, res, next) => {
   if (
     process.env.NODE_ENV === "production" &&
@@ -72,7 +74,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Security 2: Remove fingerprinting headers
+// Security headers
 app.disable("x-powered-by");
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -82,7 +84,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ Security 3: CORS — whitelist only
+// CORS — whitelist only
 app.use(cors({
   origin: [
     "https://sg-chatbot-a2h.pages.dev",
@@ -91,16 +93,16 @@ app.use(cors({
     "http://localhost:5173",
     "http://127.0.0.1:5500",
   ],
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: false,
 }));
 
-// ✅ Security 4: Limit JSON body size
+// Limit JSON body size
 app.use(express.json({ limit: "16kb" }));
 
 // ═══════════════════════════════════════════
-// MULTER — File type validation
+// MULTER — File upload with type validation
 // ═══════════════════════════════════════════
 const ALLOWED_MIME = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp",
@@ -133,7 +135,7 @@ const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { m
 const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,  message: { message: "Too many reset attempts." } });
 
 // ═══════════════════════════════════════════
-// DB
+// DATABASE
 // ═══════════════════════════════════════════
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
@@ -153,7 +155,6 @@ const userSchema = new mongoose.Schema({
   resetTokenExp:  { type: Date, default: null },
   loginAttempts:  { type: Number, default: 0 },
   lockUntil:      { type: Date, default: null },
-  // ✅ User settings
   displayName:    { type: String, default: "", maxlength: 50 },
   settings: {
     theme:           { type: String, enum: ["dark","light","system"], default: "dark" },
@@ -179,13 +180,12 @@ const paymentSchema = new mongoose.Schema({
 }, { timestamps: true });
 const Payment = mongoose.model("Payment", paymentSchema);
 
-// ✅ Conversation model for chat history
 const conversationSchema = new mongoose.Schema({
   userId:   { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   title:    { type: String, default: "New Chat" },
   messages: [{
-    role:    { type: String, enum: ["user","assistant","system"] },
-    content: { type: mongoose.Schema.Types.Mixed },
+    role:      { type: String, enum: ["user","assistant","system"] },
+    content:   { type: mongoose.Schema.Types.Mixed },
     createdAt: { type: Date, default: Date.now },
   }],
   updatedAt: { type: Date, default: Date.now },
@@ -195,8 +195,6 @@ const Conversation = mongoose.model("Conversation", conversationSchema);
 // ═══════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════
-
-// ✅ Security 5: Sanitize input — prevent MongoDB injection
 function sanitize(input) {
   if (typeof input === "string") {
     return input.replace(/[\$\x00]/g, "").trim().slice(0, 1000);
@@ -234,7 +232,6 @@ function minsUntilReset(user) {
   return Math.ceil(Math.max(0, FREE_WINDOW - elapsed) / 60000);
 }
 
-// ✅ Security 6: Account lockout after 5 failed logins
 function isLocked(user) {
   return user.lockUntil && new Date() < new Date(user.lockUntil);
 }
@@ -254,7 +251,6 @@ function auth(req, res, next) {
   }
 }
 
-// ✅ Security 7: Admin auth — timing-safe comparison
 function adminAuth(req, res, next) {
   const secret = req.headers["x-admin-secret"] || "";
   const valid  = Buffer.from(secret).length === Buffer.from(ADMIN_SECRET).length &&
@@ -274,10 +270,8 @@ app.post("/signup", authLimiter, async (req, res) => {
 
     if (!email || !password)
       return res.status(400).json({ message: "Email and password required" });
-
     if (!isValidEmail(email))
       return res.status(400).json({ message: "Invalid email format" });
-
     if (password.length < 8 || password.length > 128)
       return res.status(400).json({ message: "Password must be 8–128 characters" });
 
@@ -305,29 +299,23 @@ app.post("/login", authLimiter, async (req, res) => {
       return res.status(401).json({ message: "Invalid login" });
 
     const user = await User.findOne({ email });
-
-    // ✅ Always respond with same message (prevent user enumeration)
     if (!user)
       return res.status(401).json({ message: "Invalid email or password" });
 
-    // ✅ Security 6: Check account lockout
     if (isLocked(user))
       return res.status(423).json({ message: "Account temporarily locked. Try again later." });
 
     const ok = await bcrypt.compare(password, user.password);
-
     if (!ok) {
-      // Increment failed attempts
       user.loginAttempts = (user.loginAttempts || 0) + 1;
       if (user.loginAttempts >= 5) {
-        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // Lock 15 min
+        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
         user.loginAttempts = 0;
       }
       await user.save();
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
-    // Reset on success
     user.loginAttempts = 0;
     user.lockUntil     = null;
     await user.save();
@@ -373,7 +361,6 @@ app.post("/forgot-password", resetLimiter, async (req, res) => {
       return res.json({ message: "If this email exists, a reset code has been sent." });
 
     const user = await User.findOne({ email });
-    // Always return same response (prevent email enumeration)
     if (!user)
       return res.json({ message: "If this email exists, a reset code has been sent." });
 
@@ -384,7 +371,6 @@ app.post("/forgot-password", resetLimiter, async (req, res) => {
     user.resetTokenExp = expires;
     await user.save();
 
-    // Send real email
     const emailSent = await sendEmail(
       email,
       "🔑 SG ChatBOT — Password Reset Code",
@@ -403,7 +389,7 @@ app.post("/forgot-password", resetLimiter, async (req, res) => {
     );
 
     if (!emailSent) {
-      console.log(`🔑 Reset code for ${email}: ${code}`); // fallback log
+      console.log(`🔑 Reset code for ${email}: ${code}`);
     }
 
     res.json({ message: "If this email exists, a reset code has been sent." });
@@ -424,14 +410,12 @@ app.post("/reset-password", resetLimiter, async (req, res) => {
 
     if (!email || !code || !newPassword)
       return res.status(400).json({ message: "All fields required" });
-
     if (newPassword.length < 8 || newPassword.length > 128)
       return res.status(400).json({ message: "Password must be 8–128 characters" });
 
     const user = await User.findOne({ email });
     if (!user || !user.resetToken || !user.resetTokenExp)
       return res.status(400).json({ message: "Invalid or expired code" });
-
     if (new Date() > user.resetTokenExp)
       return res.status(400).json({ message: "Reset code expired" });
 
@@ -461,21 +445,17 @@ app.post("/payment/submit", auth, async (req, res) => {
 
     if (!method || !transactionId || !plan)
       return res.status(400).json({ message: "Missing fields" });
-
     if (!["bkash", "nagad"].includes(method))
       return res.status(400).json({ message: "Invalid method" });
-
     if (!["monthly", "yearly"].includes(plan))
       return res.status(400).json({ message: "Invalid plan" });
-
     if (transactionId.length < 6 || transactionId.length > 50)
       return res.status(400).json({ message: "Invalid transaction ID" });
 
-    // ✅ Prevent duplicate transaction IDs
     const duplicate = await Payment.findOne({ transactionId });
     if (duplicate) return res.status(409).json({ message: "Transaction ID already used" });
 
-    const user   = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "User not found" });
 
     const amount = plan === "monthly" ? 99 : 799;
@@ -546,7 +526,7 @@ app.post("/admin/reject/:paymentId", adminLimiter, adminAuth, async (req, res) =
 });
 
 // ═══════════════════════════════════════════
-// CHAT
+// CHAT — Main endpoint
 // ═══════════════════════════════════════════
 app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => {
   try {
@@ -555,7 +535,7 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 
     const pro = isProActive(user);
 
-    // ✅ Message limit check
+    // ── Message limit check ──
     if (!pro) {
       checkWindow(user);
       if (user.msgCount >= FREE_LIMIT) {
@@ -569,7 +549,7 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       await user.save();
     }
 
-    // ✅ Parse + validate messages
+    // ── Parse messages ──
     let messages;
     try {
       messages = typeof req.body.messages === "string"
@@ -582,14 +562,13 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
     if (!Array.isArray(messages) || messages.length === 0)
       return res.status(400).json({ reply: "Invalid messages" });
 
-    // ✅ Sanitize each message content
+    // ── Sanitize & trim ──
     const trimmed = messages.slice(-MAX_HISTORY).map(m => ({
-      role: ["user","assistant","system"].includes(m.role) ? m.role : "user",
+      role:    ["user","assistant","system"].includes(m.role) ? m.role : "user",
       content: typeof m.content === "string" ? m.content.slice(0, 8000) : m.content,
     }));
 
-    // ✅ System prompt — inject once
-    // ✅ Extra parental control if enabled
+    // ── System prompt ──
     const parentalActive = user.settings?.parentalControl;
     if (trimmed[0]?.role !== "system") {
       trimmed.unshift({
@@ -609,9 +588,10 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
           "- If you don't know something, say so honestly. " +
           "- For math use LaTeX: inline $...$ and display $$...$$. " +
           "- When someone replies to a message (marked [Replying to: ...]), understand that context and respond accordingly. " +
-          (parentalActive ?
-          "SAFE MODE IS ON: You must keep ALL responses strictly appropriate for children under 13. " +
-          "No violence, no adult themes, no scary content, no profanity, no romance. Keep everything educational, positive and kind. " : "") +
+          (parentalActive
+            ? "SAFE MODE IS ON: You must keep ALL responses strictly appropriate for children under 13. " +
+              "No violence, no adult themes, no scary content, no profanity, no romance. Keep everything educational, positive and kind. "
+            : "") +
           "HARD RULES — never break these: " +
           "1. No sexual, explicit, or adult content. " +
           "2. No content harming or sexualizing minors. " +
@@ -621,30 +601,34 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       });
     }
 
-    // ✅ Image support
+    // ── Handle uploaded image ──
     if (req.file) {
       const base64   = req.file.buffer.toString("base64");
       const mimeType = req.file.mimetype;
       const lastMsg  = trimmed[trimmed.length - 1];
 
       if (lastMsg?.role === "user" && mimeType.startsWith("image/")) {
-        // ✅ Get text from imageText field OR from message content
-        const imageText = req.body.imageText ||
+        const imageText =
+          req.body.imageText ||
           (typeof lastMsg.content === "string" ? lastMsg.content : "") ||
           "Analyze this image in detail.";
 
         lastMsg.content = [
-          { type: "text", text: imageText },
+          { type: "text",      text: imageText },
           { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
         ];
       }
     }
 
-    // ✅ Model selection
-    const hasImage  = trimmed.some(m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url"));
-    const modelKey  = ["fast","smart","coding","deep"].includes(req.body.modelKey) ? req.body.modelKey : "fast";
+    // ── Detect image in messages ──
+    const hasImage = trimmed.some(
+      m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
+    );
 
-    // ✅ Groq models
+    const modelKey = ["fast","smart","coding","deep"].includes(req.body.modelKey)
+      ? req.body.modelKey : "fast";
+
+    // ── Groq models (text only) ──
     const GROQ_MODELS = {
       fast:   "llama-3.3-70b-versatile",
       smart:  "llama-3.3-70b-versatile",
@@ -652,19 +636,28 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       deep:   "deepseek-r1-distill-llama-70b",
     };
 
-    // ✅ OpenRouter models + fallbacks
+    // ── OpenRouter text models ──
     const OR_MODELS = {
       fast:   "meta-llama/llama-3.3-70b-instruct:free",
       smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
       coding: "qwen/qwen3-coder:free",
       deep:   "deepseek/deepseek-r1:free",
     };
-    const OR_FALLBACKS = hasImage ? [
-      "google/gemini-2.0-flash-exp:free",
-      "google/gemini-flash-1.5:free",
-      "qwen/qwen2.5-vl-7b-instruct:free",
-      "meta-llama/llama-3.2-11b-vision-instruct:free",
-    ] : [
+
+    // ── ✅ FIXED: Vision models — only tested working ones ──
+    // Primary vision model: google/gemini-2.5-flash-preview (reliable, supports images)
+    // Fallbacks: other confirmed vision-capable models on OpenRouter
+    const VISION_PRIMARY = "google/gemini-2.5-flash-preview:free";
+    const VISION_FALLBACKS = [
+      "google/gemini-2.0-flash-thinking-exp:free",
+      "qwen/qwen2.5-vl-72b-instruct:free",
+      "qwen/qwen2.5-vl-32b-instruct:free",
+      "meta-llama/llama-4-scout:free",
+      "meta-llama/llama-4-maverick:free",
+    ];
+
+    // ── Text fallbacks ──
+    const TEXT_FALLBACKS = [
       "meta-llama/llama-3.3-70b-instruct:free",
       "deepseek/deepseek-r1:free",
       "mistralai/mistral-small-3.1-24b-instruct:free",
@@ -674,43 +667,48 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       "nvidia/llama-3.1-nemotron-70b-instruct:free",
     ];
 
-    // ✅ Web search + URL fetch
-    const lastUserMsg = trimmed.filter(m => m.role === 'user').slice(-1)[0];
-    const userText    = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : '';
-    const urlMatch    = userText.match(/https?:\/\/[^\s]+/);
+    // ── URL fetch ──
+    const lastUserMsg  = trimmed.filter(m => m.role === "user").slice(-1)[0];
+    const userText     = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
+    const urlMatch     = userText.match(/https?:\/\/[^\s]+/);
     const searchIntent = /find|search|look up|latest|news/i.test(userText);
 
     if (urlMatch) {
       try {
-        const pageRes  = await fetch(urlMatch[0], { headers:{'User-Agent':'Mozilla/5.0'}, signal: AbortSignal.timeout(8000) });
+        const pageRes  = await fetch(urlMatch[0], { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) });
         const html     = await pageRes.text();
-        const pageText = html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,4000);
-        trimmed.push({ role:'user', content:`[Content from ${urlMatch[0]}]:\n\n${pageText}\n\nBased on this, answer my question.` });
-        const idx = trimmed.findLastIndex(m => m.role==='user' && m.content===userText);
-        if (idx !== -1 && idx !== trimmed.length-1) trimmed.splice(idx,1);
-      } catch(e) { console.error("URL fetch:", e.message); }
+        const pageText = html
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 4000);
+        trimmed.push({ role: "user", content: `[Content from ${urlMatch[0]}]:\n\n${pageText}\n\nBased on this, answer my question.` });
+        const idx = trimmed.findLastIndex(m => m.role === "user" && m.content === userText);
+        if (idx !== -1 && idx !== trimmed.length - 1) trimmed.splice(idx, 1);
+      } catch (e) { console.error("URL fetch:", e.message); }
     }
 
-    // ✅ Groq API call
+    // ── API callers ──
     async function callGroq(model) {
       return fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization:`Bearer ${process.env.GROQ_API_KEY}`, "Content-Type":"application/json" },
-        body: JSON.stringify({
+        method:  "POST",
+        headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+        body:    JSON.stringify({
           model,
           messages: trimmed.filter(m => !Array.isArray(m.content)),
-          max_tokens: 4096,
+          max_tokens:  4096,
           temperature: 0.7,
         }),
       });
     }
 
-    // ✅ OpenRouter API call
-    async function callAI(model) {
+    async function callOpenRouter(model) {
       const body = { model, messages: trimmed };
-      if (searchIntent && !urlMatch) body.plugins = [{ id:"web" }];
+      if (searchIntent && !urlMatch && !hasImage) body.plugins = [{ id: "web" }];
       return fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
+        method:  "POST",
         headers: {
           Authorization:  `Bearer ${process.env.OPENROUTER_KEY}`,
           "Content-Type": "application/json",
@@ -721,89 +719,133 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       });
     }
 
-    // ✅ Try Groq first → then OpenRouter fallbacks
+    // ── Try models with fallback chain ──
     let response;
-    let useGroq = !hasImage && !!process.env.GROQ_API_KEY;
 
-    if (useGroq) {
-      const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
-      try {
-        response = await callGroq(groqModel);
-        if (response.ok) {
-          console.log(`✅ Groq: ${groqModel}`);
-        } else {
-          const err = await response.text();
-          console.error(`❌ Groq failed:`, err);
-          useGroq = false;
-        }
-      } catch(e) {
-        console.error("Groq error:", e.message);
-        useGroq = false;
-      }
-    }
-
-    if (!useGroq) {
-      const primaryModel = hasImage
-      ? "google/gemini-2.0-flash-exp:free"
-      : (OR_MODELS[modelKey] || OR_MODELS.fast);
-
-      response = await callAI(primaryModel);
+    if (hasImage) {
+      // ── Vision path: OpenRouter only ──
+      console.log(`🖼️ Image request — trying vision models`);
+      response = await callOpenRouter(VISION_PRIMARY);
 
       if (!response.ok) {
         const errText = await response.text();
-        console.error(`❌ Primary (${primaryModel}):`, errText);
-        let errObj = {};
-        try { errObj = JSON.parse(errText); } catch {}
-        if (errObj?.error?.code === 429) {
-          const wait = Math.min((errObj?.error?.metadata?.retry_after_seconds||5)*1000, 10000);
-          await new Promise(r => setTimeout(r, wait));
-          response = await callAI(primaryModel);
+        console.error(`❌ Vision primary (${VISION_PRIMARY}):`, errText.slice(0, 200));
+
+        for (const fb of VISION_FALLBACKS) {
+          console.log(`🔄 Vision fallback: ${fb}`);
+          response = await callOpenRouter(fb);
+          if (response.ok) { console.log(`✅ Vision fallback OK: ${fb}`); break; }
+          const fbErr = await response.text();
+          console.error(`❌ Vision fallback (${fb}):`, fbErr.slice(0, 100));
+          await new Promise(r => setTimeout(r, 600));
         }
-        if (!response.ok) {
-          for (const fb of OR_FALLBACKS) {
-            if (fb === primaryModel) continue;
-            response = await callAI(fb);
-            if (response.ok) { console.log(`✅ OR Fallback: ${fb}`); break; }
-            console.error(`❌ Fallback (${fb}) failed`);
-            await new Promise(r => setTimeout(r, 500));
+      } else {
+        console.log(`✅ Vision primary OK: ${VISION_PRIMARY}`);
+      }
+
+    } else {
+      // ── Text path: try Groq first ──
+      const useGroq = !!process.env.GROQ_API_KEY;
+
+      if (useGroq) {
+        const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
+        try {
+          response = await callGroq(groqModel);
+          if (response.ok) {
+            console.log(`✅ Groq: ${groqModel}`);
+          } else {
+            const err = await response.text();
+            console.error(`❌ Groq failed:`, err.slice(0, 200));
+            response = null;
           }
+        } catch (e) {
+          console.error("Groq error:", e.message);
+          response = null;
         }
+      }
+
+      // ── Fall through to OpenRouter ──
+      if (!response || !response.ok) {
+        const primaryModel = OR_MODELS[modelKey] || OR_MODELS.fast;
+        console.log(`🔄 OpenRouter primary: ${primaryModel}`);
+        response = await callOpenRouter(primaryModel);
+
         if (!response.ok) {
-          return res.status(429).json({ reply: "⚠️ AI is busy right now. Please wait 30 seconds and try again." });
+          const errText = await response.text();
+          console.error(`❌ OR primary (${primaryModel}):`, errText.slice(0, 200));
+
+          let errObj = {};
+          try { errObj = JSON.parse(errText); } catch {}
+
+          // Rate limit — wait and retry once
+          if (errObj?.error?.code === 429) {
+            const wait = Math.min((errObj?.error?.metadata?.retry_after_seconds || 5) * 1000, 10000);
+            console.log(`⏳ Rate limited, waiting ${wait}ms…`);
+            await new Promise(r => setTimeout(r, wait));
+            response = await callOpenRouter(primaryModel);
+          }
+
+          // Try text fallbacks
+          if (!response.ok) {
+            for (const fb of TEXT_FALLBACKS) {
+              if (fb === primaryModel) continue;
+              console.log(`🔄 Text fallback: ${fb}`);
+              response = await callOpenRouter(fb);
+              if (response.ok) { console.log(`✅ Text fallback OK: ${fb}`); break; }
+              console.error(`❌ Text fallback (${fb}) failed`);
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        } else {
+          console.log(`✅ OR primary OK: ${primaryModel}`);
         }
       }
     }
 
-    // ── Parse final response ──
+    // ── Final check ──
+    if (!response || !response.ok) {
+      return res.status(429).json({ reply: "⚠️ AI is busy right now. Please wait 30 seconds and try again." });
+    }
+
+    // ── Parse response ──
     const data  = await response.json();
     const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
 
     const msgsLeft = pro ? null : FREE_LIMIT - user.msgCount;
     const minsLeft = pro ? null : minsUntilReset(user);
 
-    // ✅ Auto-save conversation
-    const convId = req.body.conversationId || null;
+    // ── Auto-save conversation ──
+    const convId      = req.body.conversationId || null;
     const allMessages = [...messages, { role: "assistant", content: reply }];
     const firstUser   = allMessages.find(m => m.role === "user");
     const autoTitle   = typeof firstUser?.content === "string"
-      ? firstUser.content.slice(0, 50) : "New Chat";
+      ? firstUser.content.slice(0, 50)
+      : "New Chat";
 
     let savedConvId = convId;
     try {
-      const toSave = allMessages.filter(m=>m.role!=="system").slice(-100).map(m=>({
-        role: m.role,
-        content: typeof m.content==="string" ? m.content.slice(0,5000) : m.content,
-      }));
+      const toSave = allMessages
+        .filter(m => m.role !== "system")
+        .slice(-100)
+        .map(m => ({
+          role:    m.role,
+          content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content,
+        }));
+
       if (convId) {
         await Conversation.findOneAndUpdate(
           { _id: convId, userId: user._id },
           { messages: toSave, updatedAt: new Date() }
         );
       } else {
-        const conv = await Conversation.create({ userId: user._id, title: autoTitle, messages: toSave });
+        const conv = await Conversation.create({
+          userId: user._id,
+          title:  autoTitle,
+          messages: toSave,
+        });
         savedConvId = conv._id;
       }
-    } catch(e) { console.error("Conv save error:", e.message); }
+    } catch (e) { console.error("Conv save error:", e.message); }
 
     res.json({ reply, msgsLeft, minsLeft, plan: pro ? "pro" : "free", conversationId: savedConvId });
 
@@ -813,9 +855,6 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
   }
 });
 
-// ═══════════════════════════════════════════
-// ✅ Global error handler — hide stack traces
-// ═══════════════════════════════════════════
 // ═══════════════════════════════════════════
 // SETTINGS ROUTES
 // ═══════════════════════════════════════════
@@ -866,7 +905,7 @@ app.post("/settings", auth, async (req, res) => {
         user.settings.autoSaveChats = !!s.autoSaveChats;
     }
 
-    user.markModified('settings');
+    user.markModified("settings");
     await user.save();
     res.json({ message: "Settings saved" });
   } catch { res.status(500).json({ message: "Error" }); }
@@ -909,7 +948,6 @@ app.delete("/settings/account", auth, async (req, res) => {
 // ═══════════════════════════════════════════
 // CONVERSATION ROUTES
 // ═══════════════════════════════════════════
-
 app.get("/conversations", auth, async (req, res) => {
   try {
     const convs = await Conversation.find({ userId: req.user.id })
@@ -937,12 +975,18 @@ app.post("/conversations/save", auth, async (req, res) => {
     const { conversationId, messages, title } = req.body;
     if (!Array.isArray(messages) || messages.length === 0)
       return res.status(400).json({ message: "No messages" });
+
     const toSave = messages
       .filter(m => m.role !== "system")
       .slice(-100)
-      .map(m => ({ role: m.role, content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content }));
+      .map(m => ({
+        role:    m.role,
+        content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content,
+      }));
+
     const firstUser = toSave.find(m => m.role === "user");
     const autoTitle = typeof firstUser?.content === "string" ? firstUser.content.slice(0, 50) : "New Chat";
+
     if (conversationId) {
       await Conversation.findOneAndUpdate(
         { _id: conversationId, userId: req.user.id },
@@ -950,7 +994,11 @@ app.post("/conversations/save", auth, async (req, res) => {
       );
       res.json({ conversationId });
     } else {
-      const conv = await Conversation.create({ userId: req.user.id, title: title || autoTitle, messages: toSave });
+      const conv = await Conversation.create({
+        userId:   req.user.id,
+        title:    title || autoTitle,
+        messages: toSave,
+      });
       res.json({ conversationId: conv._id });
     }
   } catch {
@@ -974,13 +1022,14 @@ app.get("/", (req, res) => {
   res.json({ message: "SG ChatBOT API running ✅" });
 });
 
-// ✅ Global error handler — must be after all routes
+// ═══════════════════════════════════════════
+// ERROR HANDLERS — must be last
+// ═══════════════════════════════════════════
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
   res.status(500).json({ message: "Something went wrong." });
 });
 
-// ✅ 404 handler — must be LAST
 app.use((req, res) => {
   res.status(404).json({ message: "Not found." });
 });
