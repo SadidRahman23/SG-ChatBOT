@@ -644,16 +644,15 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       deep:   "deepseek/deepseek-r1:free",
     };
 
-    // ── ✅ FIXED: Vision models — only tested working ones ──
-    // Primary vision model: google/gemini-2.5-flash-preview (reliable, supports images)
-    // Fallbacks: other confirmed vision-capable models on OpenRouter
-    const VISION_PRIMARY = "google/gemini-2.5-flash-preview:free";
+    // ── ✅ Vision models — openrouter/free auto-picks working vision model ──
+    // openrouter/free smartly filters for image-capable free models automatically
+    const VISION_PRIMARY = "openrouter/free";
     const VISION_FALLBACKS = [
-      "google/gemini-2.0-flash-thinking-exp:free",
-      "qwen/qwen2.5-vl-72b-instruct:free",
-      "qwen/qwen2.5-vl-32b-instruct:free",
-      "meta-llama/llama-4-scout:free",
-      "meta-llama/llama-4-maverick:free",
+      "meta-llama/llama-4-maverick:free",   // confirmed vision support
+      "meta-llama/llama-4-scout:free",      // confirmed vision support
+      "google/gemini-2.5-flash:free",       // gemini vision (non-preview)
+      "qwen/qwen3-vl-32b-instruct:free",    // qwen vision
+      "mistralai/pixtral-12b:free",         // pixtral vision
     ];
 
     // ── Text fallbacks ──
