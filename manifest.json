@@ -1,0 +1,20 @@
+{
+  "name": "SG ChatBOT",
+  "short_name": "SG Chat",
+  "description": "Smart AI assistant powered by SG AI",
+  "start_url": "/chat.html",
+  "display": "standalone",
+  "background_color": "#05070b",
+  "theme_color": "#05070b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "en"
+}
