@@ -957,6 +957,9 @@
       <a href="pricing.html" class="btn-ghost" id="upgradeBtn" style="display:none;border-color:rgba(245,158,11,.4);color:#f59e0b;">⚡ Upgrade</a>
       <span id="proBadge" style="display:none;padding:5px 12px;border-radius:99px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#f59e0b;font-size:12px;font-weight:700;">⚡ Pro</span>
 
+      <!-- ══ NOTIFICATION BELL ══ -->
+      <button class="btn-ghost" id="notifBtn" title="Enable notifications" style="display:none;">🔔</button>
+
       <!-- ══ EXPORT BUTTON ══ -->
       <div style="position:relative;" id="exportWrap">
         <button class="export-btn" id="exportBtn" title="Export chat">📥 Export</button>
@@ -1254,11 +1257,100 @@ const ENGLISH_INSTRUCTION = "CRITICAL LANGUAGE RULE: No matter what language the
 // ══════════════════════════════════════════
 // PWA — Service Worker Registration
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// PWA — Service Worker + Push Notifications
+// ══════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  // Unregister any stale service workers to prevent ERR_FAILED
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(reg => reg.unregister());
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => {
+        console.log('✅ SW registered:', reg.scope);
+
+        // Check for SW updates
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              showToast('🔄 Update available — refresh to apply', '');
+            }
+          });
+        });
+
+        // Store SW reg globally for push subscription
+        window._swReg = reg;
+      })
+      .catch(err => console.warn('SW registration failed:', err));
   });
+}
+
+// ── PWA Install prompt ──
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  // Show install button after 10s if not installed
+  setTimeout(() => {
+    if (_deferredPrompt) showInstallBanner();
+  }, 10000);
+});
+
+function showInstallBanner() {
+  const existing = document.getElementById('pwa-install-banner');
+  if (existing) return;
+  const banner = document.createElement('div');
+  banner.id = 'pwa-install-banner';
+  banner.style.cssText = `
+    position:fixed; bottom:80px; left:50%; transform:translateX(-50%);
+    background:var(--surface); border:1px solid var(--accent);
+    border-radius:14px; padding:12px 20px;
+    display:flex; align-items:center; gap:12px;
+    box-shadow:0 8px 30px rgba(79,142,255,0.25);
+    z-index:190; animation:fadeUp .3s ease;
+    font-size:13px; color:var(--text);
+    white-space:nowrap;
+  `;
+  banner.innerHTML = `
+    <span>📱</span>
+    <span>Install SG ChatBOT as an app</span>
+    <button onclick="installPWA()" style="padding:6px 14px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;">Install</button>
+    <button onclick="this.closest('#pwa-install-banner').remove()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;">✕</button>
+  `;
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 15000);
+}
+
+async function installPWA() {
+  if (!_deferredPrompt) return;
+  _deferredPrompt.prompt();
+  const { outcome } = await _deferredPrompt.userChoice;
+  _deferredPrompt = null;
+  document.getElementById('pwa-install-banner')?.remove();
+  if (outcome === 'accepted') showToast('✅ App installed!', 'success');
+}
+
+window.addEventListener('appinstalled', () => {
+  showToast('✅ SG ChatBOT installed as app!', 'success');
+  _deferredPrompt = null;
+});
+
+// ── Push Notification Permission ──
+async function requestPushPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') return;
+  if (Notification.permission === 'denied') return;
+
+  const permission = await Notification.requestPermission();
+  if (permission === 'granted') {
+    showToast('🔔 Notifications enabled!', 'success');
+  }
+}
+
+// Ask for notification permission after sign in (called from updateAuthUI)
+function maybeAskNotification() {
+  if (!STATE.token) return;
+  if (Notification.permission === 'default') {
+    setTimeout(requestPushPermission, 3000);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -1799,9 +1891,10 @@ function updateWelcomeMessage() {
 }
 
 function updateAuthUI() {
-  if(STATE.token&&STATE.email) { userNameEl.textContent=STATE.email; userRoleEl.textContent='Signed in'; avatarEl.textContent=STATE.email[0].toUpperCase(); topAuthBtn.textContent='Sign out'; fetchStatus(); }
+  if(STATE.token&&STATE.email) { userNameEl.textContent=STATE.email; userRoleEl.textContent='Signed in'; avatarEl.textContent=STATE.email[0].toUpperCase(); topAuthBtn.textContent='Sign out'; fetchStatus(); maybeAskNotification(); }
   else { userNameEl.textContent='Guest User'; userRoleEl.textContent='Click to sign in'; avatarEl.textContent='SG'; topAuthBtn.textContent='Sign in'; document.getElementById('msgCounter').style.display='none'; document.getElementById('upgradeBtn').style.display='none'; document.getElementById('proBadge').style.display='none'; }
   updateWelcomeMessage();
+  if(typeof updateNotifBtn === 'function') updateNotifBtn();
 }
 
 async function fetchStatus() {
@@ -2513,10 +2606,59 @@ inputArea.addEventListener('dragleave',()=>{inputArea.style.outline='';});
 inputArea.addEventListener('drop',e=>{e.preventDefault();inputArea.style.outline='';const f=e.dataTransfer.files[0];if(f){const dt=new DataTransfer();dt.items.add(f);fileInput.files=dt.files;fileInput.dispatchEvent(new Event('change'));}});
 
 // ══════════════════════════════════════════
+// NOTIFICATION BELL BUTTON
+// ══════════════════════════════════════════
+const notifBtn = document.getElementById('notifBtn');
+
+function updateNotifBtn() {
+  if (!('Notification' in window) || !STATE.token) {
+    notifBtn.style.display = 'none';
+    return;
+  }
+  if (Notification.permission === 'default') {
+    notifBtn.style.display = 'inline-flex';
+    notifBtn.title = 'Enable notifications';
+    notifBtn.textContent = '🔔';
+  } else if (Notification.permission === 'granted') {
+    notifBtn.style.display = 'inline-flex';
+    notifBtn.title = 'Notifications enabled';
+    notifBtn.textContent = '🔔';
+    notifBtn.style.color = 'var(--accent2)';
+    notifBtn.style.borderColor = 'rgba(0,212,170,.4)';
+  } else {
+    notifBtn.style.display = 'none';
+  }
+}
+
+notifBtn.addEventListener('click', async () => {
+  if (Notification.permission === 'granted') {
+    // Test notification
+    new Notification('SG ChatBOT 🤖', {
+      body: 'Notifications are working!',
+      icon: '/logo.svg',
+    });
+    showToast('🔔 Test notification sent!', 'success');
+    return;
+  }
+  const perm = await Notification.requestPermission();
+  if (perm === 'granted') {
+    showToast('🔔 Notifications enabled!', 'success');
+    new Notification('SG ChatBOT 🤖', {
+      body: 'You will now get notified!',
+      icon: '/logo.svg',
+    });
+  } else {
+    showToast('Notifications blocked in browser settings', 'error');
+  }
+  updateNotifBtn();
+});
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 updateAuthUI();
 bindSuggestions();
+updateNotifBtn();
 </script>
 </body>
 </html>
