@@ -1255,19 +1255,9 @@ const ENGLISH_INSTRUCTION = "CRITICAL LANGUAGE RULE: No matter what language the
 // PWA — Service Worker Registration
 // ══════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(reg => {
-      // Check for updates every 60s
-      setInterval(() => reg.update(), 60000);
-      reg.addEventListener('updatefound', () => {
-        const newWorker = reg.installing;
-        newWorker.addEventListener('statechange', () => {
-          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-            showToast('Update available — refresh to apply', '');
-          }
-        });
-      });
-    }).catch(() => {});
+  // Unregister any stale service workers to prevent ERR_FAILED
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => reg.unregister());
   });
 }
 
