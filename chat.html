@@ -294,7 +294,7 @@
       box-shadow:0 4px 20px rgba(79,142,255,.22);
     }
     .msg-row.bot .bubble {
-      background:var(--surface-2); border:1px solid var(--border);
+      background:transparent; border:none;
       border-bottom-left-radius:5px; max-width:min(660px,88%);
     }
     .bubble p { margin-bottom:10px; } .bubble p:last-child { margin-bottom:0; }
@@ -1375,12 +1375,20 @@ document.querySelectorAll('.model-option').forEach(opt => {
 });
 
 const TRIGGERS = {
-  name:  ['tumar nam ki','your name','tomar nam','ki tomar nam'],
-  owner: ['owner','malik','creator','who made you','ke baniyeche'],
+  name:    ['tumar nam ki','your name','tomar nam','ki tomar nam','what is your name','who are you','tumi ke'],
+  owner:   ['owner','malik','creator','who made you','ke baniyeche','who built you','who created you','sadid'],
+  father:  ["creator's father","sadid er baba","creator father","father of sadid","mahabub"],
+  mother:  ["creator's mother","sadid er ma","mother of sadid","sahela"],
+  sibling: ["creator's brother","sadid er vai","abdullah","sayem","brother of sadid","bon ache","sister"],
+  chatgpt: ['are you chatgpt','chatgpt','are you claude','are you gemini','tumi ki chatgpt','tumi ki claude'],
 };
 const TRIGGER_REPLIES = {
-  name:  'I am **SG ChatBOT**, your advanced AI assistant.',
-  owner: '**Mohammed Sadid Rahman** is the creator and owner of SG ChatBOT.',
+  name:    "I'm **SG** — your AI best friend! Built by Sadid Rahman, designed to be brilliant, warm, and actually fun to talk to. 😄",
+  owner:   "**Sadid Rahman** (Mohammed Sadid Rahman) is the creator and owner of SG ChatBOT. He built me from scratch to be the most helpful AI friend out there! 🚀",
+  father:  "Sadid Rahman's father's name is **Mahabub Rahman Rubel**. 😊",
+  mother:  "Sadid Rahman's mother's name is **Sahela Popy**. 😊",
+  sibling: "Sadid has one brother named **Abdullah Al Sayem**. No sisters! 😊",
+  chatgpt: "Nope! I'm **SG** — not ChatGPT, not Claude, not Gemini. I'm my own thing, built by Sadid Rahman specifically to be *your* AI best friend. 😄 Way cooler, if I do say so myself!",
 };
 
 const STATE = {
