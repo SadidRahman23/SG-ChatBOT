@@ -94,7 +94,7 @@ app.use(cors({
     "http://127.0.0.1:5500",
   ],
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-admin-secret"],
   credentials: false,
 }));
 
@@ -480,7 +480,7 @@ app.post("/payment/submit", auth, async (req, res) => {
 // ═══════════════════════════════════════════
 app.get("/admin/payments", adminLimiter, adminAuth, async (req, res) => {
   try {
-    const payments = await Payment.find({ status: "pending" }).sort({ createdAt: -1 });
+    const payments = await Payment.find().sort({ createdAt: -1 });
     res.json(payments);
   } catch {
     res.status(500).json({ message: "Error" });
@@ -644,18 +644,15 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       deep:   "deepseek/deepseek-r1:free",
     };
 
-    // ── ✅ Vision models — openrouter/free auto-picks working vision model ──
-    // openrouter/free smartly filters for image-capable free models automatically
     const VISION_PRIMARY = "openrouter/free";
     const VISION_FALLBACKS = [
-      "meta-llama/llama-4-maverick:free",   // confirmed vision support
-      "meta-llama/llama-4-scout:free",      // confirmed vision support
-      "google/gemini-2.5-flash:free",       // gemini vision (non-preview)
-      "qwen/qwen3-vl-32b-instruct:free",    // qwen vision
-      "mistralai/pixtral-12b:free",         // pixtral vision
+      "meta-llama/llama-4-maverick:free",
+      "meta-llama/llama-4-scout:free",
+      "google/gemini-2.5-flash:free",
+      "qwen/qwen3-vl-32b-instruct:free",
+      "mistralai/pixtral-12b:free",
     ];
 
-    // ── Text fallbacks ──
     const TEXT_FALLBACKS = [
       "meta-llama/llama-3.3-70b-instruct:free",
       "deepseek/deepseek-r1:free",
@@ -666,7 +663,6 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       "nvidia/llama-3.1-nemotron-70b-instruct:free",
     ];
 
-    // ── URL fetch ──
     const lastUserMsg  = trimmed.filter(m => m.role === "user").slice(-1)[0];
     const userText     = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
     const urlMatch     = userText.match(/https?:\/\/[^\s]+/);
@@ -689,7 +685,6 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       } catch (e) { console.error("URL fetch:", e.message); }
     }
 
-    // ── API callers ──
     async function callGroq(model) {
       return fetch("https://api.groq.com/openai/v1/chat/completions", {
         method:  "POST",
@@ -718,34 +713,25 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       });
     }
 
-    // ── Try models with fallback chain ──
     let response;
 
     if (hasImage) {
-      // ── Vision path: OpenRouter only ──
       console.log(`🖼️ Image request — trying vision models`);
       response = await callOpenRouter(VISION_PRIMARY);
-
       if (!response.ok) {
         const errText = await response.text();
         console.error(`❌ Vision primary (${VISION_PRIMARY}):`, errText.slice(0, 200));
-
         for (const fb of VISION_FALLBACKS) {
           console.log(`🔄 Vision fallback: ${fb}`);
           response = await callOpenRouter(fb);
           if (response.ok) { console.log(`✅ Vision fallback OK: ${fb}`); break; }
-          const fbErr = await response.text();
-          console.error(`❌ Vision fallback (${fb}):`, fbErr.slice(0, 100));
           await new Promise(r => setTimeout(r, 600));
         }
       } else {
         console.log(`✅ Vision primary OK: ${VISION_PRIMARY}`);
       }
-
     } else {
-      // ── Text path: try Groq first ──
       const useGroq = !!process.env.GROQ_API_KEY;
-
       if (useGroq) {
         const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
         try {
@@ -763,7 +749,6 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
         }
       }
 
-      // ── Fall through to OpenRouter ──
       if (!response || !response.ok) {
         const primaryModel = OR_MODELS[modelKey] || OR_MODELS.fast;
         console.log(`🔄 OpenRouter primary: ${primaryModel}`);
@@ -772,19 +757,14 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
         if (!response.ok) {
           const errText = await response.text();
           console.error(`❌ OR primary (${primaryModel}):`, errText.slice(0, 200));
-
           let errObj = {};
           try { errObj = JSON.parse(errText); } catch {}
-
-          // Rate limit — wait and retry once
           if (errObj?.error?.code === 429) {
             const wait = Math.min((errObj?.error?.metadata?.retry_after_seconds || 5) * 1000, 10000);
             console.log(`⏳ Rate limited, waiting ${wait}ms…`);
             await new Promise(r => setTimeout(r, wait));
             response = await callOpenRouter(primaryModel);
           }
-
-          // Try text fallbacks
           if (!response.ok) {
             for (const fb of TEXT_FALLBACKS) {
               if (fb === primaryModel) continue;
@@ -801,19 +781,16 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
       }
     }
 
-    // ── Final check ──
     if (!response || !response.ok) {
       return res.status(429).json({ reply: "⚠️ AI is busy right now. Please wait 30 seconds and try again." });
     }
 
-    // ── Parse response ──
     const data  = await response.json();
     const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
 
     const msgsLeft = pro ? null : FREE_LIMIT - user.msgCount;
     const minsLeft = pro ? null : minsUntilReset(user);
 
-    // ── Auto-save conversation ──
     const convId      = req.body.conversationId || null;
     const allMessages = [...messages, { role: "assistant", content: reply }];
     const firstUser   = allMessages.find(m => m.role === "user");
@@ -857,8 +834,6 @@ app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => 
 // ═══════════════════════════════════════════
 // SETTINGS ROUTES
 // ═══════════════════════════════════════════
-
-// Get settings
 app.get("/settings", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select("-password -resetToken");
@@ -874,18 +849,15 @@ app.get("/settings", auth, async (req, res) => {
   } catch { res.status(500).json({ message: "Error" }); }
 });
 
-// Update settings
 app.post("/settings", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "Not found" });
 
     const { displayName, settings } = req.body;
-
     if (displayName !== undefined) {
       user.displayName = sanitize(displayName).slice(0, 50);
     }
-
     if (settings) {
       const s = settings;
       if (s.theme !== undefined && ["dark","light","system"].includes(s.theme))
@@ -910,7 +882,6 @@ app.post("/settings", auth, async (req, res) => {
   } catch { res.status(500).json({ message: "Error" }); }
 });
 
-// Change password
 app.post("/settings/change-password", auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = sanitize(req.body);
@@ -929,7 +900,6 @@ app.post("/settings/change-password", auth, async (req, res) => {
   } catch { res.status(500).json({ message: "Error" }); }
 });
 
-// Delete account
 app.delete("/settings/account", auth, async (req, res) => {
   try {
     const { password } = sanitize(req.body);
@@ -1022,7 +992,7 @@ app.get("/", (req, res) => {
 });
 
 // ═══════════════════════════════════════════
-// ERROR HANDLERS — must be last
+// ERROR HANDLERS
 // ═══════════════════════════════════════════
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
