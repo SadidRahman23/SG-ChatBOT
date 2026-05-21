@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pricing — SG ChatBOT Pro</title>
+  <title>Pricing — SG ChatBOT</title>
   <link rel="icon" href="logo.svg" type="image/svg+xml">
-  <meta name="description" content="Upgrade to SG ChatBOT Pro for unlimited AI messages. Pay via bKash or Nagad.">
+  <meta name="description" content="Upgrade to SG ChatBOT Pro or Student plan. Pay via bKash or Nagad.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <style>
@@ -15,6 +15,7 @@
       --text:#e4ecf7; --muted:#4a5a72; --dim:#8a9bb5;
       --accent:#4f8eff; --accent2:#00d4aa; --glow:rgba(79,142,255,0.15);
       --gold:#f59e0b; --gold-glow:rgba(245,158,11,0.15);
+      --purple:#a855f7; --purple-glow:rgba(168,85,247,0.15);
       --head:'Cabinet Grotesk',sans-serif; --serif:'Instrument Serif',serif;
     }
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
@@ -24,7 +25,6 @@
       background-image:linear-gradient(rgba(79,142,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,255,0.025) 1px,transparent 1px);
       background-size:60px 60px;}
 
-    /* NAV */
     nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;background:rgba(5,7,9,0.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);}
     .nav-logo{font-size:18px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;}
     .nav-links{display:flex;align-items:center;gap:24px;}
@@ -32,45 +32,44 @@
     .nav-links a:hover{color:var(--text);}
     .nav-cta{padding:7px 18px;border-radius:8px;background:var(--accent);color:#fff;font-size:13px;font-weight:600;text-decoration:none;}
 
-    /* PAGE */
-    .page{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:110px 24px 80px;text-align:center;}
+    .page{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:110px 24px 80px;text-align:center;}
     .page-badge{display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:99px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.07);font-size:12px;color:var(--gold);font-weight:600;margin-bottom:24px;}
     .page-title{font-family:var(--head);font-size:clamp(36px,5vw,60px);font-weight:900;letter-spacing:-2px;line-height:1.08;margin-bottom:16px;}
     .page-title em{font-family:var(--serif);font-style:italic;font-weight:400;background:linear-gradient(135deg,var(--gold),#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
     .page-sub{font-size:17px;color:var(--dim);margin-bottom:60px;}
 
-    /* PLANS */
-    .plans{display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:760px;margin:0 auto 70px;}
-
+    .plans{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;max-width:960px;margin:0 auto 70px;}
     .plan-card{padding:32px;border-radius:20px;background:var(--surface);border:1px solid var(--border-2);text-align:left;position:relative;transition:transform .25s;}
     .plan-card:hover{transform:translateY(-4px);}
-
+    .plan-card.student{border-color:rgba(168,85,247,.4);background:linear-gradient(135deg,rgba(168,85,247,.05),rgba(99,102,241,.03));}
+    .plan-card.student::before{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at top,rgba(168,85,247,.08),transparent 60%);pointer-events:none;}
     .plan-card.pro{border-color:rgba(245,158,11,.4);background:linear-gradient(135deg,rgba(245,158,11,.05),rgba(251,146,60,.03));}
     .plan-card.pro::before{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at top,rgba(245,158,11,.08),transparent 60%);pointer-events:none;}
 
     .plan-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:20px;}
     .plan-badge.free{background:rgba(255,255,255,.05);border:1px solid var(--border-2);color:var(--dim);}
+    .plan-badge.student-badge{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:var(--purple);}
     .plan-badge.pro-badge{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:var(--gold);}
 
     .plan-price{font-size:48px;font-weight:900;letter-spacing:-2px;line-height:1;margin-bottom:4px;}
     .plan-price span{font-size:18px;font-weight:500;color:var(--dim);letter-spacing:0;}
     .plan-period{font-size:13px;color:var(--muted);margin-bottom:24px;}
     .plan-divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
-
     .plan-features{display:flex;flex-direction:column;gap:10px;margin-bottom:28px;}
     .feature-row{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--dim);}
     .feature-row .check{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;}
     .feature-row .check.yes{background:rgba(0,212,170,.15);color:var(--accent2);}
+    .feature-row .check.yes-p{background:rgba(168,85,247,.15);color:var(--purple);}
     .feature-row .check.no{background:rgba(255,255,255,.05);color:var(--muted);}
     .feature-row.active{color:var(--text);}
-
     .plan-btn{width:100%;padding:13px;border-radius:12px;border:none;font-family:var(--head);font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;}
     .plan-btn.free-btn{background:var(--surface-2);border:1px solid var(--border-2);color:var(--dim);}
     .plan-btn.free-btn:hover{background:var(--surface-3);color:var(--text);}
+    .plan-btn.student-btn{background:linear-gradient(135deg,var(--purple),#6366f1);color:#fff;}
+    .plan-btn.student-btn:hover{filter:brightness(1.1);box-shadow:0 8px 30px rgba(168,85,247,.3);}
     .plan-btn.pro-btn{background:linear-gradient(135deg,var(--gold),#fb923c);color:#000;}
     .plan-btn.pro-btn:hover{filter:brightness(1.1);box-shadow:0 8px 30px rgba(245,158,11,.3);}
 
-    /* PAYMENT MODAL */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:200;padding:16px;}
     .modal-overlay.open{display:flex;}
     .modal-card{background:var(--surface);border:1px solid var(--border-2);border-radius:24px;padding:32px 28px;width:100%;max-width:440px;animation:scaleIn .22s cubic-bezier(.34,1.56,.64,1);box-shadow:0 40px 80px rgba(0,0,0,.6);}
@@ -79,52 +78,41 @@
     .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;}
     .modal-close:hover{background:var(--surface-2);color:var(--text);}
 
-    /* Plan selector tabs */
     .plan-tabs{display:flex;background:var(--surface-2);border-radius:10px;padding:4px;gap:4px;margin-bottom:20px;}
-    .plan-tab{flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--dim);font-family:var(--head);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:2px;}
-    .plan-tab .tab-price{font-size:16px;font-weight:800;color:var(--text);}
+    .plan-tab{flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--dim);font-family:var(--head);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:2px;}
+    .plan-tab .tab-price{font-size:15px;font-weight:800;color:var(--text);}
     .plan-tab .tab-save{font-size:10px;color:var(--accent2);font-weight:700;}
     .plan-tab.active{background:var(--surface-3);color:var(--text);}
     .plan-tab.active .tab-price{color:var(--gold);}
 
-    /* Payment method */
     .method-label{font-size:12px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
     .method-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
     .method-btn{padding:14px;border-radius:12px;border:2px solid var(--border-2);background:var(--surface-2);cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:6px;}
-    .method-btn:hover{border-color:var(--border-2);background:var(--surface-3);}
+    .method-btn:hover{background:var(--surface-3);}
     .method-btn.selected{border-color:var(--gold);background:rgba(245,158,11,.07);}
     .method-logo{font-size:22px;}
     .method-name{font-size:13px;font-weight:700;color:var(--text);}
     .method-num{font-size:11px;color:var(--dim);}
-
-    /* Instructions */
     .payment-instructions{background:rgba(79,142,255,.06);border:1px solid rgba(79,142,255,.15);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:var(--dim);line-height:1.7;}
     .payment-instructions strong{color:var(--text);}
     .payment-instructions .amount{font-size:20px;font-weight:800;color:var(--gold);display:block;margin:6px 0;}
-
-    /* Input */
     .field-label{font-size:12px;font-weight:600;color:var(--dim);margin-bottom:6px;}
     .modal-input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--head);font-size:14px;outline:none;transition:all .2s;margin-bottom:16px;}
     .modal-input:focus{border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-glow);}
-
     .submit-btn{width:100%;padding:13px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--gold),#fb923c);color:#000;font-family:var(--head);font-size:14px;font-weight:800;cursor:pointer;transition:all .25s;}
-    .submit-btn:hover{filter:brightness(1.1);box-shadow:0 8px 30px rgba(245,158,11,.3);}
+    .submit-btn:hover{filter:brightness(1.1);}
     .submit-btn:disabled{opacity:.5;cursor:not-allowed;}
-
+    .submit-btn.student-submit{background:linear-gradient(135deg,var(--purple),#6366f1);color:#fff;}
     .modal-note{font-size:12px;color:var(--muted);text-align:center;margin-top:12px;}
     .modal-error{font-size:12.5px;color:#f87171;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:none;}
     .modal-error.show{display:block;}
-    .modal-success{font-size:13px;color:var(--accent2);background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:12px 14px;margin-bottom:12px;display:none;line-height:1.6;}
-    .modal-success.show{display:block;}
 
-    /* TOAST */
     .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:300;white-space:nowrap;}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
     .toast.success{border-color:rgba(0,212,170,.4);color:var(--accent2);}
     .toast.error{border-color:rgba(248,113,113,.4);color:#f87171;}
 
-    /* FAQ */
-    .faq{max-width:620px;margin:0 auto;text-align:left;}
+    .faq{max-width:660px;margin:0 auto;text-align:left;}
     .faq-title{font-size:28px;font-weight:800;letter-spacing:-.5px;text-align:center;margin-bottom:32px;}
     .faq-item{border-bottom:1px solid var(--border);padding:18px 0;}
     .faq-item:last-child{border-bottom:none;}
@@ -132,24 +120,16 @@
     .faq-a{font-size:14px;color:var(--dim);line-height:1.7;}
 
     @keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+    @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:420px;margin:0 auto 50px;}}
     @media(max-width:768px){
       nav{padding:0 16px;}.nav-links{display:none;}
       .page{padding:90px 16px 60px;}
-      .plans{grid-template-columns:1fr;max-width:420px;margin:0 auto 50px;}
       .plan-card{padding:24px 20px;}
       .plan-price{font-size:40px;}
-      .plan-tabs{flex-direction:column;}
-      .method-grid{grid-template-columns:1fr 1fr;}
       .modal-card{padding:24px 18px;}
-      .faq{padding:0 4px;}
       footer{flex-direction:column;text-align:center;padding:24px 16px;}
       .footer-links{flex-wrap:wrap;justify-content:center;gap:14px;}
     }
-    @media(max-width:400px){
-      .method-grid{grid-template-columns:1fr;}
-      .plan-tabs{flex-direction:row;}
-    }
-
     footer{position:relative;z-index:1;padding:32px 40px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
     .footer-links{display:flex;gap:20px;}
     .footer-links a{font-size:13px;color:var(--dim);text-decoration:none;}
@@ -167,50 +147,70 @@
     <a href="pricing.html">Pricing</a>
     <a href="chat.html">Open App</a>
   </div>
-  <a href="chat.html" class="nav-cta">Open App →</a>
+  <a href="chat.html" class="nav-cta">Open App &rarr;</a>
 </nav>
 
 <div class="page">
-  <div class="page-badge">⚡ Upgrade to Pro</div>
+  <div class="page-badge">&#x26A1; Choose Your Plan</div>
   <h1 class="page-title">Simple, honest<br><em>pricing.</em></h1>
   <p class="page-sub">Start free. Upgrade when you need more.</p>
 
   <div class="plans">
+
     <!-- FREE -->
     <div class="plan-card">
       <div class="plan-badge free">Free</div>
-      <div class="plan-price">৳0 <span>/mo</span></div>
+      <div class="plan-price">&#x9F3;0 <span>/mo</span></div>
       <div class="plan-period">Forever free</div>
       <hr class="plan-divider">
       <div class="plan-features">
-        <div class="feature-row active"><span class="check yes">✓</span> 25 messages per 4 hours</div>
-        <div class="feature-row active"><span class="check yes">✓</span> AI chat assistant</div>
-        <div class="feature-row active"><span class="check yes">✓</span> Image analysis</div>
-        <div class="feature-row active"><span class="check yes">✓</span> File upload support</div>
-        <div class="feature-row"><span class="check no">✕</span> Unlimited messages</div>
-        <div class="feature-row"><span class="check no">✕</span> Priority responses</div>
-        <div class="feature-row"><span class="check no">✕</span> Pro badge</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> 25 messages / 4 hours</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI chat assistant</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Image analysis</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> File upload</div>
+        <div class="feature-row"><span class="check no">&#x2715;</span> More messages</div>
+        <div class="feature-row"><span class="check no">&#x2715;</span> Priority responses</div>
+        <div class="feature-row"><span class="check no">&#x2715;</span> Badge</div>
       </div>
       <button class="plan-btn free-btn" onclick="window.location.href='chat.html'">Continue Free</button>
     </div>
 
-    <!-- PRO -->
-    <div class="plan-card pro">
-      <div class="plan-badge pro-badge">⚡ Pro</div>
-      <div class="plan-price" id="priceDisplay">৳99 <span>/mo</span></div>
-      <div class="plan-period" id="periodDisplay">Billed monthly · Save with yearly</div>
+    <!-- STUDENT -->
+    <div class="plan-card student">
+      <div class="plan-badge student-badge">&#x1F393; Student</div>
+      <div class="plan-price">&#x9F3;49 <span>/mo</span></div>
+      <div class="plan-period">Best for students</div>
       <hr class="plan-divider">
       <div class="plan-features">
-        <div class="feature-row active"><span class="check yes">✓</span> <strong>Unlimited</strong> messages</div>
-        <div class="feature-row active"><span class="check yes">✓</span> AI chat assistant</div>
-        <div class="feature-row active"><span class="check yes">✓</span> Image analysis</div>
-        <div class="feature-row active"><span class="check yes">✓</span> File upload support</div>
-        <div class="feature-row active"><span class="check yes">✓</span> Priority responses</div>
-        <div class="feature-row active"><span class="check yes">✓</span> ⚡ Pro badge</div>
-        <div class="feature-row active"><span class="check yes">✓</span> Early access to new features</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> <strong>100 messages</strong> / 4 hours</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> AI chat assistant</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Image analysis</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> File upload</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Priority responses</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> &#x1F393; Student badge</div>
+        <div class="feature-row"><span class="check no">&#x2715;</span> Unlimited messages</div>
       </div>
-      <button class="plan-btn pro-btn" id="upgradeBtn">Upgrade to Pro →</button>
+      <button class="plan-btn student-btn" id="studentBtn">Get Student Plan &rarr;</button>
     </div>
+
+    <!-- PRO -->
+    <div class="plan-card pro">
+      <div class="plan-badge pro-badge">&#x26A1; Pro</div>
+      <div class="plan-price" id="priceDisplay">&#x9F3;99 <span>/mo</span></div>
+      <div class="plan-period" id="periodDisplay">Billed monthly &middot; Save with yearly</div>
+      <hr class="plan-divider">
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> <strong>Unlimited</strong> messages</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI chat assistant</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Image analysis</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> File upload</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Priority responses</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> &#x26A1; Pro badge</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Early access to new features</div>
+      </div>
+      <button class="plan-btn pro-btn" id="upgradeBtn">Upgrade to Pro &rarr;</button>
+    </div>
+
   </div>
 
   <!-- FAQ -->
@@ -218,14 +218,18 @@
     <div class="faq-title">Frequently asked questions</div>
     <div class="faq-item">
       <div class="faq-q">How do I pay?</div>
-      <div class="faq-a">Send the amount via bKash or Nagad to our merchant number, then submit your Transaction ID. We'll verify and activate Pro within 24 hours.</div>
+      <div class="faq-a">Send the amount via bKash or Nagad to our number, then submit your Transaction ID. We'll verify and activate within 24 hours.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-q">What is the daily message limit on Free?</div>
-      <div class="faq-a">Free users get 25 messages per 4-hour window. The counter resets automatically after 4 hours.</div>
+      <div class="faq-q">What is the difference between Student and Pro?</div>
+      <div class="faq-a">Student plan gives 100 messages per 4-hour window at half the price. Pro gives completely unlimited messages with no restrictions.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-q">How long until Pro is activated?</div>
+      <div class="faq-q">What is the Free message limit?</div>
+      <div class="faq-a">Free users get 25 messages per 4-hour window. The counter resets automatically.</div>
+    </div>
+    <div class="faq-item">
+      <div class="faq-q">How long until my plan is activated?</div>
       <div class="faq-a">Usually within a few hours. Maximum 24 hours after payment verification.</div>
     </div>
     <div class="faq-item">
@@ -233,8 +237,8 @@
       <div class="faq-a">Due to the nature of digital services, we generally do not offer refunds. Contact us if you have an issue.</div>
     </div>
     <div class="faq-item">
-      <div class="faq-q">What happens when my Pro expires?</div>
-      <div class="faq-a">Your account reverts to Free plan. Your data and chat history are safe.</div>
+      <div class="faq-q">What happens when my plan expires?</div>
+      <div class="faq-a">Your account reverts to Free plan. Your data and chat history are always safe.</div>
     </div>
   </div>
 </div>
@@ -243,62 +247,57 @@
 <div class="modal-overlay" id="paymentModal">
   <div class="modal-card">
     <div class="modal-header">
-      <div class="modal-title">Upgrade to Pro ⚡</div>
-      <button class="modal-close" id="modalClose">✕</button>
+      <div class="modal-title" id="modalTitle">Upgrade to Pro &#x26A1;</div>
+      <button class="modal-close" id="modalClose">&#x2715;</button>
     </div>
 
     <div id="successView" style="display:none;text-align:center;padding:20px 0;">
-      <div style="font-size:48px;margin-bottom:16px;">🎉</div>
+      <div style="font-size:48px;margin-bottom:16px;">&#x1F389;</div>
       <div style="font-size:20px;font-weight:800;margin-bottom:8px;">Payment Submitted!</div>
-      <div style="font-size:14px;color:var(--dim);line-height:1.7;">We'll verify your payment and activate Pro within <strong style="color:var(--text)">24 hours</strong>.<br>You'll be able to use unlimited messages after activation.</div>
+      <div style="font-size:14px;color:var(--dim);line-height:1.7;">We'll verify your payment and activate your plan within <strong style="color:var(--text)">24 hours</strong>.</div>
       <button class="submit-btn" style="margin-top:24px;" onclick="closeModal()">Got it!</button>
     </div>
 
     <div id="formView">
-      <!-- Plan tabs -->
-      <div class="plan-tabs">
+      <div class="plan-tabs" id="proTabs">
         <button class="plan-tab active" id="tabMonthly" onclick="selectPlan('monthly')">
           Monthly
-          <span class="tab-price">৳99</span>
+          <span class="tab-price">&#x9F3;99</span>
         </button>
         <button class="plan-tab" id="tabYearly" onclick="selectPlan('yearly')">
           Yearly
-          <span class="tab-price">৳799</span>
+          <span class="tab-price">&#x9F3;799</span>
           <span class="tab-save">Save 33%</span>
         </button>
       </div>
 
-      <!-- Payment method -->
       <div class="method-label">Select Payment Method</div>
       <div class="method-grid">
         <button class="method-btn selected" id="btnBkash" onclick="selectMethod('bkash')">
-          <span class="method-logo">💳</span>
+          <span class="method-logo">&#x1F4B3;</span>
           <span class="method-name">bKash</span>
-          <span class="method-num">01XXXXXXXXX</span>
+          <span class="method-num">Not Available </span>
         </button>
         <button class="method-btn" id="btnNagad" onclick="selectMethod('nagad')">
-          <span class="method-logo">💳</span>
+          <span class="method-logo">&#x1F4B3;</span>
           <span class="method-name">Nagad</span>
-          <span class="method-num">01*****</span>
+          <span class="method-num">01913650591</span>
         </button>
       </div>
 
-      <!-- Instructions -->
       <div class="payment-instructions" id="paymentInstructions">
-        Send to bKash number: <strong>01XXXXXXXXX</strong><br>
-        Amount: <span class="amount" id="amountDisplay">৳99</span>
+        Send to bKash number: <strong>Not Available </strong><br>
+        Amount: <span class="amount" id="amountDisplay">&#x9F3;99</span>
         Select <strong>Send Money</strong>, enter the amount, and copy the Transaction ID.
       </div>
 
       <div class="modal-error" id="modalError"></div>
-      <div class="modal-success" id="modalSuccess"></div>
 
-      <!-- Transaction ID -->
       <div class="field-label">Transaction ID (TrxID)</div>
       <input class="modal-input" id="trxInput" type="text" placeholder="e.g. ABC1234567">
 
-      <button class="submit-btn" id="submitPayBtn" onclick="submitPayment()">Submit Payment →</button>
-      <div class="modal-note">⏱ Activation within 24 hours after verification</div>
+      <button class="submit-btn" id="submitPayBtn" onclick="submitPayment()">Submit Payment &rarr;</button>
+      <div class="modal-note">&#x23F1; Activation within 24 hours after verification</div>
     </div>
   </div>
 </div>
@@ -313,20 +312,20 @@
     <a href="privacy.html">Privacy</a>
     <a href="chat.html">Open App</a>
   </div>
-  <p>© 2025 SG ChatBOT · Built by Mohammed Sadid Rahman</p>
+  <p>&copy; 2025 SG ChatBOT &middot; Built by Mohammed Sadid Rahman</p>
 </footer>
 
 <script>
   const API = 'https://sg-chatbot-z8hp.onrender.com';
 
-  // ── bKash/Nagad numbers — CHANGE THESE ──
   const PAYMENT_NUMBERS = {
-    bkash: '01XXXXXXXXX',  // ← তোমার bKash নম্বর
-    nagad: '01913650591',  // ← তোমার Nagad নম্বর
+    bkash: '01913650591',
+    nagad: '01913650591',
   };
 
-  let selectedMethod = 'bkash';
-  let selectedPlan   = 'monthly';
+  let selectedMethod  = 'bkash';
+  let selectedPlan    = 'monthly';
+  let currentPlanType = 'pro';
 
   function selectMethod(m) {
     selectedMethod = m;
@@ -340,41 +339,59 @@
     document.getElementById('tabMonthly').classList.toggle('active', p === 'monthly');
     document.getElementById('tabYearly').classList.toggle('active',  p === 'yearly');
     updateInstructions();
-    // Update hero price
-    document.getElementById('priceDisplay').innerHTML  = p === 'monthly' ? '৳99 <span>/mo</span>' : '৳799 <span>/yr</span>';
+    document.getElementById('priceDisplay').innerHTML   = p === 'monthly' ? '&#x9F3;99 <span>/mo</span>' : '&#x9F3;799 <span>/yr</span>';
     document.getElementById('periodDisplay').textContent = p === 'monthly' ? 'Billed monthly · Save with yearly' : 'Billed yearly · Best value';
   }
 
   function updateInstructions() {
-    const num    = PAYMENT_NUMBERS[selectedMethod];
-    const amount = selectedPlan === 'monthly' ? '৳99' : '৳799';
-    const name   = selectedMethod === 'bkash' ? 'bKash' : 'Nagad';
-    document.getElementById('amountDisplay').textContent = amount;
+    const num  = PAYMENT_NUMBERS[selectedMethod];
+    const name = selectedMethod === 'bkash' ? 'bKash' : 'Nagad';
+    const amount = currentPlanType === 'student' ? '&#x9F3;49' : (selectedPlan === 'monthly' ? '&#x9F3;99' : '&#x9F3;799');
     document.getElementById('paymentInstructions').innerHTML = `
       Send to ${name} number: <strong>${num}</strong><br>
       Amount: <span class="amount">${amount}</span>
       Select <strong>Send Money</strong>, enter the amount, and copy the Transaction ID.`;
   }
 
-  document.getElementById('upgradeBtn').addEventListener('click', () => {
+  function openModal(planType) {
     const token = localStorage.getItem('sg_token');
     if (!token) {
       showToast('Please sign in first', 'error');
       setTimeout(() => window.location.href = 'chat.html', 1200);
       return;
     }
-    document.getElementById('paymentModal').classList.add('open');
-  });
+    currentPlanType = planType;
+    selectedPlan    = 'monthly';
 
-  function closeModal() {
-    document.getElementById('paymentModal').classList.remove('open');
+    const title = document.getElementById('modalTitle');
+    const btn   = document.getElementById('submitPayBtn');
+    const tabs  = document.getElementById('proTabs');
+
+    if (planType === 'student') {
+      title.textContent  = 'Get Student Plan &#x1F393;';
+      btn.className      = 'submit-btn student-submit';
+      tabs.style.display = 'none';
+    } else {
+      title.textContent  = 'Upgrade to Pro &#x26A1;';
+      btn.className      = 'submit-btn';
+      tabs.style.display = 'flex';
+      selectPlan('monthly');
+    }
+
+    updateInstructions();
+    document.getElementById('paymentModal').classList.add('open');
     document.getElementById('trxInput').value = '';
     document.getElementById('modalError').classList.remove('show');
-    document.getElementById('modalSuccess').classList.remove('show');
     document.getElementById('successView').style.display = 'none';
     document.getElementById('formView').style.display    = 'block';
   }
 
+  function closeModal() {
+    document.getElementById('paymentModal').classList.remove('open');
+  }
+
+  document.getElementById('upgradeBtn').addEventListener('click', () => openModal('pro'));
+  document.getElementById('studentBtn').addEventListener('click', () => openModal('student'));
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('paymentModal').addEventListener('click', e => {
     if (e.target === document.getElementById('paymentModal')) closeModal();
@@ -384,39 +401,27 @@
     const trxId = document.getElementById('trxInput').value.trim();
     const errEl = document.getElementById('modalError');
     errEl.classList.remove('show');
-
     if (!trxId) { errEl.textContent = 'Please enter Transaction ID.'; errEl.classList.add('show'); return; }
     if (trxId.length < 6) { errEl.textContent = 'Transaction ID too short.'; errEl.classList.add('show'); return; }
 
-    const btn   = document.getElementById('submitPayBtn');
-    btn.disabled = true; btn.textContent = 'Submitting…';
+    const btn = document.getElementById('submitPayBtn');
+    btn.disabled = true; btn.textContent = 'Submitting...';
 
     try {
       const res  = await fetch(`${API}/payment/submit`, {
         method:  'POST',
-        headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sg_token')}`,
-        },
-        body: JSON.stringify({
-          method:        selectedMethod,
-          transactionId: trxId,
-          plan:          selectedPlan,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('sg_token')}` },
+        body: JSON.stringify({ method: selectedMethod, transactionId: trxId, plan: selectedPlan, planType: currentPlanType }),
       });
       const data = await res.json();
-
       if (!res.ok) { errEl.textContent = data.message || 'Error submitting payment.'; errEl.classList.add('show'); return; }
-
-      // Show success view
       document.getElementById('formView').style.display    = 'none';
       document.getElementById('successView').style.display = 'block';
-
     } catch {
       errEl.textContent = 'Network error. Please try again.';
       errEl.classList.add('show');
     } finally {
-      btn.disabled = false; btn.textContent = 'Submit Payment →';
+      btn.disabled = false; btn.textContent = 'Submit Payment';
     }
   }
 
@@ -428,7 +433,6 @@
     toastTimer = setTimeout(() => t.className = 'toast', 3000);
   }
 
-  // Check if user is already Pro
   (async () => {
     const token = localStorage.getItem('sg_token');
     if (!token) return;
@@ -436,10 +440,14 @@
       const res  = await fetch(`${API}/status`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.plan === 'pro') {
-        document.getElementById('upgradeBtn').textContent = '✅ Already Pro';
+        document.getElementById('upgradeBtn').textContent = 'Already Pro';
         document.getElementById('upgradeBtn').style.background = 'rgba(0,212,170,.15)';
         document.getElementById('upgradeBtn').style.color = 'var(--accent2)';
         document.getElementById('upgradeBtn').onclick = null;
+        document.getElementById('studentBtn').textContent = 'You have Pro';
+        document.getElementById('studentBtn').style.background = 'rgba(0,212,170,.15)';
+        document.getElementById('studentBtn').style.color = 'var(--accent2)';
+        document.getElementById('studentBtn').onclick = null;
       }
     } catch {}
   })();
