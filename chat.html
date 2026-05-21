@@ -1257,31 +1257,7 @@ const ENGLISH_INSTRUCTION = "CRITICAL LANGUAGE RULE: No matter what language the
 // ══════════════════════════════════════════
 // PWA — Service Worker Registration
 // ══════════════════════════════════════════
-// ══════════════════════════════════════════
-// PWA — Service Worker + Push Notifications
-// ══════════════════════════════════════════
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('✅ SW registered:', reg.scope);
-
-        // Check for SW updates
-        reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              showToast('🔄 Update available — refresh to apply', '');
-            }
-          });
-        });
-
-        // Store SW reg globally for push subscription
-        window._swReg = reg;
-      })
-      .catch(err => console.warn('SW registration failed:', err));
-  });
-}
+// SW removed — PWA works via manifest.json only
 
 // ── PWA Install prompt ──
 let _deferredPrompt = null;
@@ -2633,7 +2609,7 @@ function updateNotifBtn() {
 notifBtn.addEventListener('click', async () => {
   if (Notification.permission === 'granted') {
     // Test notification
-    new Notification('SG ChatBOT 🤖', {
+    new Notification('SG ChatBOT ', {
       body: 'Notifications are working!',
       icon: '/logo.svg',
     });
@@ -2643,7 +2619,7 @@ notifBtn.addEventListener('click', async () => {
   const perm = await Notification.requestPermission();
   if (perm === 'granted') {
     showToast('🔔 Notifications enabled!', 'success');
-    new Notification('SG ChatBOT 🤖', {
+    new Notification('SG ChatBOT ', {
       body: 'You will now get notified!',
       icon: '/logo.svg',
     });
