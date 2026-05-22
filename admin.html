@@ -3,130 +3,525 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SG ChatBOT — Admin Panel</title>
+  <title>SG Admin Panel</title>
   <meta name="robots" content="noindex, nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&display=swap" rel="stylesheet">
   <style>
-    :root{--bg:#050709;--surface:#0b0f17;--surface-2:#111827;--surface-3:#1a2336;--border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);--text:#e4ecf7;--muted:#4a5a72;--dim:#8a9bb5;--accent:#4f8eff;--accent2:#00d4aa;--gold:#f59e0b;--green:#4ade80;--red:#f87171;--font:'Cabinet Grotesk',sans-serif;}
+    :root{
+      --bg:#04060b;--surface:#080d16;--surface-2:#0e1520;--surface-3:#151f2e;
+      --border:rgba(255,255,255,0.05);--border-2:rgba(255,255,255,0.10);
+      --text:#dde8f5;--muted:#3d5068;--dim:#7a8fa8;
+      --accent:#4f8eff;--accent2:#00d4aa;--gold:#f59e0b;
+      --green:#4ade80;--red:#f87171;--purple:#a78bfa;--orange:#fb923c;
+      --font:'Cabinet Grotesk',sans-serif;
+      --topbar:56px; --sidebar:230px;
+    }
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-    body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;}
-    body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(79,142,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,255,0.025) 1px,transparent 1px);background-size:60px 60px;}
+    html,body{height:100%;font-family:var(--font);}
+    body{background:var(--bg);color:var(--text);display:flex;overflow:hidden;}
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 60% 40% at 70% 20%,rgba(79,142,255,0.04),transparent);}
 
-    .login-wrap{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
-    .login-card{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:36px 28px;width:100%;max-width:380px;text-align:center;}
-    .login-icon{font-size:40px;margin-bottom:16px;}
-    .login-title{font-size:22px;font-weight:800;margin-bottom:6px;}
-    .login-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
-    .login-input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:14px;outline:none;margin-bottom:12px;transition:border-color .2s;}
+    /* ── LOGIN ── */
+    .login-wrap{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:var(--bg);}
+    .login-card{background:var(--surface);border:1px solid var(--border-2);border-radius:20px;padding:40px 32px;width:360px;text-align:center;}
+    .login-logo{font-size:36px;margin-bottom:16px;}
+    .login-title{font-size:22px;font-weight:900;margin-bottom:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .login-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+    .login-input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:14px;outline:none;margin-bottom:12px;transition:border-color .2s;}
     .login-input:focus{border-color:var(--accent);}
-    .login-btn{width:100%;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+    .login-btn{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,var(--accent),#3b6fd4);color:#fff;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;letter-spacing:.03em;}
     .login-btn:hover{filter:brightness(1.15);}
-    .login-error{font-size:12px;color:var(--red);margin-top:8px;display:none;}
+    .login-error{font-size:12px;color:var(--red);margin-top:10px;display:none;}
 
-    .admin-wrap{display:none;position:relative;z-index:1;min-height:100vh;}
-    .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:60px;background:rgba(5,7,9,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;}
-    .topbar-logo{font-size:16px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
-    .topbar-badge{padding:4px 12px;border-radius:99px;background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);color:#f87171;font-size:11px;font-weight:700;}
-    .logout-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .2s;}
-    .logout-btn:hover{background:var(--surface-2);color:var(--text);}
+    /* ── SIDEBAR ── */
+    .sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;left:0;top:0;bottom:0;z-index:10;padding:0;}
+    .sidebar-brand{display:flex;align-items:center;gap:10px;padding:18px 16px;border-bottom:1px solid var(--border);}
+    .brand-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+    .brand-name{font-size:15px;font-weight:900;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .brand-badge{margin-left:auto;padding:2px 7px;border-radius:6px;background:rgba(248,113,113,0.15);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:10px;font-weight:700;}
 
-    .content{max-width:1100px;margin:0 auto;padding:32px 24px;}
-    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:32px;}
-    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center;}
-    .stat-num{font-size:32px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
-    .stat-label{font-size:12px;color:var(--muted);font-weight:500;}
+    .nav{flex:1;padding:12px 8px;display:flex;flex-direction:column;gap:2px;overflow-y:auto;}
+    .nav-section{font-size:9px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 8px 5px;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:10px;border:none;background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .18s;text-align:left;width:100%;position:relative;}
+    .nav-item:hover{background:var(--surface-2);color:var(--text);}
+    .nav-item.active{background:rgba(79,142,255,0.12);color:var(--accent);border:1px solid rgba(79,142,255,0.18);}
+    .nav-icon{font-size:16px;width:20px;text-align:center;flex-shrink:0;}
+    .nav-badge{margin-left:auto;min-width:20px;height:18px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 5px;}
+    .nav-badge.gold{background:var(--gold);}
+    .nav-badge.green{background:var(--green);color:#000;}
 
-    .tabs{display:flex;gap:4px;background:var(--surface);border-radius:10px;padding:4px;margin-bottom:24px;width:fit-content;}
-    .tab{padding:8px 18px;border-radius:7px;border:none;background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;}
-    .tab.active{background:var(--surface-3);color:var(--text);}
+    .sidebar-footer{padding:12px 8px;border-top:1px solid var(--border);}
+    .health-card{background:var(--surface-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+    .health-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:inline-block;margin-right:6px;}
+    .health-text{font-size:12px;color:var(--dim);}
+    .logout-btn{width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .2s;}
+    .logout-btn:hover{background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.3);}
 
-    .table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;overflow-x:auto;}
-    .table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
-    .table-title{font-size:15px;font-weight:700;}
+    /* ── MAIN ── */
+    .main{margin-left:var(--sidebar);flex:1;display:flex;flex-direction:column;min-width:0;position:relative;z-index:1;}
+    .topbar{height:var(--topbar);background:rgba(4,6,11,0.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:5;flex-shrink:0;}
+    .topbar-title{font-size:15px;font-weight:800;color:var(--text);}
+    .topbar-right{display:flex;align-items:center;gap:12px;}
     .refresh-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .2s;}
     .refresh-btn:hover{background:var(--surface-2);color:var(--text);}
+    .last-refresh{font-size:11px;color:var(--muted);}
 
-    table{width:100%;border-collapse:collapse;min-width:700px;}
-    th{text-align:left;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:12px 16px;border-bottom:1px solid var(--border);}
-    td{padding:14px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--dim);}
+    .page{display:none;flex:1;overflow-y:auto;padding:24px;}
+    .page.active{display:block;}
+    .page::-webkit-scrollbar{width:4px;}
+    .page::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:99px;}
+
+    /* ── STATS GRID ── */
+    .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px;position:relative;overflow:hidden;transition:border-color .2s;}
+    .stat-card:hover{border-color:var(--border-2);}
+    .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--accent-line,var(--accent));}
+    .stat-num{font-size:28px;font-weight:900;letter-spacing:-1px;margin-bottom:4px;}
+    .stat-label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.08em;}
+    .stat-delta{font-size:11px;margin-top:6px;font-weight:600;}
+    .stat-delta.up{color:var(--green);}
+    .stat-delta.down{color:var(--red);}
+
+    /* ── SECTION ── */
+    .section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px;}
+    .section-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border);}
+    .section-title{font-size:14px;font-weight:800;display:flex;align-items:center;gap:8px;}
+    .section-actions{display:flex;gap:8px;align-items:center;}
+
+    /* ── TABLE ── */
+    .table-wrap{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;min-width:600px;}
+    th{text-align:left;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:11px 16px;border-bottom:1px solid var(--border);}
+    td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--dim);vertical-align:middle;}
     tr:last-child td{border-bottom:none;}
-    tr:hover td{background:rgba(255,255,255,0.015);}
-    td.email{color:var(--text);font-weight:500;}
-    td.trxid{font-family:monospace;color:var(--accent);font-size:12px;letter-spacing:.05em;}
+    tr:hover td{background:rgba(255,255,255,0.012);}
 
-    .badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;}
-    .badge.pending {background:rgba(245,158,11,.12);color:var(--gold);border:1px solid rgba(245,158,11,.25);}
+    /* ── BADGES ── */
+    .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;white-space:nowrap;}
+    .badge.pending {background:rgba(245,158,11,.12);color:var(--gold); border:1px solid rgba(245,158,11,.25);}
     .badge.approved{background:rgba(74,222,128,.1); color:var(--green);border:1px solid rgba(74,222,128,.25);}
     .badge.rejected{background:rgba(248,113,113,.1);color:var(--red);  border:1px solid rgba(248,113,113,.25);}
+    .badge.pro     {background:rgba(245,158,11,.12);color:var(--gold); border:1px solid rgba(245,158,11,.25);}
+    .badge.free    {background:rgba(122,143,168,.08);color:var(--dim); border:1px solid rgba(122,143,168,.15);}
+    .badge.blocked {background:rgba(248,113,113,.1);color:var(--red);  border:1px solid rgba(248,113,113,.25);}
+    .badge.low     {background:rgba(74,222,128,.08); color:var(--green);border:1px solid rgba(74,222,128,.2);}
+    .badge.medium  {background:rgba(245,158,11,.1);  color:var(--gold); border:1px solid rgba(245,158,11,.2);}
+    .badge.high    {background:rgba(251,146,60,.12);  color:var(--orange);border:1px solid rgba(251,146,60,.25);}
+    .badge.critical{background:rgba(248,113,113,.12);color:var(--red);  border:1px solid rgba(248,113,113,.3);}
 
-    .action-btns{display:flex;gap:6px;flex-wrap:wrap;}
-    .approve-btn{padding:5px 12px;border-radius:7px;border:1px solid rgba(74,222,128,.2);background:rgba(74,222,128,.1);color:var(--green);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
-    .approve-btn:hover{background:rgba(74,222,128,.2);}
-    .reject-btn{padding:5px 12px;border-radius:7px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--red);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;}
-    .reject-btn:hover{background:rgba(248,113,113,.18);}
+    /* ── BUTTONS ── */
+    .btn{padding:5px 12px;border-radius:7px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:all .18s;border:none;}
+    .btn-green {background:rgba(74,222,128,.1); color:var(--green);border:1px solid rgba(74,222,128,.2);}  .btn-green:hover{background:rgba(74,222,128,.2);}
+    .btn-red   {background:rgba(248,113,113,.08);color:var(--red);  border:1px solid rgba(248,113,113,.2);} .btn-red:hover{background:rgba(248,113,113,.18);}
+    .btn-blue  {background:rgba(79,142,255,.1); color:var(--accent);border:1px solid rgba(79,142,255,.2);}  .btn-blue:hover{background:rgba(79,142,255,.2);}
+    .btn-gold  {background:rgba(245,158,11,.1); color:var(--gold);  border:1px solid rgba(245,158,11,.2);}  .btn-gold:hover{background:rgba(245,158,11,.2);}
+    .btn-solid {background:var(--accent);color:#fff;border:none;padding:8px 18px;border-radius:9px;} .btn-solid:hover{filter:brightness(1.12);}
 
-    .empty{padding:48px;text-align:center;color:var(--muted);font-size:14px;}
-    .empty-icon{font-size:36px;margin-bottom:12px;}
+    .actions{display:flex;gap:5px;flex-wrap:wrap;}
 
-    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:200;white-space:nowrap;}
+    /* ── MINI CHART ── */
+    .chart-wrap{padding:16px 18px;}
+    .chart-bars{display:flex;align-items:flex-end;gap:4px;height:80px;}
+    .chart-bar{flex:1;border-radius:4px 4px 0 0;background:rgba(79,142,255,0.2);border:1px solid rgba(79,142,255,0.3);transition:background .2s;position:relative;cursor:pointer;}
+    .chart-bar:hover{background:rgba(79,142,255,0.4);}
+    .chart-bar .tooltip{position:absolute;bottom:calc(100%+6px);left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid var(--border-2);border-radius:6px;padding:4px 8px;font-size:11px;color:var(--text);white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;}
+    .chart-bar:hover .tooltip{opacity:1;}
+    .chart-labels{display:flex;gap:4px;margin-top:6px;}
+    .chart-label{flex:1;font-size:10px;color:var(--muted);text-align:center;overflow:hidden;text-overflow:ellipsis;}
+
+    /* ── EMPTY ── */
+    .empty{padding:40px;text-align:center;color:var(--muted);font-size:13px;}
+    .empty-icon{font-size:32px;margin-bottom:10px;}
+
+    /* ── SEARCH ── */
+    .search-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+    .search-input{padding:8px 12px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:13px;outline:none;width:220px;transition:border-color .2s;}
+    .search-input:focus{border-color:var(--accent);}
+    .filter-select{padding:8px 10px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:12px;outline:none;cursor:pointer;}
+
+    /* ── MODAL ── */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;z-index:100;padding:16px;}
+    .modal-overlay.open{display:flex;}
+    .modal-card{background:var(--surface);border:1px solid var(--border-2);border-radius:18px;padding:26px 22px;width:100%;max-width:400px;animation:scaleIn .2s cubic-bezier(.34,1.56,.64,1);}
+    .modal-title{font-size:18px;font-weight:800;margin-bottom:16px;}
+    .modal-input{width:100%;padding:10px 13px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:14px;outline:none;margin-bottom:10px;transition:border-color .2s;}
+    .modal-input:focus{border-color:var(--accent);}
+    .modal-btns{display:flex;gap:8px;margin-top:6px;}
+    .modal-cancel{flex:1;padding:10px;border-radius:9px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:13px;cursor:pointer;}
+    .modal-submit{flex:2;padding:10px;border-radius:9px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;}
+    .modal-submit:hover{filter:brightness(1.12);}
+
+    /* ── BROADCAST ── */
+    .broadcast-textarea{width:100%;padding:10px 13px;border-radius:9px;border:1px solid var(--border-2);background:var(--surface-2);color:var(--text);font-family:var(--font);font-size:14px;outline:none;resize:vertical;min-height:100px;transition:border-color .2s;}
+    .broadcast-textarea:focus{border-color:var(--accent);}
+
+    /* ── HEALTH CARDS ── */
+    .health-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;}
+    .health-item{background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px;}
+    .health-item-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;}
+    .health-item-val{font-size:20px;font-weight:800;color:var(--text);}
+    .health-item-sub{font-size:12px;color:var(--dim);margin-top:4px;}
+    .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;}
+    .status-dot.green{background:var(--green);box-shadow:0 0 8px var(--green);}
+    .status-dot.red{background:var(--red);box-shadow:0 0 8px var(--red);}
+    .status-dot.gold{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+
+    /* ── TOAST ── */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:300;white-space:nowrap;}
     .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
     .toast.success{border-color:rgba(74,222,128,.4);color:var(--green);}
     .toast.error{border-color:rgba(248,113,113,.4);color:var(--red);}
 
-    .loading{text-align:center;padding:40px;color:var(--muted);}
-    .spinner{display:inline-block;width:18px;height:18px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-right:8px;vertical-align:middle;}
+    /* ── SPINNER ── */
+    .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-right:6px;vertical-align:middle;}
     @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
 
-    @media(max-width:768px){
-      .topbar{padding:0 16px;}
-      .content{padding:20px 14px;}
-      .stats-grid{grid-template-columns:1fr 1fr;}
+    .loading-row{padding:32px;text-align:center;color:var(--muted);}
+    .pagination{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;}
+    .page-btn{padding:5px 12px;border-radius:7px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all .18s;}
+    .page-btn:hover,.page-btn.active{background:var(--surface-2);color:var(--text);}
+    .page-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+    /* IP row */
+    .ip-text{font-family:monospace;color:var(--accent);font-size:12px;}
+    .trxid{font-family:monospace;color:var(--accent);font-size:12px;}
+    td.email-cell{color:var(--text);font-weight:600;}
+
+    /* ── Broadcast checkbox ── */
+    .checkbox-wrap{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);margin-bottom:10px;}
+    .checkbox-wrap input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer;}
+
+    @media(max-width:900px){
+      .sidebar{width:56px;}
+      .sidebar .brand-name,.sidebar .brand-badge,.sidebar .nav-item span,.sidebar .nav-badge,.sidebar .sidebar-footer .health-text,.sidebar .logout-btn{display:none;}
+      .main{margin-left:56px;}
+      .nav-item{justify-content:center;padding:10px;}
+      .sidebar-brand{justify-content:center;padding:14px 8px;}
     }
   </style>
 </head>
 <body>
 
+<!-- ══ LOGIN ══ -->
 <div class="login-wrap" id="loginWrap">
   <div class="login-card">
-    <div class="login-icon">🔐</div>
-    <div class="login-title">Admin Panel</div>
-    <div class="login-sub">SG ChatBOT · Restricted Access</div>
-    <input class="login-input" id="adminSecret" type="password" placeholder="Enter admin secret">
-    <button class="login-btn" id="loginBtn">Access Panel</button>
-    <div class="login-error" id="loginError">Invalid secret. Try again.</div>
+    <div class="login-logo">⚡</div>
+    <div class="login-title">SG Admin Panel</div>
+    <div class="login-sub">Restricted access · Sadid Rahman only</div>
+    <input class="login-input" id="adminSecret" type="password" placeholder="Admin secret key">
+    <button class="login-btn" id="loginBtn">Enter Panel</button>
+    <div class="login-error" id="loginError">❌ Wrong secret. Try again.</div>
   </div>
 </div>
 
-<div class="admin-wrap" id="adminWrap">
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar" id="sidebar" style="display:none;">
+  <div class="sidebar-brand">
+    <div class="brand-icon">⚡</div>
+    <span class="brand-name">SG Admin</span>
+    <span class="brand-badge">ADMIN</span>
+  </div>
+  <nav class="nav">
+    <div class="nav-section">Overview</div>
+    <button class="nav-item active" data-page="dashboard">
+      <span class="nav-icon">📊</span><span>Dashboard</span>
+    </button>
+
+    <div class="nav-section">Commerce</div>
+    <button class="nav-item" data-page="payments">
+      <span class="nav-icon">💳</span><span>Payments</span>
+      <span class="nav-badge gold" id="pendingBadge">0</span>
+    </button>
+    <button class="nav-item" data-page="revenue">
+      <span class="nav-icon">💰</span><span>Revenue</span>
+    </button>
+
+    <div class="nav-section">Users</div>
+    <button class="nav-item" data-page="users">
+      <span class="nav-icon">👥</span><span>All Users</span>
+    </button>
+    <button class="nav-item" data-page="broadcast">
+      <span class="nav-icon">📢</span><span>Broadcast</span>
+    </button>
+
+    <div class="nav-section">Security</div>
+    <button class="nav-item" data-page="security">
+      <span class="nav-icon">🚨</span><span>Security Logs</span>
+      <span class="nav-badge" id="alertBadge">0</span>
+    </button>
+    <button class="nav-item" data-page="blocked-ips">
+      <span class="nav-icon">🚫</span><span>Blocked IPs</span>
+    </button>
+
+    <div class="nav-section">System</div>
+    <button class="nav-item" data-page="system">
+      <span class="nav-icon">🖥️</span><span>System Health</span>
+    </button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="health-card">
+      <span class="health-dot" id="healthDot"></span>
+      <span class="health-text" id="healthText">Checking…</span>
+    </div>
+    <button class="logout-btn" id="logoutBtn">Sign out</button>
+  </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<div class="main" id="mainWrap" style="display:none;">
   <div class="topbar">
-    <div class="topbar-logo">⚡ SG Admin</div>
-    <div class="topbar-badge">🔒 Admin Only</div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span id="lastRefresh" style="font-size:11px;color:var(--muted)"></span>
-      <button class="logout-btn" id="logoutBtn">Sign out</button>
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-right">
+      <span class="last-refresh" id="lastRefresh"></span>
+      <button class="refresh-btn" id="refreshBtn">↻ Refresh</button>
     </div>
   </div>
 
-  <div class="content">
-    <div class="stats-grid">
-      <div class="stat-card"><div class="stat-num" id="statPending" style="color:var(--gold)">—</div><div class="stat-label">⏳ Pending</div></div>
-      <div class="stat-card"><div class="stat-num" id="statApproved" style="color:var(--green)">—</div><div class="stat-label">✅ Approved</div></div>
-      <div class="stat-card"><div class="stat-num" id="statRevenue" style="color:var(--accent)">—</div><div class="stat-label">💰 Revenue</div></div>
-      <div class="stat-card"><div class="stat-num" id="statTotal" style="color:var(--accent2)">—</div><div class="stat-label">📋 Total</div></div>
+  <!-- ══ DASHBOARD ══ -->
+  <div class="page active" id="page-dashboard">
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card" style="--accent-line:var(--accent2)"><div class="stat-num" id="s-total" style="color:var(--accent2)">—</div><div class="stat-label">Total Users</div><div class="stat-delta up" id="s-newtoday">+0 today</div></div>
+      <div class="stat-card" style="--accent-line:var(--gold)"><div class="stat-num" id="s-pro" style="color:var(--gold)">—</div><div class="stat-label">Pro Members</div><div class="stat-delta" id="s-proweek"></div></div>
+      <div class="stat-card" style="--accent-line:var(--accent)"><div class="stat-num" id="s-revenue" style="color:var(--accent)">—</div><div class="stat-label">Total Revenue</div><div class="stat-delta up" id="s-payments"></div></div>
+      <div class="stat-card" style="--accent-line:var(--orange)"><div class="stat-num" id="s-pending" style="color:var(--orange)">—</div><div class="stat-label">Pending Payments</div><div class="stat-delta"></div></div>
+      <div class="stat-card" style="--accent-line:var(--red)"><div class="stat-num" id="s-blocked" style="color:var(--red)">—</div><div class="stat-label">Blocked Users</div></div>
+      <div class="stat-card" style="--accent-line:var(--red)"><div class="stat-num" id="s-alerts" style="color:var(--red)">—</div><div class="stat-label">Security Alerts</div><div class="stat-delta down" id="s-critical"></div></div>
     </div>
 
-    <div class="tabs">
-      <button class="tab active" onclick="switchTab('pending')">⏳ Pending</button>
-      <button class="tab" onclick="switchTab('all')">📋 All Payments</button>
-    </div>
-
-    <div class="table-wrap">
-      <div class="table-header">
-        <div class="table-title" id="tableTitle">Pending Payments</div>
-        <button class="refresh-btn" onclick="loadData()">↻ Refresh</button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="section">
+        <div class="section-header"><div class="section-title">📈 Signups (Last 7 Days)</div></div>
+        <div class="chart-wrap">
+          <div class="chart-bars" id="signupChart"></div>
+          <div class="chart-labels" id="signupLabels"></div>
+        </div>
       </div>
-      <div id="tableBody"><div class="loading"><span class="spinner"></span>Loading...</div></div>
+      <div class="section">
+        <div class="section-header"><div class="section-title">💰 Revenue (Last 6 Months)</div></div>
+        <div class="chart-wrap">
+          <div class="chart-bars" id="revenueChart"></div>
+          <div class="chart-labels" id="revenueLabels"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PAYMENTS ══ -->
+  <div class="page" id="page-payments">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">💳 Payments</div>
+        <div class="section-actions">
+          <select class="filter-select" id="paymentFilter">
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Email</th><th>Method</th><th>TrxID</th><th>Amount</th><th>Plan</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="paymentBody"><tr><td colspan="8" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ REVENUE ══ -->
+  <div class="page" id="page-revenue">
+    <div class="stats-grid">
+      <div class="stat-card" style="--accent-line:var(--accent)"><div class="stat-num" id="rev-total" style="color:var(--accent)">—</div><div class="stat-label">Total Revenue</div></div>
+      <div class="stat-card" style="--accent-line:var(--green)"><div class="stat-num" id="rev-count" style="color:var(--green)">—</div><div class="stat-label">Approved Payments</div></div>
+      <div class="stat-card" style="--accent-line:var(--gold)"><div class="stat-num" id="rev-pro" style="color:var(--gold)">—</div><div class="stat-label">Active Pro Users</div></div>
+      <div class="stat-card" style="--accent-line:var(--orange)"><div class="stat-num" id="rev-pending" style="color:var(--orange)">—</div><div class="stat-label">Pending Payments</div></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">💰 Monthly Revenue Breakdown</div></div>
+      <div class="chart-wrap" style="padding:20px;">
+        <div class="chart-bars" style="height:120px;" id="bigRevenueChart"></div>
+        <div class="chart-labels" id="bigRevenueLabels"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">✅ Approved Payments History</div></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Email</th><th>Method</th><th>Amount</th><th>Plan</th><th>Date</th></tr></thead>
+          <tbody id="approvedBody"><tr><td colspan="5" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ USERS ══ -->
+  <div class="page" id="page-users">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">👥 Users</div>
+        <div class="section-actions search-bar">
+          <input class="search-input" id="userSearch" placeholder="Search email…">
+          <select class="filter-select" id="userFilter">
+            <option value="all">All</option>
+            <option value="pro">Pro</option>
+            <option value="free">Free</option>
+            <option value="blocked">Blocked</option>
+          </select>
+          <button class="btn btn-blue" id="userSearchBtn">Search</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Email</th><th>Plan</th><th>Status</th><th>Last Login</th><th>Joined</th><th>Total Msgs</th><th>Actions</th></tr></thead>
+          <tbody id="userBody"><tr><td colspan="7" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="userPagination"></div>
+    </div>
+  </div>
+
+  <!-- ══ BROADCAST ══ -->
+  <div class="page" id="page-broadcast">
+    <div class="section" style="max-width:600px;">
+      <div class="section-header"><div class="section-title">📢 Broadcast Message</div></div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px;">SUBJECT</div>
+          <input class="modal-input" id="broadcastSubject" placeholder="Email subject…" style="width:100%;">
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:6px;">MESSAGE (HTML allowed)</div>
+          <textarea class="broadcast-textarea" id="broadcastMsg" placeholder="Write your message here…"></textarea>
+        </div>
+        <div class="checkbox-wrap">
+          <input type="checkbox" id="broadcastProOnly">
+          <label for="broadcastProOnly">Send to Pro users only</label>
+        </div>
+        <button class="btn-solid" id="broadcastBtn">📤 Send Broadcast</button>
+        <div style="font-size:12px;color:var(--muted);">⚠️ This will email all active (non-blocked) users. Be careful!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECURITY LOGS ══ -->
+  <div class="page" id="page-security">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🚨 Security Logs</div>
+        <div class="section-actions">
+          <select class="filter-select" id="logFilter">
+            <option value="">All Severity</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select class="filter-select" id="logResolved">
+            <option value="">All</option>
+            <option value="false">Unresolved</option>
+            <option value="true">Resolved</option>
+          </select>
+          <button class="btn btn-red" id="clearResolvedBtn">Clear Resolved</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Type</th><th>Severity</th><th>IP</th><th>Details</th><th>Time</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="securityBody"><tr><td colspan="7" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pagination" id="securityPagination"></div>
+    </div>
+  </div>
+
+  <!-- ══ BLOCKED IPs ══ -->
+  <div class="page" id="page-blocked-ips">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">🚫 Blocked IPs</div>
+        <div class="section-actions">
+          <button class="btn btn-red" id="blockIPBtn">+ Block IP</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>IP Address</th><th>Reason</th><th>Blocked By</th><th>Expires</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody id="blockedIPBody"><tr><td colspan="6" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SYSTEM ══ -->
+  <div class="page" id="page-system">
+    <div class="health-grid" id="systemGrid">
+      <div class="health-item"><div class="health-item-label">Status</div><div class="health-item-val" id="sys-status">—</div></div>
+      <div class="health-item"><div class="health-item-label">Database</div><div class="health-item-val" id="sys-db">—</div></div>
+      <div class="health-item"><div class="health-item-label">Uptime</div><div class="health-item-val" id="sys-uptime">—</div></div>
+      <div class="health-item"><div class="health-item-label">RAM Used</div><div class="health-item-val" id="sys-ram">—</div></div>
+      <div class="health-item"><div class="health-item-label">Node Version</div><div class="health-item-val" id="sys-node">—</div></div>
+      <div class="health-item"><div class="health-item-label">Environment</div><div class="health-item-val" id="sys-env">—</div></div>
+      <div class="health-item"><div class="health-item-label">Blocked IPs</div><div class="health-item-val" id="sys-blocked-ips">—</div></div>
+      <div class="health-item"><div class="health-item-label">Open Alerts</div><div class="health-item-val" id="sys-alerts">—</div></div>
+    </div>
+    <div style="margin-top:20px;" class="section">
+      <div class="section-header"><div class="section-title">🔧 Quick Actions</div></div>
+      <div style="padding:16px;display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-green" id="clearAutoBlocksBtn">✅ Clear Expired Auto-Blocks</button>
+        <button class="btn btn-blue" id="sysRefreshBtn">↻ Refresh Stats</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Block User ── -->
+<div class="modal-overlay" id="blockUserModal">
+  <div class="modal-card">
+    <div class="modal-title">🚫 Block User</div>
+    <input class="modal-input" id="blockReasonInput" placeholder="Reason for blocking…">
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal('blockUserModal')">Cancel</button>
+      <button class="modal-submit" id="blockUserSubmit">Block User</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Grant Pro ── -->
+<div class="modal-overlay" id="grantProModal">
+  <div class="modal-card">
+    <div class="modal-title">⚡ Grant Pro Access</div>
+    <select class="modal-input" id="grantMonths">
+      <option value="1">1 Month</option>
+      <option value="3">3 Months</option>
+      <option value="6">6 Months</option>
+      <option value="12">1 Year</option>
+    </select>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal('grantProModal')">Cancel</button>
+      <button class="modal-submit" id="grantProSubmit">Grant Pro</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: Block IP ── -->
+<div class="modal-overlay" id="blockIPModal">
+  <div class="modal-card">
+    <div class="modal-title">🚫 Block IP Address</div>
+    <input class="modal-input" id="blockIPInput" placeholder="IP address (e.g. 192.168.1.1)">
+    <input class="modal-input" id="blockIPReason" placeholder="Reason">
+    <select class="modal-input" id="blockIPExpiry">
+      <option value="">Permanent</option>
+      <option value="1">1 Hour</option>
+      <option value="24">24 Hours</option>
+      <option value="168">1 Week</option>
+      <option value="720">30 Days</option>
+    </select>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeModal('blockIPModal')">Cancel</button>
+      <button class="modal-submit" id="blockIPSubmit">Block IP</button>
     </div>
   </div>
 </div>
@@ -134,140 +529,444 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  const API = 'https://sg-chatbot-z8hp.onrender.com';
-  let adminSecret = '';
-  let currentTab  = 'pending';
-  let allPayments = [];
+const API = 'https://sg-chatbot-z8hp.onrender.com';
+let SECRET = '';
+let currentPage = 'dashboard';
+let userPage = 1;
+let securityPage = 1;
+let pendingAction = { userId: null, type: null };
+let allPayments = [];
+let statsCache = null;
 
-  document.getElementById('loginBtn').addEventListener('click', login);
-  document.getElementById('adminSecret').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
+// ══ LOGIN ══
+document.getElementById('loginBtn').addEventListener('click', login);
+document.getElementById('adminSecret').addEventListener('keydown', e => { if(e.key==='Enter') login(); });
 
-  async function login() {
-    const secret = document.getElementById('adminSecret').value.trim();
-    if (!secret) return;
-    const btn = document.getElementById('loginBtn');
-    btn.disabled = true; btn.textContent = 'Verifying…';
-    try {
-      const res = await fetch(`${API}/admin/payments`, { headers:{'x-admin-secret':secret} });
-      if (res.status === 403) {
-        document.getElementById('loginError').style.display='block';
-        return;
-      }
-      adminSecret = secret;
-      sessionStorage.setItem('sg_admin', secret);
-      document.getElementById('loginWrap').style.display='none';
-      document.getElementById('adminWrap').style.display='block';
-      allPayments = await res.json();
-      renderStats(); renderTable(); updateTime();
-      setInterval(() => { if(adminSecret) loadData(); }, 30000);
-    } catch {
-      document.getElementById('loginError').style.display='block';
-      document.getElementById('loginError').textContent='Connection error.';
-    }
-    btn.disabled=false; btn.textContent='Access Panel';
+async function login() {
+  const secret = document.getElementById('adminSecret').value.trim();
+  if (!secret) return;
+  const btn = document.getElementById('loginBtn');
+  btn.textContent = '⏳ Verifying…'; btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/admin/stats`, { headers: {'x-admin-secret': secret} });
+    if (res.status === 403) { document.getElementById('loginError').style.display='block'; return; }
+    SECRET = secret;
+    sessionStorage.setItem('sg_admin', secret);
+    document.getElementById('loginWrap').style.display = 'none';
+    document.getElementById('sidebar').style.display = 'flex';
+    document.getElementById('mainWrap').style.display = 'flex';
+    statsCache = await res.json();
+    initAdmin();
+  } catch {
+    document.getElementById('loginError').textContent = '❌ Connection error.';
+    document.getElementById('loginError').style.display = 'block';
   }
+  btn.textContent = 'Enter Panel'; btn.disabled = false;
+}
 
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    adminSecret=''; sessionStorage.removeItem('sg_admin');
-    document.getElementById('adminWrap').style.display='none';
-    document.getElementById('loginWrap').style.display='flex';
-    document.getElementById('adminSecret').value='';
+const saved = sessionStorage.getItem('sg_admin');
+if (saved) { document.getElementById('adminSecret').value = saved; login(); }
+
+// ══ LOGOUT ══
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  SECRET = ''; sessionStorage.removeItem('sg_admin');
+  location.reload();
+});
+
+// ══ NAV ══
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const pg = item.dataset.page;
+    document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+    item.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById(`page-${pg}`).classList.add('active');
+    const titles = {dashboard:'📊 Dashboard',payments:'💳 Payments',revenue:'💰 Revenue',users:'👥 Users',broadcast:'📢 Broadcast',security:'🚨 Security Logs','blocked-ips':'🚫 Blocked IPs',system:'🖥️ System Health'};
+    document.getElementById('topbarTitle').textContent = titles[pg] || pg;
+    currentPage = pg;
+    loadPage(pg);
   });
+});
 
-  const saved = sessionStorage.getItem('sg_admin');
-  if (saved) { document.getElementById('adminSecret').value=saved; login(); }
+document.getElementById('refreshBtn').addEventListener('click', () => { loadAllStats(); loadPage(currentPage, true); });
 
-  async function loadData() {
-    try {
-      const res = await fetch(`${API}/admin/payments`, { headers:{'x-admin-secret':adminSecret} });
-      if (!res.ok) return;
-      allPayments = await res.json();
-      renderStats(); renderTable(); updateTime();
-    } catch { showToast('Refresh failed','error'); }
-  }
+function updateTime() {
+  const n = new Date();
+  document.getElementById('lastRefresh').textContent = `Updated ${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
 
-  function updateTime() {
-    const n=new Date();
-    document.getElementById('lastRefresh').textContent=`Updated: ${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;
-  }
+// ══ INIT ══
+function initAdmin() {
+  renderStats(statsCache);
+  loadPayments();
+  loadSystemHealth();
+  loadPage('dashboard');
+  setInterval(() => { loadAllStats(); loadPage(currentPage); }, 30000);
+}
 
-  function renderStats() {
-    const pending  = allPayments.filter(p=>p.status==='pending').length;
-    const approved = allPayments.filter(p=>p.status==='approved').length;
-    const revenue  = allPayments.filter(p=>p.status==='approved').reduce((s,p)=>s+(p.amount||0),0);
-    document.getElementById('statPending').textContent  = pending;
-    document.getElementById('statApproved').textContent = approved;
-    document.getElementById('statRevenue').textContent  = '৳'+revenue.toLocaleString();
-    document.getElementById('statTotal').textContent    = allPayments.length;
-  }
+async function loadAllStats() {
+  try {
+    const res = await fetch(`${API}/admin/stats`, {headers:{'x-admin-secret':SECRET}});
+    if (!res.ok) return;
+    statsCache = await res.json();
+    renderStats(statsCache);
+    updateTime();
+  } catch {}
+}
 
-  function switchTab(tab) {
-    currentTab=tab;
-    document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',(tab==='pending'&&i===0)||(tab==='all'&&i===1)));
-    document.getElementById('tableTitle').textContent = tab==='pending'?'Pending Payments':'All Payments';
-    renderTable();
-  }
+function renderStats(d) {
+  if (!d) return;
+  document.getElementById('s-total').textContent   = d.total;
+  document.getElementById('s-pro').textContent     = d.pro;
+  document.getElementById('s-revenue').textContent = '৳' + d.revenue.toLocaleString();
+  document.getElementById('s-pending').textContent = d.pendingPayments;
+  document.getElementById('s-blocked').textContent = d.blocked;
+  document.getElementById('s-alerts').textContent  = d.unresolved;
+  document.getElementById('s-newtoday').textContent= `+${d.newToday} today`;
+  document.getElementById('s-payments').textContent= `${d.totalPayments} approved`;
+  document.getElementById('s-critical').textContent= d.critical > 0 ? `⚠ ${d.critical} critical` : '';
+  if (d.critical > 0) document.getElementById('s-critical').style.color = 'var(--red)';
+  document.getElementById('pendingBadge').textContent = d.pendingPayments;
+  document.getElementById('alertBadge').textContent   = d.unresolved;
+  // Revenue cards
+  document.getElementById('rev-total').textContent  = '৳' + d.revenue.toLocaleString();
+  document.getElementById('rev-count').textContent  = d.totalPayments;
+  document.getElementById('rev-pro').textContent    = d.pro;
+  document.getElementById('rev-pending').textContent= d.pendingPayments;
+  // Charts
+  renderBarChart('signupChart', 'signupLabels', d.signupsByDay || [], x => x._id, x => x.count, 'var(--accent)');
+  renderBarChart('revenueChart', 'revenueLabels', d.monthlyRevenue || [], x => `${x._id.m}/${x._id.y%100}`, x => x.revenue, 'var(--accent2)');
+  renderBarChart('bigRevenueChart', 'bigRevenueLabels', d.monthlyRevenue || [], x => `${x._id.m}/${x._id.y%100}`, x => x.revenue, 'var(--accent2)');
+  updateTime();
+}
 
-  function renderTable() {
-    const data = currentTab==='pending' ? allPayments.filter(p=>p.status==='pending') : allPayments;
-    if (!data.length) {
-      document.getElementById('tableBody').innerHTML=`<div class="empty"><div class="empty-icon">${currentTab==='pending'?'🎉':'📭'}</div>${currentTab==='pending'?'No pending payments!':'No payments yet.'}</div>`;
-      return;
+function renderBarChart(barsId, labelsId, data, labelFn, valFn, color) {
+  const bars = document.getElementById(barsId);
+  const labs = document.getElementById(labelsId);
+  if (!bars || !labs || !data.length) { if(bars) bars.innerHTML='<div style="color:var(--muted);font-size:13px;margin:auto">No data yet</div>'; return; }
+  const max = Math.max(...data.map(valFn), 1);
+  bars.innerHTML = data.map(d => {
+    const h = Math.max(8, (valFn(d)/max)*100);
+    return `<div class="chart-bar" style="height:${h}%;background:${color.replace(')',',0.2)')};border-color:${color.replace(')',',0.4)')}"><div class="tooltip">${labelFn(d)}: ${valFn(d)}</div></div>`;
+  }).join('');
+  labs.innerHTML = data.map(d => `<div class="chart-label">${labelFn(d)}</div>`).join('');
+}
+
+// ══ PAGE LOADER ══
+function loadPage(pg, force=false) {
+  if (pg==='dashboard')   loadAllStats();
+  if (pg==='payments')    loadPayments(force);
+  if (pg==='revenue')     loadRevenue(force);
+  if (pg==='users')       loadUsers(force);
+  if (pg==='security')    loadSecurityLogs(force);
+  if (pg==='blocked-ips') loadBlockedIPs(force);
+  if (pg==='system')      loadSystemHealth(force);
+}
+
+// ══ PAYMENTS ══
+async function loadPayments(force=false) {
+  if (!force && allPayments.length) { renderPayments(); return; }
+  try {
+    const res = await fetch(`${API}/admin/payments`, {headers:{'x-admin-secret':SECRET}});
+    allPayments = await res.json();
+    renderPayments();
+  } catch { showToast('Failed to load payments','error'); }
+}
+
+document.getElementById('paymentFilter').addEventListener('change', renderPayments);
+
+function renderPayments() {
+  const filter = document.getElementById('paymentFilter').value;
+  const data = filter === 'all' ? allPayments : allPayments.filter(p => p.status === filter);
+  const body = document.getElementById('paymentBody');
+  if (!data.length) { body.innerHTML=`<tr><td colspan="8" class="empty"><div class="empty-icon">📭</div>No payments found.</td></tr>`; return; }
+  body.innerHTML = data.map(p => `
+    <tr id="pr-${p._id}">
+      <td class="email-cell">${p.email}</td>
+      <td style="text-transform:capitalize">${p.method}</td>
+      <td class="trxid">${p.transactionId}</td>
+      <td style="color:var(--gold);font-weight:700">৳${p.amount}</td>
+      <td style="text-transform:capitalize">${p.plan}</td>
+      <td>${new Date(p.createdAt).toLocaleDateString('en-GB')}</td>
+      <td><span class="badge ${p.status}">${p.status}</span></td>
+      <td><div class="actions">${p.status==='pending'?`
+        <button class="btn btn-green" onclick="approvePayment('${p._id}')">✅ Approve</button>
+        <button class="btn btn-red" onclick="rejectPayment('${p._id}')">❌ Reject</button>
+      `:`<span style="color:var(--muted);font-size:12px">${p.status==='approved'?'✅ Done':'❌ Rejected'}</span>`}</div></td>
+    </tr>`).join('');
+}
+
+async function approvePayment(id) {
+  if (!confirm('Approve this payment and activate Pro?')) return;
+  const res = await apiFetch(`/admin/approve/${id}`, 'POST');
+  if (res) { showToast('✅ Pro activated!','success'); allPayments.find(x=>x._id===id).status='approved'; renderPayments(); loadAllStats(); }
+}
+async function rejectPayment(id) {
+  if (!confirm('Reject this payment?')) return;
+  const res = await apiFetch(`/admin/reject/${id}`, 'POST');
+  if (res) { showToast('Payment rejected',''); allPayments.find(x=>x._id===id).status='rejected'; renderPayments(); loadAllStats(); }
+}
+
+// ══ REVENUE ══
+async function loadRevenue() {
+  try {
+    const res = await fetch(`${API}/admin/payments`, {headers:{'x-admin-secret':SECRET}});
+    const all = await res.json();
+    const approved = all.filter(p => p.status==='approved');
+    const body = document.getElementById('approvedBody');
+    if (!approved.length) { body.innerHTML=`<tr><td colspan="5" class="empty">No approved payments yet.</td></tr>`; return; }
+    body.innerHTML = approved.map(p=>`
+      <tr><td class="email-cell">${p.email}</td><td style="text-transform:capitalize">${p.method}</td>
+      <td style="color:var(--gold);font-weight:700">৳${p.amount}</td>
+      <td style="text-transform:capitalize">${p.plan}</td>
+      <td>${new Date(p.createdAt).toLocaleDateString('en-GB')}</td></tr>`).join('');
+  } catch {}
+}
+
+// ══ USERS ══
+async function loadUsers(force=false) {
+  const search = document.getElementById('userSearch').value;
+  const filter = document.getElementById('userFilter').value;
+  const body = document.getElementById('userBody');
+  body.innerHTML = `<tr><td colspan="7" class="loading-row"><span class="spinner"></span>Loading…</td></tr>`;
+  try {
+    const res = await fetch(`${API}/admin/users?page=${userPage}&limit=20&search=${encodeURIComponent(search)}&filter=${filter}`, {headers:{'x-admin-secret':SECRET}});
+    const data = await res.json();
+    if (!data.users?.length) { body.innerHTML=`<tr><td colspan="7" class="empty"><div class="empty-icon">👤</div>No users found.</td></tr>`; return; }
+    body.innerHTML = data.users.map(u => {
+      const blocked = u.isBlocked;
+      const pro     = u.plan==='pro' && u.proExpiresAt && new Date()<new Date(u.proExpiresAt);
+      const lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-GB') : '—';
+      return `<tr>
+        <td class="email-cell">${u.email}${u.displayName?`<br><span style="font-size:11px;color:var(--dim);font-weight:400">${u.displayName}</span>`:''}</td>
+        <td><span class="badge ${pro?'pro':'free'}">${pro?'⚡ Pro':'Free'}</span></td>
+        <td><span class="badge ${blocked?'blocked':''}" style="${!blocked?'color:var(--green);border-color:rgba(74,222,128,.2);background:rgba(74,222,128,.07)':''}">${blocked?'🚫 Blocked':'✅ Active'}</span></td>
+        <td style="font-size:12px">${lastLogin}${u.lastLoginIP?`<br><span style="font-size:10px;color:var(--muted)">${u.lastLoginIP}</span>`:''}</td>
+        <td style="font-size:12px;color:var(--muted)">${new Date(u.createdAt).toLocaleDateString('en-GB')}</td>
+        <td style="color:var(--dim)">${u.totalMessages||0}</td>
+        <td><div class="actions">
+          ${blocked
+            ? `<button class="btn btn-green" onclick="unblockUser('${u._id}')">Unblock</button>`
+            : `<button class="btn btn-red" onclick="openBlockUser('${u._id}')">Block</button>`}
+          ${pro
+            ? `<button class="btn btn-gold" onclick="revokePro('${u._id}')">Revoke Pro</button>`
+            : `<button class="btn btn-blue" onclick="openGrantPro('${u._id}')">Grant Pro</button>`}
+          <button class="btn btn-red" onclick="deleteUser('${u._id}','${u.email}')">Delete</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    // Pagination
+    const pag = document.getElementById('userPagination');
+    pag.innerHTML = '';
+    if (data.pages > 1) {
+      const prev = document.createElement('button'); prev.className='page-btn'; prev.textContent='← Prev'; prev.disabled=userPage<=1;
+      prev.onclick=()=>{userPage--;loadUsers();};
+      const info = document.createElement('span'); info.style.cssText='font-size:12px;color:var(--muted)'; info.textContent=`Page ${data.page}/${data.pages}`;
+      const next = document.createElement('button'); next.className='page-btn'; next.textContent='Next →'; next.disabled=userPage>=data.pages;
+      next.onclick=()=>{userPage++;loadUsers();};
+      pag.append(prev, info, next);
     }
-    document.getElementById('tableBody').innerHTML=`
-      <table>
-        <thead><tr><th>Email</th><th>Method</th><th>TrxID</th><th>Amount</th><th>Plan</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
-        <tbody>${data.map(p=>`
-          <tr id="row-${p._id}">
-            <td class="email">${p.email}</td>
-            <td style="text-transform:capitalize">${p.method}</td>
-            <td class="trxid">${p.transactionId}</td>
-            <td style="color:var(--gold);font-weight:700">৳${p.amount}</td>
-            <td style="text-transform:capitalize">${p.plan}</td>
-            <td style="color:var(--muted)">${new Date(p.createdAt).toLocaleDateString('en-GB')}</td>
-            <td><span class="badge ${p.status}">${p.status}</span></td>
-            <td>${p.status==='pending'?`
-              <div class="action-btns">
-                <button class="approve-btn" onclick="approvePayment('${p._id}')">✅ Approve</button>
-                <button class="reject-btn"  onclick="rejectPayment('${p._id}')">❌ Reject</button>
-              </div>`:`<span style="color:var(--muted);font-size:12px">${p.status==='approved'?'✅ Done':'❌ Rejected'}</span>`}
-            </td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
-  }
+  } catch { showToast('Failed to load users','error'); }
+}
 
-  async function approvePayment(id) {
-    if (!confirm('Approve this payment and activate Pro?')) return;
-    try {
-      const res  = await fetch(`${API}/admin/approve/${id}`,{method:'POST',headers:{'x-admin-secret':adminSecret}});
-      const data = await res.json();
-      if (!res.ok) { showToast(data.message||'Error','error'); return; }
-      showToast('✅ Pro activated!','success');
-      allPayments.find(x=>x._id===id).status='approved';
-      renderStats(); renderTable();
-    } catch { showToast('Network error','error'); }
-  }
+document.getElementById('userSearchBtn').addEventListener('click', () => { userPage=1; loadUsers(true); });
+document.getElementById('userSearch').addEventListener('keydown', e => { if(e.key==='Enter'){userPage=1;loadUsers(true);} });
+document.getElementById('userFilter').addEventListener('change', () => { userPage=1; loadUsers(true); });
 
-  async function rejectPayment(id) {
-    if (!confirm('Reject this payment?')) return;
-    try {
-      const res  = await fetch(`${API}/admin/reject/${id}`,{method:'POST',headers:{'x-admin-secret':adminSecret}});
-      const data = await res.json();
-      if (!res.ok) { showToast(data.message||'Error','error'); return; }
-      showToast('Payment rejected','');
-      allPayments.find(x=>x._id===id).status='rejected';
-      renderStats(); renderTable();
-    } catch { showToast('Network error','error'); }
-  }
+function openBlockUser(id) { pendingAction={userId:id,type:'block'}; document.getElementById('blockReasonInput').value=''; document.getElementById('blockUserModal').classList.add('open'); }
+function openGrantPro(id)  { pendingAction={userId:id,type:'grant'}; document.getElementById('grantProModal').classList.add('open'); }
 
-  let toastTimer;
-  function showToast(msg,type='') {
-    const t=document.getElementById('toast');
-    t.textContent=msg; t.className='toast show '+type;
-    clearTimeout(toastTimer);
-    toastTimer=setTimeout(()=>t.className='toast',3500);
+document.getElementById('blockUserSubmit').addEventListener('click', async () => {
+  const reason = document.getElementById('blockReasonInput').value.trim() || 'Admin action';
+  const res = await apiFetch(`/admin/users/${pendingAction.userId}/block`, 'POST', {reason});
+  if (res) { showToast('User blocked','success'); closeModal('blockUserModal'); loadUsers(true); }
+});
+
+document.getElementById('grantProSubmit').addEventListener('click', async () => {
+  const months = document.getElementById('grantMonths').value;
+  const res = await apiFetch(`/admin/users/${pendingAction.userId}/grant-pro`, 'POST', {months});
+  if (res) { showToast('✅ Pro granted!','success'); closeModal('grantProModal'); loadUsers(true); loadAllStats(); }
+});
+
+async function unblockUser(id) {
+  const res = await apiFetch(`/admin/users/${id}/unblock`, 'POST');
+  if (res) { showToast('User unblocked','success'); loadUsers(true); }
+}
+async function revokePro(id) {
+  if (!confirm('Revoke Pro from this user?')) return;
+  const res = await apiFetch(`/admin/users/${id}/revoke-pro`, 'POST');
+  if (res) { showToast('Pro revoked','success'); loadUsers(true); loadAllStats(); }
+}
+async function deleteUser(id, email) {
+  if (!confirm(`Permanently delete ${email}? This cannot be undone!`)) return;
+  const res = await apiFetch(`/admin/users/${id}`, 'DELETE');
+  if (res) { showToast('User deleted','success'); loadUsers(true); loadAllStats(); }
+}
+
+// ══ BROADCAST ══
+document.getElementById('broadcastBtn').addEventListener('click', async () => {
+  const subject = document.getElementById('broadcastSubject').value.trim();
+  const message = document.getElementById('broadcastMsg').value.trim();
+  const proOnly  = document.getElementById('broadcastProOnly').checked;
+  if (!subject || !message) { showToast('Subject and message required','error'); return; }
+  if (!confirm(`Send broadcast to ${proOnly?'Pro users only':'ALL users'}?`)) return;
+  document.getElementById('broadcastBtn').textContent = '⏳ Sending…';
+  const res = await apiFetch('/admin/broadcast', 'POST', {subject, message, proOnly});
+  if (res) showToast(res.message || 'Sent!', 'success');
+  document.getElementById('broadcastBtn').textContent = '📤 Send Broadcast';
+});
+
+// ══ SECURITY LOGS ══
+async function loadSecurityLogs() {
+  const severity = document.getElementById('logFilter').value;
+  const resolved = document.getElementById('logResolved').value;
+  const body = document.getElementById('securityBody');
+  body.innerHTML = `<tr><td colspan="7" class="loading-row"><span class="spinner"></span>Loading…</td></tr>`;
+  try {
+    let url = `${API}/admin/security/logs?page=${securityPage}&limit=25`;
+    if (severity) url += `&severity=${severity}`;
+    if (resolved !== '') url += `&resolved=${resolved}`;
+    const res = await fetch(url, {headers:{'x-admin-secret':SECRET}});
+    const data = await res.json();
+    if (!data.logs?.length) { body.innerHTML=`<tr><td colspan="7" class="empty"><div class="empty-icon">✅</div>No security logs found.</td></tr>`; return; }
+    body.innerHTML = data.logs.map(log => {
+      const details = typeof log.details==='object'?JSON.stringify(log.details).slice(0,80):String(log.details||'').slice(0,80);
+      return `<tr>
+        <td style="font-weight:600;font-size:12px">${log.type.replace(/_/g,' ')}</td>
+        <td><span class="badge ${log.severity}">${log.severity}</span></td>
+        <td class="ip-text">${log.ip||'—'}</td>
+        <td style="font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${details}">${details||'—'}</td>
+        <td style="font-size:11px;color:var(--muted)">${new Date(log.createdAt).toLocaleString('en-GB',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+        <td><span class="badge ${log.resolved?'approved':'pending'}">${log.resolved?'Resolved':'Open'}</span></td>
+        <td><div class="actions">
+          ${!log.resolved?`<button class="btn btn-green" onclick="resolveLog('${log._id}')">✓ Resolve</button>`:''}
+          <button class="btn btn-red" onclick="blockIPFromLog('${log.ip}')">Block IP</button>
+        </div></td>
+      </tr>`;
+    }).join('');
+    // Pagination
+    const pag = document.getElementById('securityPagination');
+    pag.innerHTML = '';
+    if (data.pages > 1) {
+      const prev = document.createElement('button'); prev.className='page-btn'; prev.textContent='← Prev'; prev.disabled=securityPage<=1;
+      prev.onclick=()=>{securityPage--;loadSecurityLogs();};
+      const info = document.createElement('span'); info.style.cssText='font-size:12px;color:var(--muted)'; info.textContent=`Page ${data.page}/${data.pages} · ${data.unresolved} open`;
+      const next = document.createElement('button'); next.className='page-btn'; next.textContent='Next →'; next.disabled=securityPage>=data.pages;
+      next.onclick=()=>{securityPage++;loadSecurityLogs();};
+      pag.append(prev, info, next);
+    }
+  } catch { showToast('Failed to load logs','error'); }
+}
+
+document.getElementById('logFilter').addEventListener('change', () => { securityPage=1; loadSecurityLogs(); });
+document.getElementById('logResolved').addEventListener('change', () => { securityPage=1; loadSecurityLogs(); });
+document.getElementById('clearResolvedBtn').addEventListener('click', async () => {
+  if (!confirm('Clear all resolved logs?')) return;
+  const res = await apiFetch('/admin/security/logs/resolved', 'DELETE');
+  if (res) { showToast('Cleared','success'); loadSecurityLogs(); }
+});
+
+async function resolveLog(id) {
+  const res = await apiFetch(`/admin/security/logs/${id}/resolve`, 'PATCH');
+  if (res) { showToast('Resolved','success'); loadSecurityLogs(); loadAllStats(); }
+}
+function blockIPFromLog(ip) {
+  if (!ip || ip==='—') return;
+  document.getElementById('blockIPInput').value = ip;
+  document.getElementById('blockIPReason').value = 'From security log';
+  document.getElementById('blockIPModal').classList.add('open');
+}
+
+// ══ BLOCKED IPs ══
+async function loadBlockedIPs() {
+  const body = document.getElementById('blockedIPBody');
+  body.innerHTML = `<tr><td colspan="6" class="loading-row"><span class="spinner"></span>Loading…</td></tr>`;
+  try {
+    const res = await fetch(`${API}/admin/security/blocked-ips`, {headers:{'x-admin-secret':SECRET}});
+    const ips = await res.json();
+    if (!ips.length) { body.innerHTML=`<tr><td colspan="6" class="empty"><div class="empty-icon">🛡️</div>No blocked IPs.</td></tr>`; return; }
+    body.innerHTML = ips.map(ip=>`
+      <tr>
+        <td class="ip-text">${ip.ip}</td>
+        <td style="font-size:12px">${ip.reason||'—'}</td>
+        <td><span class="badge ${ip.blockedBy==='admin'?'approved':'pending'}">${ip.blockedBy}</span></td>
+        <td style="font-size:12px;color:var(--muted)">${ip.expiresAt?new Date(ip.expiresAt).toLocaleDateString('en-GB'):'Permanent'}</td>
+        <td style="font-size:12px;color:var(--muted)">${new Date(ip.createdAt).toLocaleDateString('en-GB')}</td>
+        <td><button class="btn btn-green" onclick="unblockIP('${ip.ip}')">Unblock</button></td>
+      </tr>`).join('');
+  } catch { showToast('Failed to load blocked IPs','error'); }
+}
+
+document.getElementById('blockIPBtn').addEventListener('click', () => {
+  document.getElementById('blockIPInput').value=''; document.getElementById('blockIPReason').value=''; document.getElementById('blockIPExpiry').value='';
+  document.getElementById('blockIPModal').classList.add('open');
+});
+document.getElementById('blockIPSubmit').addEventListener('click', async () => {
+  const ip = document.getElementById('blockIPInput').value.trim();
+  const reason = document.getElementById('blockIPReason').value.trim();
+  const expiresInHours = document.getElementById('blockIPExpiry').value;
+  if (!ip) { showToast('IP required','error'); return; }
+  const res = await apiFetch('/admin/security/block-ip', 'POST', {ip, reason, expiresInHours: expiresInHours?parseInt(expiresInHours):null});
+  if (res) { showToast(`IP ${ip} blocked`,'success'); closeModal('blockIPModal'); loadBlockedIPs(); }
+});
+async function unblockIP(ip) {
+  if (!confirm(`Unblock ${ip}?`)) return;
+  const res = await apiFetch(`/admin/security/blocked-ips/${encodeURIComponent(ip)}`, 'DELETE');
+  if (res) { showToast('IP unblocked','success'); loadBlockedIPs(); }
+}
+
+// ══ SYSTEM HEALTH ══
+async function loadSystemHealth() {
+  try {
+    const res = await fetch(`${API}/admin/system/health`, {headers:{'x-admin-secret':SECRET}});
+    const d = await res.json();
+    const healthy = d.status === 'healthy';
+    document.getElementById('sys-status').innerHTML  = `<span class="status-dot ${healthy?'green':'red'}"></span>${d.status}`;
+    document.getElementById('sys-db').innerHTML      = `<span class="status-dot ${d.db==='connected'?'green':'red'}"></span>${d.db}`;
+    document.getElementById('sys-uptime').textContent= d.uptimeHuman;
+    document.getElementById('sys-ram').textContent   = d.memory?.heapUsed;
+    document.getElementById('sys-node').textContent  = d.nodeVersion;
+    document.getElementById('sys-env').textContent   = d.env;
+    document.getElementById('sys-blocked-ips').textContent = d.blockedIPs;
+    document.getElementById('sys-alerts').innerHTML  = `<span style="color:${d.secAlerts>0?'var(--red)':'var(--green)'}">${d.secAlerts}</span>`;
+    // sidebar health dot
+    document.getElementById('healthDot').style.background = healthy ? 'var(--green)' : 'var(--red)';
+    document.getElementById('healthText').textContent = healthy ? 'API Healthy' : 'API Degraded';
+  } catch {
+    document.getElementById('healthDot').style.background = 'var(--red)';
+    document.getElementById('healthText').textContent = 'Unreachable';
   }
+}
+
+document.getElementById('sysRefreshBtn').addEventListener('click', () => { loadSystemHealth(); loadAllStats(); showToast('Refreshed','success'); });
+document.getElementById('clearAutoBlocksBtn').addEventListener('click', async () => {
+  showToast('Checking expired blocks…','');
+  // This just triggers reload — server clears expired on next request
+  await loadBlockedIPs(); showToast('Done','success');
+});
+
+// ══ HELPERS ══
+async function apiFetch(path, method='GET', body=null) {
+  try {
+    const opts = { method, headers: {'x-admin-secret': SECRET, 'Content-Type':'application/json'} };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${API}${path}`, opts);
+    const data = await res.json();
+    if (!res.ok) { showToast(data.message||'Error','error'); return null; }
+    return data;
+  } catch { showToast('Network error','error'); return null; }
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); }));
+
+let toastTimer;
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className='toast', 3500);
+}
 </script>
 </body>
 </html>
