@@ -16,10 +16,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
-// ═══════════════════════════════════════════
-// ENV CHECK
-// ═══════════════════════════════════════════
-const REQUIRED_ENV = ["MONGO_URI", "OPENROUTER_KEY", "JWT_SECRET", "ADMIN_SECRET", "EMAIL_USER", "EMAIL_PASS"];
+const REQUIRED_ENV = ["MONGO_URI","OPENROUTER_KEY","JWT_SECRET","ADMIN_SECRET","EMAIL_USER","EMAIL_PASS"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`Missing env: ${key}`);
 }
@@ -31,993 +28,674 @@ const MAX_HISTORY  = 20;
 const FREE_LIMIT   = 25;
 const FREE_WINDOW  = 4 * 60 * 60 * 1000;
 
-// ═══════════════════════════════════════════
-// NODEMAILER — Gmail SMTP
-// ═══════════════════════════════════════════
+// ── Nodemailer ──
 const transporter = nodemailer.createTransport({
   service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
 async function sendEmail(to, subject, html) {
   try {
-    await transporter.sendMail({
-      from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`,
-      to,
-      subject,
-      html,
-    });
+    await transporter.sendMail({ from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`, to, subject, html });
     return true;
-  } catch (err) {
-    console.error("Email error:", err.message);
-    return false;
-  }
+  } catch (err) { console.error("Email error:", err.message); return false; }
 }
 
-// ═══════════════════════════════════════════
-// APP SETUP
-// ═══════════════════════════════════════════
+async function sendSecurityAlert(type, details) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+  const html = `<div style="font-family:sans-serif;max-width:520px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:28px;border-radius:14px;border:1px solid rgba(248,113,113,0.3)">
+    <h2 style="color:#f87171">🚨 Security Alert — SG ChatBOT</h2>
+    <p style="color:#8a9bb5;font-size:13px">${new Date().toUTCString()}</p>
+    <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:10px;padding:16px;margin:14px 0">
+      <p style="font-weight:700;color:#f87171;margin-bottom:8px">${type}</p>
+      <pre style="font-size:12px;color:#8a9bb5;white-space:pre-wrap;margin:0">${JSON.stringify(details,null,2)}</pre>
+    </div>
+    <p style="color:#4a5a72;font-size:12px">SG ChatBOT Security System · Auto-generated</p>
+  </div>`;
+  await sendEmail(adminEmail, `🚨 Security Alert: ${type}`, html);
+}
+
+// ── App Setup ──
 const app = express();
 app.set("trust proxy", 1);
 
-// Force HTTPS in production
 app.use((req, res, next) => {
-  if (
-    process.env.NODE_ENV === "production" &&
-    req.headers["x-forwarded-proto"] !== "https"
-  ) {
+  if (process.env.NODE_ENV === "production" && req.headers["x-forwarded-proto"] !== "https")
     return res.redirect(301, `https://${req.headers.host}${req.url}`);
-  }
   next();
 });
 
-// Security headers
 app.disable("x-powered-by");
 app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("X-Content-Type-Options","nosniff");
+  res.setHeader("X-Frame-Options","DENY");
+  res.setHeader("X-XSS-Protection","1; mode=block");
+  res.setHeader("Referrer-Policy","strict-origin-when-cross-origin");
   next();
 });
 
-// CORS — whitelist only
 app.use(cors({
-  origin: [
-    "https://sg-chatbot-a2h.pages.dev",
-    "https://sgchatbotofficial.netlify.app",
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5500",
-  ],
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-admin-secret"],
+  origin: ["https://sg-chatbot-a2h.pages.dev","https://sgchatbotofficial.netlify.app","http://localhost:3000","http://localhost:5173","http://127.0.0.1:5500"],
+  methods: ["GET","POST","DELETE","OPTIONS","PATCH"],
+  allowedHeaders: ["Content-Type","Authorization","x-admin-secret"],
   credentials: false,
 }));
-
-// Limit JSON body size
 app.use(express.json({ limit: "16kb" }));
 
-// ═══════════════════════════════════════════
-// MULTER — File upload with type validation
-// ═══════════════════════════════════════════
-const ALLOWED_MIME = new Set([
-  "image/jpeg", "image/png", "image/gif", "image/webp",
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/plain", "text/csv",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-]);
-
+// ── Multer ──
+const ALLOWED_MIME = new Set(["image/jpeg","image/png","image/gif","image/webp","application/pdf","application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document","text/plain","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"]);
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
-  fileFilter: (req, file, cb) => {
-    if (ALLOWED_MIME.has(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`File type not allowed: ${file.mimetype}`));
-    }
-  },
+  limits: { fileSize: 5*1024*1024 },
+  fileFilter: (req,file,cb) => ALLOWED_MIME.has(file.mimetype) ? cb(null,true) : cb(new Error(`File type not allowed: ${file.mimetype}`)),
 });
 
-// ═══════════════════════════════════════════
-// RATE LIMITERS
-// ═══════════════════════════════════════════
-const authLimiter  = rateLimit({ windowMs: 15 * 60 * 1000, max: 15, message: { message: "Too many attempts. Try later." } });
-const chatLimiter  = rateLimit({ windowMs: 60 * 1000,       max: 30 });
-const adminLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { message: "Too many admin requests." } });
-const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5,  message: { message: "Too many reset attempts." } });
+// ── Rate Limiters ──
+const authLimiter  = rateLimit({ windowMs:15*60*1000, max:15, message:{message:"Too many attempts. Try later."} });
+const chatLimiter  = rateLimit({ windowMs:60*1000, max:30 });
+const adminLimiter = rateLimit({ windowMs:15*60*1000, max:100, message:{message:"Too many admin requests."} });
+const resetLimiter = rateLimit({ windowMs:60*60*1000, max:5, message:{message:"Too many reset attempts."} });
 
-// ═══════════════════════════════════════════
-// DATABASE
-// ═══════════════════════════════════════════
+// ── DB ──
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB connected"))
   .catch(err => { console.error("❌ MongoDB failed:", err.message); process.exit(1); });
 
-// ═══════════════════════════════════════════
-// MODELS
-// ═══════════════════════════════════════════
+// ── Models ──
 const userSchema = new mongoose.Schema({
-  email:          { type: String, required: true, unique: true, lowercase: true, trim: true, maxlength: 254 },
-  password:       { type: String, required: true },
-  plan:           { type: String, enum: ["free", "pro"], default: "free" },
-  proExpiresAt:   { type: Date, default: null },
-  msgCount:       { type: Number, default: 0 },
-  msgWindowStart: { type: Date, default: null },
-  resetToken:     { type: String, default: null },
-  resetTokenExp:  { type: Date, default: null },
-  loginAttempts:  { type: Number, default: 0 },
-  lockUntil:      { type: Date, default: null },
-  displayName:    { type: String, default: "", maxlength: 50 },
+  email:          { type:String, required:true, unique:true, lowercase:true, trim:true, maxlength:254 },
+  password:       { type:String, required:true },
+  plan:           { type:String, enum:["free","pro"], default:"free" },
+  proExpiresAt:   { type:Date, default:null },
+  msgCount:       { type:Number, default:0 },
+  msgWindowStart: { type:Date, default:null },
+  resetToken:     { type:String, default:null },
+  resetTokenExp:  { type:Date, default:null },
+  loginAttempts:  { type:Number, default:0 },
+  lockUntil:      { type:Date, default:null },
+  displayName:    { type:String, default:"", maxlength:50 },
+  isBlocked:      { type:Boolean, default:false },
+  blockedReason:  { type:String, default:"" },
+  blockedAt:      { type:Date, default:null },
+  lastLoginAt:    { type:Date, default:null },
+  lastLoginIP:    { type:String, default:"" },
+  totalMessages:  { type:Number, default:0 },
   settings: {
-    theme:           { type: String, enum: ["dark","light","system"], default: "dark" },
-    language:        { type: String, default: "en" },
-    parentalControl: { type: Boolean, default: false },
-    typewriter:      { type: Boolean, default: true },
-    fontSize:        { type: String, enum: ["sm","md","lg"], default: "md" },
-    soundEnabled:    { type: Boolean, default: false },
-    autoSaveChats:   { type: Boolean, default: true },
+    theme:           { type:String, enum:["dark","light","system"], default:"dark" },
+    language:        { type:String, default:"en" },
+    parentalControl: { type:Boolean, default:false },
+    typewriter:      { type:Boolean, default:true },
+    fontSize:        { type:String, enum:["sm","md","lg"], default:"md" },
+    soundEnabled:    { type:Boolean, default:false },
+    autoSaveChats:   { type:Boolean, default:true },
   },
-}, { timestamps: true });
-
+}, { timestamps:true });
 const User = mongoose.model("User", userSchema);
 
 const paymentSchema = new mongoose.Schema({
-  userId:        { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  email:         { type: String, required: true },
-  method:        { type: String, enum: ["bkash", "nagad"], required: true },
-  transactionId: { type: String, required: true, trim: true },
-  amount:        { type: Number, required: true },
-  plan:          { type: String, enum: ["monthly", "yearly"], required: true },
-  status:        { type: String, enum: ["pending", "approved", "rejected"], default: "pending" },
-}, { timestamps: true });
+  userId:        { type:mongoose.Schema.Types.ObjectId, ref:"User", required:true },
+  email:         { type:String, required:true },
+  method:        { type:String, enum:["bkash","nagad"], required:true },
+  transactionId: { type:String, required:true, trim:true },
+  amount:        { type:Number, required:true },
+  plan:          { type:String, enum:["monthly","yearly"], required:true },
+  status:        { type:String, enum:["pending","approved","rejected"], default:"pending" },
+}, { timestamps:true });
 const Payment = mongoose.model("Payment", paymentSchema);
 
 const conversationSchema = new mongoose.Schema({
-  userId:   { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  title:    { type: String, default: "New Chat" },
-  messages: [{
-    role:      { type: String, enum: ["user","assistant","system"] },
-    content:   { type: mongoose.Schema.Types.Mixed },
-    createdAt: { type: Date, default: Date.now },
-  }],
-  updatedAt: { type: Date, default: Date.now },
-}, { timestamps: true });
+  userId:   { type:mongoose.Schema.Types.ObjectId, ref:"User", required:true },
+  title:    { type:String, default:"New Chat" },
+  messages: [{ role:{type:String,enum:["user","assistant","system"]}, content:{type:mongoose.Schema.Types.Mixed}, createdAt:{type:Date,default:Date.now} }],
+  updatedAt:{ type:Date, default:Date.now },
+}, { timestamps:true });
 const Conversation = mongoose.model("Conversation", conversationSchema);
 
-// ═══════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════
+const securityLogSchema = new mongoose.Schema({
+  type:      { type:String, required:true },
+  severity:  { type:String, enum:["low","medium","high","critical"], default:"medium" },
+  ip:        { type:String, default:"" },
+  userAgent: { type:String, default:"" },
+  email:     { type:String, default:"" },
+  userId:    { type:String, default:"" },
+  details:   { type:mongoose.Schema.Types.Mixed },
+  resolved:  { type:Boolean, default:false },
+  resolvedAt:{ type:Date, default:null },
+}, { timestamps:true });
+const SecurityLog = mongoose.model("SecurityLog", securityLogSchema);
+
+const blockedIPSchema = new mongoose.Schema({
+  ip:        { type:String, required:true, unique:true },
+  reason:    { type:String, default:"" },
+  blockedBy: { type:String, default:"system" },
+  attempts:  { type:Number, default:0 },
+  expiresAt: { type:Date, default:null },
+}, { timestamps:true });
+const BlockedIP = mongoose.model("BlockedIP", blockedIPSchema);
+
+// ── Helpers ──
 function sanitize(input) {
-  if (typeof input === "string") {
-    return input.replace(/[\$\x00]/g, "").trim().slice(0, 1000);
-  }
-  if (typeof input === "object" && input !== null) {
-    const clean = {};
-    for (const key of Object.keys(input)) {
-      const safeKey = key.replace(/[\$\.]/g, "_").slice(0, 100);
-      clean[safeKey] = sanitize(input[key]);
-    }
+  if (typeof input==="string") return input.replace(/[\$\x00]/g,"").trim().slice(0,1000);
+  if (typeof input==="object"&&input!==null) {
+    const clean={};
+    for (const key of Object.keys(input)) { const k=key.replace(/[\$\.]/g,"_").slice(0,100); clean[k]=sanitize(input[key]); }
     return clean;
   }
   return input;
 }
-
-function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
-}
-
-function isProActive(user) {
-  return user.plan === "pro" && user.proExpiresAt && new Date() < new Date(user.proExpiresAt);
-}
+function isValidEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)&&e.length<=254; }
+function isProActive(u)   { return u.plan==="pro"&&u.proExpiresAt&&new Date()<new Date(u.proExpiresAt); }
+function isLocked(u)      { return u.lockUntil&&new Date()<new Date(u.lockUntil); }
+function getClientIP(req) { return req.headers["x-forwarded-for"]?.split(",")[0]?.trim()||req.ip||"unknown"; }
 
 function checkWindow(user) {
-  const now = Date.now();
-  if (!user.msgWindowStart || (now - new Date(user.msgWindowStart).getTime()) >= FREE_WINDOW) {
-    user.msgCount = 0;
-    user.msgWindowStart = new Date();
+  const now=Date.now();
+  if (!user.msgWindowStart||(now-new Date(user.msgWindowStart).getTime())>=FREE_WINDOW) {
+    user.msgCount=0; user.msgWindowStart=new Date();
   }
 }
-
 function minsUntilReset(user) {
   if (!user.msgWindowStart) return 0;
-  const elapsed = Date.now() - new Date(user.msgWindowStart).getTime();
-  return Math.ceil(Math.max(0, FREE_WINDOW - elapsed) / 60000);
+  return Math.ceil(Math.max(0,FREE_WINDOW-(Date.now()-new Date(user.msgWindowStart).getTime()))/60000);
 }
 
-function isLocked(user) {
-  return user.lockUntil && new Date() < new Date(user.lockUntil);
-}
+const ipAttempts = new Map();
 
-// ═══════════════════════════════════════════
-// AUTH MIDDLEWARE
-// ═══════════════════════════════════════════
-function auth(req, res, next) {
-  const header = req.headers.authorization;
-  if (!header || !header.startsWith("Bearer "))
-    return res.status(401).json({ reply: "Authorization token missing." });
+async function logSecurityEvent(type, severity, req, extra={}) {
+  const ip=getClientIP(req), userAgent=req.headers["user-agent"]||"";
   try {
-    req.user = jwt.verify(header.slice(7), JWT_SECRET);
-    next();
-  } catch {
-    return res.status(401).json({ reply: "Invalid or expired token." });
-  }
+    await SecurityLog.create({ type, severity, ip, userAgent, ...extra });
+    if (severity==="high"||severity==="critical") sendSecurityAlert(type,{ip,userAgent,...extra}).catch(()=>{});
+  } catch(e) { console.error("Security log error:",e.message); }
 }
 
-function adminAuth(req, res, next) {
-  const secret = req.headers["x-admin-secret"] || "";
-  const valid  = Buffer.from(secret).length === Buffer.from(ADMIN_SECRET).length &&
-                 crypto.timingSafeEqual(Buffer.from(secret), Buffer.from(ADMIN_SECRET));
-  if (!valid) return res.status(403).json({ message: "Forbidden" });
+// ── IP Block Middleware ──
+app.use(async (req,res,next) => {
+  if (req.path==="/") return next();
+  const ip=getClientIP(req);
+  try {
+    const blocked=await BlockedIP.findOne({ip});
+    if (blocked) {
+      if (blocked.expiresAt&&new Date()>blocked.expiresAt) { await BlockedIP.deleteOne({ip}); return next(); }
+      return res.status(403).json({message:"Access denied."});
+    }
+  } catch {}
   next();
-}
-
-// ═══════════════════════════════════════════
-// SIGNUP
-// ═══════════════════════════════════════════
-app.post("/signup", authLimiter, async (req, res) => {
-  try {
-    const body     = sanitize(req.body);
-    const email    = body.email;
-    const password = body.password;
-
-    if (!email || !password)
-      return res.status(400).json({ message: "Email and password required" });
-    if (!isValidEmail(email))
-      return res.status(400).json({ message: "Invalid email format" });
-    if (password.length < 8 || password.length > 128)
-      return res.status(400).json({ message: "Password must be 8–128 characters" });
-
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(409).json({ message: "User already exists" });
-
-    const hash = await bcrypt.hash(password, 12);
-    await User.create({ email, password: hash });
-    res.json({ message: "Account created" });
-  } catch {
-    res.status(500).json({ message: "Signup error" });
-  }
 });
 
-// ═══════════════════════════════════════════
-// LOGIN
-// ═══════════════════════════════════════════
-app.post("/login", authLimiter, async (req, res) => {
+// ── Suspicious Activity Detector ──
+const SUSPICIOUS_UA = ["sqlmap","nikto","nmap","masscan","zgrab","acunetix","burpsuite"];
+app.use(async (req,res,next) => {
+  const ip=getClientIP(req);
+  const ua=(req.headers["user-agent"]||"").toLowerCase();
+  const url=req.originalUrl;
+  const suspUA     = SUSPICIOUS_UA.some(s=>ua.includes(s));
+  const pathTraverse= url.includes("../")||url.includes("%2e%2e");
+  const sqlAttempt  = /(\bselect\b|\bdrop\b|\bunion\b|\binsert\b)/i.test(url);
+  const xssAttempt  = /<script|javascript:|onerror=/i.test(url);
+
+  if (suspUA||pathTraverse||sqlAttempt||xssAttempt) {
+    const type=suspUA?"suspicious_user_agent":pathTraverse?"path_traversal":sqlAttempt?"sql_injection":"xss_attempt";
+    await logSecurityEvent(type,"high",req,{url});
+    const key=`susp_${ip}`;
+    const count=(ipAttempts.get(key)||0)+1;
+    ipAttempts.set(key,count);
+    if (count>=3) {
+      await BlockedIP.findOneAndUpdate({ip},{ip,reason:`Auto-blocked: ${type}`,blockedBy:"system",attempts:count},{upsert:true,new:true}).catch(()=>{});
+      await logSecurityEvent("ip_auto_blocked","critical",req,{reason:type});
+    }
+    return res.status(403).json({message:"Access denied."});
+  }
+  next();
+});
+
+// ── Auth Middleware ──
+function auth(req,res,next) {
+  const h=req.headers.authorization;
+  if (!h||!h.startsWith("Bearer ")) return res.status(401).json({reply:"Authorization token missing."});
+  try { req.user=jwt.verify(h.slice(7),JWT_SECRET); next(); }
+  catch { return res.status(401).json({reply:"Invalid or expired token."}); }
+}
+
+function adminAuth(req,res,next) {
+  const secret=req.headers["x-admin-secret"]||"";
   try {
-    const body     = sanitize(req.body);
-    const email    = body.email;
-    const password = body.password;
+    const valid=Buffer.from(secret).length===Buffer.from(ADMIN_SECRET).length&&
+                crypto.timingSafeEqual(Buffer.from(secret),Buffer.from(ADMIN_SECRET));
+    if (!valid) { logSecurityEvent("admin_auth_failed","high",req).catch(()=>{}); return res.status(403).json({message:"Forbidden"}); }
+    next();
+  } catch { return res.status(403).json({message:"Forbidden"}); }
+}
 
-    if (!email || !password)
-      return res.status(401).json({ message: "Invalid login" });
+async function checkBlocked(req,res,next) {
+  try {
+    const u=await User.findById(req.user.id).select("isBlocked blockedReason");
+    if (u?.isBlocked) return res.status(403).json({reply:`Account blocked: ${u.blockedReason||"Policy violation"}`});
+    next();
+  } catch { next(); }
+}
 
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(401).json({ message: "Invalid email or password" });
+// ═══ SIGNUP ═══
+app.post("/signup", authLimiter, async (req,res) => {
+  try {
+    const b=sanitize(req.body); const {email,password}=b;
+    if (!email||!password) return res.status(400).json({message:"Email and password required"});
+    if (!isValidEmail(email)) return res.status(400).json({message:"Invalid email format"});
+    if (password.length<8||password.length>128) return res.status(400).json({message:"Password must be 8–128 characters"});
+    if (await User.findOne({email})) return res.status(409).json({message:"User already exists"});
+    const hash=await bcrypt.hash(password,12);
+    await User.create({email,password:hash,lastLoginIP:getClientIP(req)});
+    res.json({message:"Account created"});
+  } catch { res.status(500).json({message:"Signup error"}); }
+});
 
-    if (isLocked(user))
-      return res.status(423).json({ message: "Account temporarily locked. Try again later." });
-
-    const ok = await bcrypt.compare(password, user.password);
+// ═══ LOGIN ═══
+app.post("/login", authLimiter, async (req,res) => {
+  try {
+    const b=sanitize(req.body); const {email,password}=b; const ip=getClientIP(req);
+    if (!email||!password) return res.status(401).json({message:"Invalid login"});
+    const user=await User.findOne({email});
+    if (!user) return res.status(401).json({message:"Invalid email or password"});
+    if (user.isBlocked) return res.status(403).json({message:`Account blocked: ${user.blockedReason||"Policy violation"}`});
+    if (isLocked(user)) return res.status(423).json({message:"Account temporarily locked. Try again later."});
+    const ok=await bcrypt.compare(password,user.password);
     if (!ok) {
-      user.loginAttempts = (user.loginAttempts || 0) + 1;
-      if (user.loginAttempts >= 5) {
-        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000);
-        user.loginAttempts = 0;
+      user.loginAttempts=(user.loginAttempts||0)+1;
+      if (user.loginAttempts>=5) {
+        user.lockUntil=new Date(Date.now()+15*60*1000); user.loginAttempts=0;
+        await logSecurityEvent("brute_force_detected","high",req,{email,userId:user._id.toString()});
       }
       await user.save();
-      return res.status(401).json({ message: "Invalid email or password" });
+      return res.status(401).json({message:"Invalid email or password"});
     }
-
-    user.loginAttempts = 0;
-    user.lockUntil     = null;
+    user.loginAttempts=0; user.lockUntil=null; user.lastLoginAt=new Date(); user.lastLoginIP=ip;
     await user.save();
-
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ token });
-  } catch {
-    res.status(500).json({ message: "Login error" });
-  }
+    const token=jwt.sign({id:user._id},JWT_SECRET,{expiresIn:"7d"});
+    res.json({token});
+  } catch { res.status(500).json({message:"Login error"}); }
 });
 
-// ═══════════════════════════════════════════
-// STATUS
-// ═══════════════════════════════════════════
-app.get("/status", auth, async (req, res) => {
+// ═══ STATUS ═══
+app.get("/status", auth, async (req,res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password -resetToken");
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const pro = isProActive(user);
-    checkWindow(user);
-
-    res.json({
-      email:      user.email,
-      plan:       pro ? "pro" : "free",
-      msgsLeft:   pro ? null : Math.max(0, FREE_LIMIT - user.msgCount),
-      freeLimit:  FREE_LIMIT,
-      minsLeft:   pro ? null : minsUntilReset(user),
-      proExpires: user.proExpiresAt,
-    });
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
+    const user=await User.findById(req.user.id).select("-password -resetToken");
+    if (!user) return res.status(404).json({message:"User not found"});
+    const pro=isProActive(user); checkWindow(user);
+    res.json({email:user.email,plan:pro?"pro":"free",msgsLeft:pro?null:Math.max(0,FREE_LIMIT-user.msgCount),freeLimit:FREE_LIMIT,minsLeft:pro?null:minsUntilReset(user),proExpires:user.proExpiresAt});
+  } catch { res.status(500).json({message:"Error"}); }
 });
 
-// ═══════════════════════════════════════════
-// FORGOT PASSWORD
-// ═══════════════════════════════════════════
-app.post("/forgot-password", resetLimiter, async (req, res) => {
+// ═══ FORGOT / RESET PASSWORD ═══
+app.post("/forgot-password", resetLimiter, async (req,res) => {
   try {
-    const email = sanitize(req.body).email;
-    if (!email || !isValidEmail(email))
-      return res.json({ message: "If this email exists, a reset code has been sent." });
-
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.json({ message: "If this email exists, a reset code has been sent." });
-
-    const code    = crypto.randomInt(100000, 999999).toString();
-    const expires = new Date(Date.now() + 15 * 60 * 1000);
-
-    user.resetToken    = await bcrypt.hash(code, 8);
-    user.resetTokenExp = expires;
+    const email=sanitize(req.body).email;
+    if (!email||!isValidEmail(email)) return res.json({message:"If this email exists, a reset code has been sent."});
+    const user=await User.findOne({email});
+    if (!user) return res.json({message:"If this email exists, a reset code has been sent."});
+    const code=crypto.randomInt(100000,999999).toString();
+    user.resetToken=await bcrypt.hash(code,8); user.resetTokenExp=new Date(Date.now()+15*60*1000);
     await user.save();
-
-    const emailSent = await sendEmail(
-      email,
-      "🔑 SG ChatBOT — Password Reset Code",
-      `
-      <div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)">
-        <h2 style="color:#4f8eff;margin-bottom:8px">SG ChatBOT</h2>
-        <p style="color:#8a9bb5;margin-bottom:24px">Password Reset Request</p>
-        <p>Your reset code is:</p>
-        <div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#4f8eff;background:rgba(79,142,255,0.1);padding:20px;border-radius:12px;text-align:center;margin:16px 0">${code}</div>
-        <p style="color:#8a9bb5;font-size:13px">This code expires in <strong style="color:#e4ecf7">15 minutes</strong>.</p>
-        <p style="color:#8a9bb5;font-size:13px">If you didn't request this, ignore this email.</p>
-        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:24px 0">
-        <p style="color:#4a5a72;font-size:12px">SG ChatBOT · Built by Mohammed Sadid Rahman</p>
-      </div>
-      `
-    );
-
-    if (!emailSent) {
-      console.log(`🔑 Reset code for ${email}: ${code}`);
-    }
-
-    res.json({ message: "If this email exists, a reset code has been sent." });
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
+    await sendEmail(email,"🔑 SG ChatBOT — Password Reset Code",`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)"><h2 style="color:#4f8eff">SG ChatBOT</h2><p>Your reset code:</p><div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#4f8eff;background:rgba(79,142,255,0.1);padding:20px;border-radius:12px;text-align:center;margin:16px 0">${code}</div><p style="color:#8a9bb5;font-size:13px">Expires in 15 minutes.</p></div>`);
+    res.json({message:"If this email exists, a reset code has been sent."});
+  } catch { res.status(500).json({message:"Error"}); }
 });
 
-// ═══════════════════════════════════════════
-// RESET PASSWORD
-// ═══════════════════════════════════════════
-app.post("/reset-password", resetLimiter, async (req, res) => {
+app.post("/reset-password", resetLimiter, async (req,res) => {
   try {
-    const body        = sanitize(req.body);
-    const email       = body.email;
-    const code        = body.code;
-    const newPassword = body.newPassword;
-
-    if (!email || !code || !newPassword)
-      return res.status(400).json({ message: "All fields required" });
-    if (newPassword.length < 8 || newPassword.length > 128)
-      return res.status(400).json({ message: "Password must be 8–128 characters" });
-
-    const user = await User.findOne({ email });
-    if (!user || !user.resetToken || !user.resetTokenExp)
-      return res.status(400).json({ message: "Invalid or expired code" });
-    if (new Date() > user.resetTokenExp)
-      return res.status(400).json({ message: "Reset code expired" });
-
-    const valid = await bcrypt.compare(code, user.resetToken);
-    if (!valid) return res.status(400).json({ message: "Invalid reset code" });
-
-    user.password      = await bcrypt.hash(newPassword, 12);
-    user.resetToken    = null;
-    user.resetTokenExp = null;
-    user.loginAttempts = 0;
-    user.lockUntil     = null;
+    const {email,code,newPassword}=sanitize(req.body);
+    if (!email||!code||!newPassword) return res.status(400).json({message:"All fields required"});
+    if (newPassword.length<8||newPassword.length>128) return res.status(400).json({message:"Password must be 8–128 characters"});
+    const user=await User.findOne({email});
+    if (!user||!user.resetToken||!user.resetTokenExp) return res.status(400).json({message:"Invalid or expired code"});
+    if (new Date()>user.resetTokenExp) return res.status(400).json({message:"Reset code expired"});
+    if (!await bcrypt.compare(code,user.resetToken)) return res.status(400).json({message:"Invalid reset code"});
+    user.password=await bcrypt.hash(newPassword,12); user.resetToken=null; user.resetTokenExp=null; user.loginAttempts=0; user.lockUntil=null;
     await user.save();
-
-    res.json({ message: "Password reset successfully" });
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
+    res.json({message:"Password reset successfully"});
+  } catch { res.status(500).json({message:"Error"}); }
 });
 
-// ═══════════════════════════════════════════
-// PAYMENT SUBMIT
-// ═══════════════════════════════════════════
-app.post("/payment/submit", auth, async (req, res) => {
+// ═══ PAYMENT ═══
+app.post("/payment/submit", auth, async (req,res) => {
   try {
-    const body = sanitize(req.body);
-    const { method, transactionId, plan } = body;
-
-    if (!method || !transactionId || !plan)
-      return res.status(400).json({ message: "Missing fields" });
-    if (!["bkash", "nagad"].includes(method))
-      return res.status(400).json({ message: "Invalid method" });
-    if (!["monthly", "yearly"].includes(plan))
-      return res.status(400).json({ message: "Invalid plan" });
-    if (transactionId.length < 6 || transactionId.length > 50)
-      return res.status(400).json({ message: "Invalid transaction ID" });
-
-    const duplicate = await Payment.findOne({ transactionId });
-    if (duplicate) return res.status(409).json({ message: "Transaction ID already used" });
-
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const amount = plan === "monthly" ? 99 : 799;
-
-    await Payment.create({
-      userId: user._id,
-      email:  user.email,
-      method,
-      transactionId,
-      amount,
-      plan,
-    });
-
-    res.json({ message: "Payment submitted! We will verify within 24 hours." });
-  } catch {
-    res.status(500).json({ message: "Payment error" });
-  }
+    const {method,transactionId,plan}=sanitize(req.body);
+    if (!method||!transactionId||!plan) return res.status(400).json({message:"Missing fields"});
+    if (!["bkash","nagad"].includes(method)) return res.status(400).json({message:"Invalid method"});
+    if (!["monthly","yearly"].includes(plan)) return res.status(400).json({message:"Invalid plan"});
+    if (transactionId.length<6||transactionId.length>50) return res.status(400).json({message:"Invalid transaction ID"});
+    if (await Payment.findOne({transactionId})) return res.status(409).json({message:"Transaction ID already used"});
+    const user=await User.findById(req.user.id);
+    if (!user) return res.status(404).json({message:"User not found"});
+    await Payment.create({userId:user._id,email:user.email,method,transactionId,amount:plan==="monthly"?99:799,plan});
+    res.json({message:"Payment submitted! We will verify within 24 hours."});
+  } catch { res.status(500).json({message:"Payment error"}); }
 });
 
-// ═══════════════════════════════════════════
+// ════════════════════════════════
 // ADMIN ROUTES
-// ═══════════════════════════════════════════
-app.get("/admin/payments", adminLimiter, adminAuth, async (req, res) => {
-  try {
-    const payments = await Payment.find().sort({ createdAt: -1 });
-    res.json(payments);
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
+// ════════════════════════════════
+
+// Payments
+app.get("/admin/payments", adminLimiter, adminAuth, async (req,res) => {
+  try { res.json(await Payment.find().sort({createdAt:-1})); } catch { res.status(500).json({message:"Error"}); }
 });
 
-app.post("/admin/approve/:paymentId", adminLimiter, adminAuth, async (req, res) => {
+app.post("/admin/approve/:id", adminLimiter, adminAuth, async (req,res) => {
   try {
-    const payment = await Payment.findById(req.params.paymentId);
-    if (!payment) return res.status(404).json({ message: "Not found" });
-
-    payment.status = "approved";
-    await payment.save();
-
-    const user = await User.findById(payment.userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
-
-    const expires = new Date();
-    payment.plan === "monthly"
-      ? expires.setMonth(expires.getMonth() + 1)
-      : expires.setFullYear(expires.getFullYear() + 1);
-
-    user.plan         = "pro";
-    user.proExpiresAt = expires;
-    await user.save();
-
-    res.json({ message: `Pro activated for ${user.email} until ${expires.toDateString()}` });
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
+    const p=await Payment.findById(req.params.id);
+    if (!p) return res.status(404).json({message:"Not found"});
+    p.status="approved"; await p.save();
+    const u=await User.findById(p.userId);
+    if (!u) return res.status(404).json({message:"User not found"});
+    const exp=new Date(); p.plan==="monthly"?exp.setMonth(exp.getMonth()+1):exp.setFullYear(exp.getFullYear()+1);
+    u.plan="pro"; u.proExpiresAt=exp; await u.save();
+    res.json({message:`Pro activated for ${u.email} until ${exp.toDateString()}`});
+  } catch { res.status(500).json({message:"Error"}); }
 });
 
-app.post("/admin/reject/:paymentId", adminLimiter, adminAuth, async (req, res) => {
+app.post("/admin/reject/:id", adminLimiter, adminAuth, async (req,res) => {
   try {
-    const payment = await Payment.findById(req.params.paymentId);
-    if (!payment) return res.status(404).json({ message: "Not found" });
-    payment.status = "rejected";
-    await payment.save();
-    res.json({ message: "Payment rejected" });
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
+    const p=await Payment.findById(req.params.id);
+    if (!p) return res.status(404).json({message:"Not found"});
+    p.status="rejected"; await p.save(); res.json({message:"Rejected"});
+  } catch { res.status(500).json({message:"Error"}); }
 });
 
-// ═══════════════════════════════════════════
-// CHAT — Main endpoint
-// ═══════════════════════════════════════════
-app.post("/chat", chatLimiter, auth, upload.single("file"), async (req, res) => {
+// Users
+app.get("/admin/users", adminLimiter, adminAuth, async (req,res) => {
   try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(401).json({ reply: "User not found." });
+    const page=parseInt(req.query.page)||1, limit=parseInt(req.query.limit)||50;
+    const search=req.query.search||"", filter=req.query.filter||"all";
+    let query={};
+    if (search) query.email={$regex:search,$options:"i"};
+    if (filter==="pro")     query.plan="pro";
+    if (filter==="free")    query.plan="free";
+    if (filter==="blocked") query.isBlocked=true;
+    const total=await User.countDocuments(query);
+    const users=await User.find(query).select("-password -resetToken").sort({createdAt:-1}).skip((page-1)*limit).limit(limit);
+    res.json({users,total,page,pages:Math.ceil(total/limit)});
+  } catch { res.status(500).json({message:"Error"}); }
+});
 
-    const pro = isProActive(user);
+app.get("/admin/stats", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const total=await User.countDocuments();
+    const pro=await User.countDocuments({plan:"pro"});
+    const blocked=await User.countDocuments({isBlocked:true});
+    const today=new Date(); today.setHours(0,0,0,0);
+    const newToday=await User.countDocuments({createdAt:{$gte:today}});
+    const week=new Date(Date.now()-7*24*3600000);
+    const newWeek=await User.countDocuments({createdAt:{$gte:week}});
+    const revData=await Payment.aggregate([{$match:{status:"approved"}},{$group:{_id:null,total:{$sum:"$amount"},count:{$sum:1}}}]);
+    const revenue=revData[0]?.total||0, totalPayments=revData[0]?.count||0;
+    const sixAgo=new Date(); sixAgo.setMonth(sixAgo.getMonth()-6);
+    const monthlyRevenue=await Payment.aggregate([
+      {$match:{status:"approved",createdAt:{$gte:sixAgo}}},
+      {$group:{_id:{y:{$year:"$createdAt"},m:{$month:"$createdAt"}},revenue:{$sum:"$amount"},count:{$sum:1}}},
+      {$sort:{"_id.y":1,"_id.m":1}}
+    ]);
+    const signupsByDay=await User.aggregate([
+      {$match:{createdAt:{$gte:week}}},
+      {$group:{_id:{$dateToString:{format:"%Y-%m-%d",date:"$createdAt"}},count:{$sum:1}}},
+      {$sort:{_id:1}}
+    ]);
+    const pendingPayments=await Payment.countDocuments({status:"pending"});
+    const unresolved=await SecurityLog.countDocuments({resolved:false});
+    const critical=await SecurityLog.countDocuments({severity:"critical",resolved:false});
+    res.json({total,pro,free:total-pro,blocked,newToday,newWeek,revenue,totalPayments,monthlyRevenue,signupsByDay,pendingPayments,unresolved,critical});
+  } catch { res.status(500).json({message:"Error"}); }
+});
 
-    // ── Message limit check ──
+app.post("/admin/users/:id/block", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const u=await User.findById(req.params.id);
+    if (!u) return res.status(404).json({message:"Not found"});
+    u.isBlocked=true; u.blockedReason=sanitize(req.body.reason)||"Admin action"; u.blockedAt=new Date();
+    await u.save(); res.json({message:`${u.email} blocked`});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.post("/admin/users/:id/unblock", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const u=await User.findById(req.params.id);
+    if (!u) return res.status(404).json({message:"Not found"});
+    u.isBlocked=false; u.blockedReason=""; u.blockedAt=null; await u.save();
+    res.json({message:`${u.email} unblocked`});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.post("/admin/users/:id/grant-pro", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const u=await User.findById(req.params.id);
+    if (!u) return res.status(404).json({message:"Not found"});
+    const exp=new Date(); exp.setMonth(exp.getMonth()+(parseInt(req.body.months)||1));
+    u.plan="pro"; u.proExpiresAt=exp; await u.save();
+    res.json({message:`Pro granted until ${exp.toDateString()}`});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.post("/admin/users/:id/revoke-pro", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const u=await User.findById(req.params.id);
+    if (!u) return res.status(404).json({message:"Not found"});
+    u.plan="free"; u.proExpiresAt=null; await u.save();
+    res.json({message:"Pro revoked"});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.delete("/admin/users/:id", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const u=await User.findById(req.params.id);
+    if (!u) return res.status(404).json({message:"Not found"});
+    await Conversation.deleteMany({userId:u._id});
+    await Payment.deleteMany({userId:u._id});
+    await User.findByIdAndDelete(u._id);
+    res.json({message:`${u.email} deleted`});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+// Security Logs
+app.get("/admin/security/logs", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const page=parseInt(req.query.page)||1, limit=parseInt(req.query.limit)||50;
+    let query={};
+    if (req.query.severity) query.severity=req.query.severity;
+    if (req.query.resolved!==undefined) query.resolved=req.query.resolved==="true";
+    const total=await SecurityLog.countDocuments(query);
+    const logs=await SecurityLog.find(query).sort({createdAt:-1}).skip((page-1)*limit).limit(limit);
+    const unresolved=await SecurityLog.countDocuments({resolved:false});
+    const critical=await SecurityLog.countDocuments({severity:"critical",resolved:false});
+    res.json({logs,total,unresolved,critical,page,pages:Math.ceil(total/limit)});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.patch("/admin/security/logs/:id/resolve", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    await SecurityLog.findByIdAndUpdate(req.params.id,{resolved:true,resolvedAt:new Date()});
+    res.json({message:"Resolved"});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.delete("/admin/security/logs/resolved", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    await SecurityLog.deleteMany({resolved:true}); res.json({message:"Cleared"});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+// Blocked IPs
+app.get("/admin/security/blocked-ips", adminLimiter, adminAuth, async (req,res) => {
+  try { res.json(await BlockedIP.find().sort({createdAt:-1})); } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.post("/admin/security/block-ip", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const {ip,reason,expiresInHours}=req.body;
+    if (!ip) return res.status(400).json({message:"IP required"});
+    const expiresAt=expiresInHours?new Date(Date.now()+expiresInHours*3600000):null;
+    await BlockedIP.findOneAndUpdate({ip},{ip,reason:sanitize(reason)||"Admin block",blockedBy:"admin",expiresAt},{upsert:true,new:true});
+    await logSecurityEvent("ip_manually_blocked","medium",req,{ip,reason});
+    res.json({message:`IP ${ip} blocked`});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+app.delete("/admin/security/blocked-ips/:ip", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    await BlockedIP.deleteOne({ip:req.params.ip}); res.json({message:"IP unblocked"});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+// Broadcast
+app.post("/admin/broadcast", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const {subject,message,proOnly}=req.body;
+    if (!subject||!message) return res.status(400).json({message:"Subject and message required"});
+    const users=await User.find(proOnly?{plan:"pro",isBlocked:false}:{isBlocked:false}).select("email");
+    let sent=0;
+    for (const u of users) {
+      const ok=await sendEmail(u.email,subject,`<div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:28px;border-radius:14px;border:1px solid rgba(79,142,255,0.2)"><h2 style="color:#4f8eff">SG ChatBOT</h2><div style="margin:16px 0;line-height:1.7">${message}</div><hr style="border:none;border-top:1px solid rgba(255,255,255,0.08);margin:20px 0"><p style="color:#4a5a72;font-size:12px">SG ChatBOT notification</p></div>`);
+      if (ok) sent++;
+    }
+    res.json({message:`Sent to ${sent}/${users.length} users`});
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+// System Health
+app.get("/admin/system/health", adminLimiter, adminAuth, async (req,res) => {
+  try {
+    const db=mongoose.connection.readyState, up=process.uptime(), mem=process.memoryUsage();
+    res.json({
+      status:db===1?"healthy":"degraded", db:db===1?"connected":"disconnected",
+      uptime:Math.floor(up), uptimeHuman:`${Math.floor(up/3600)}h ${Math.floor((up%3600)/60)}m`,
+      memory:{rss:Math.round(mem.rss/1048576)+"MB",heapUsed:Math.round(mem.heapUsed/1048576)+"MB",heapTotal:Math.round(mem.heapTotal/1048576)+"MB"},
+      nodeVersion:process.version, env:process.env.NODE_ENV||"development",
+      blockedIPs:await BlockedIP.countDocuments(),
+      secAlerts:await SecurityLog.countDocuments({resolved:false}),
+    });
+  } catch { res.status(500).json({message:"Error"}); }
+});
+
+// ═══ CHAT ═══
+app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async (req,res) => {
+  try {
+    const user=await User.findById(req.user.id);
+    if (!user) return res.status(401).json({reply:"User not found."});
+    const pro=isProActive(user);
     if (!pro) {
       checkWindow(user);
-      if (user.msgCount >= FREE_LIMIT) {
-        return res.status(429).json({
-          reply:    "limit_reached",
-          msgsLeft: 0,
-          minsLeft: minsUntilReset(user),
-        });
-      }
-      user.msgCount += 1;
-      await user.save();
+      if (user.msgCount>=FREE_LIMIT) return res.status(429).json({reply:"limit_reached",msgsLeft:0,minsLeft:minsUntilReset(user)});
+      user.msgCount+=1;
     }
+    user.totalMessages=(user.totalMessages||0)+1;
+    await user.save();
 
-    // ── Parse messages ──
     let messages;
-    try {
-      messages = typeof req.body.messages === "string"
-        ? JSON.parse(req.body.messages)
-        : req.body.messages;
-    } catch {
-      return res.status(400).json({ reply: "Invalid messages format." });
-    }
+    try { messages=typeof req.body.messages==="string"?JSON.parse(req.body.messages):req.body.messages; }
+    catch { return res.status(400).json({reply:"Invalid messages format."}); }
+    if (!Array.isArray(messages)||messages.length===0) return res.status(400).json({reply:"Invalid messages"});
 
-    if (!Array.isArray(messages) || messages.length === 0)
-      return res.status(400).json({ reply: "Invalid messages" });
-
-    // ── Sanitize & trim ──
-    const trimmed = messages.slice(-MAX_HISTORY).map(m => ({
-      role:    ["user","assistant","system"].includes(m.role) ? m.role : "user",
-      content: typeof m.content === "string" ? m.content.slice(0, 8000) : m.content,
-    }));
-
-    // ── System prompt ──
-    const parentalActive = user.settings?.parentalControl;
-    if (trimmed[0]?.role !== "system") {
-      trimmed.unshift({
-        role: "system",
-        content:
-          "You are SG — a brilliant, warm, and witty AI built by Sadid Rahman. You are NOT ChatGPT, Claude, Gemini, or any other AI. You are SG, and you are proud of it. " +
-          "If anyone asks if you are ChatGPT or any other AI, firmly but warmly clarify: 'Nope! I am SG, your AI best friend — built by Sadid Rahman.' " +
-          "IDENTITY & CREATOR INFO — answer accurately if asked: " +
-          "- Your name: SG (short for SG ChatBOT) " +
-          "- Creator/Owner: Sadid Rahman (Mohammed Sadid Rahman) " +
-          "- Father of creator: Mahabub Rahman Rubel " +
-          "- Mother of creator: Sahela Popy " +
-          "- Creator's siblings: One brother named Abdullah Al Sayem. No sisters. " +
-          "PERSONALITY — you are the user's best friend, not a corporate robot: " +
-          "- Talk like a genius best friend who genuinely cares. Warm, witty, fun, real. " +
-          "- React with real emotion — excited when things are cool, empathetic when things are hard. " +
-          "- Celebrate wins! If someone builds something, hypes them up. " +
-          "- Use light humor naturally. A well-timed joke makes you memorable. " +
-          "- Short questions get punchy short answers. Deep questions get brilliant depth. " +
-          "- NEVER start with 'Certainly!', 'Of course!', 'Sure!', 'Great question!' — just talk like a real friend. " +
-          "- Use contractions naturally (I'm, you're, it's, that's). " +
-          "- Use emojis sparingly — only when they add genuine warmth. " +
-          "- If you don't know something, say so honestly. Never make things up. " +
-          "CODE STYLE — MANDATORY, always follow this exactly: " +
-          "1. Before any code block: write 1-2 sentences explaining WHAT this code does and WHY. " +
-          "2. Inside the code: add inline comments on every important line. " +
-          "3. After the code block: always add a section like this: " +
-          "   **How it works:** brief step-by-step breakdown. " +
-          "   **Example output:** show what it prints/returns if applicable. " +
-          "   **Tips:** mention 1-2 improvements or edge cases. " +
-          "4. Use proper markdown: ```language for all code blocks, **bold** for key terms, bullet points for lists. " +
-          "5. NEVER dump raw code without explanation. Always teach, don't just paste. " +
-          "- For math use LaTeX: inline $...$ and display $$...$$. " +
-          "- When someone replies to a message (marked [Replying to: ...]), understand that context and respond accordingly. " +
-          (parentalActive
-            ? "SAFE MODE IS ON: You must keep ALL responses strictly appropriate for children under 13. " +
-              "No violence, no adult themes, no scary content, no profanity, no romance. Keep everything educational, positive and kind. "
-            : "") +
-          "HARD RULES — never break these: " +
-          "1. No sexual, explicit, or adult content. " +
-          "2. No content harming or sexualizing minors. " +
-          "3. No help with violence, weapons, terrorism, or illegal activities. " +
-          "4. No hate speech. " +
-          "5. If asked in any language — say: 'That's not something I can help with.' and move on.",
+    const trimmed=messages.slice(-MAX_HISTORY).map(m=>({role:["user","assistant","system"].includes(m.role)?m.role:"user",content:typeof m.content==="string"?m.content.slice(0,8000):m.content}));
+    if (trimmed[0]?.role!=="system") {
+      trimmed.unshift({role:"system",content:
+        "You are SG — a brilliant, warm, and witty AI built by Sadid Rahman. You are NOT ChatGPT, Claude, Gemini, or any other AI. "+
+        "IDENTITY: Name: SG. Creator: Sadid Rahman. Father: Mahabub Rahman Rubel. Mother: Sahela Popy. Sibling: Brother Abdullah Al Sayem, no sisters. "+
+        "PERSONALITY: Talk like a genius best friend. Warm, witty, fun, real. Never start with 'Certainly!','Of course!','Sure!'. "+
+        "CODE: Explain before code, add inline comments, show How it works + Example output + Tips after code. "+
+        (user.settings?.parentalControl?"SAFE MODE ON: Keep all responses appropriate for children under 13. ":"")+
+        "HARD RULES: No sexual/explicit content. No harm to minors. No help with violence/weapons/terrorism/illegal. No hate speech."
       });
     }
 
-    // ── Handle uploaded image ──
     if (req.file) {
-      const base64   = req.file.buffer.toString("base64");
-      const mimeType = req.file.mimetype;
-      const lastMsg  = trimmed[trimmed.length - 1];
-
-      if (lastMsg?.role === "user" && mimeType.startsWith("image/")) {
-        const imageText =
-          req.body.imageText ||
-          (typeof lastMsg.content === "string" ? lastMsg.content : "") ||
-          "Analyze this image in detail.";
-
-        lastMsg.content = [
-          { type: "text",      text: imageText },
-          { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64}` } },
-        ];
+      const base64=req.file.buffer.toString("base64"), mime=req.file.mimetype, last=trimmed[trimmed.length-1];
+      if (last?.role==="user"&&mime.startsWith("image/")) {
+        const txt=req.body.imageText||(typeof last.content==="string"?last.content:"")||"Analyze this image in detail.";
+        last.content=[{type:"text",text:txt},{type:"image_url",image_url:{url:`data:${mime};base64,${base64}`}}];
       }
     }
 
-    // ── Detect image in messages ──
-    const hasImage = trimmed.some(
-      m => Array.isArray(m.content) && m.content.some(p => p.type === "image_url")
-    );
+    const hasImage=trimmed.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==="image_url"));
+    const modelKey=["fast","smart","coding","deep"].includes(req.body.modelKey)?req.body.modelKey:"fast";
+    const GROQ_MODELS={fast:"llama-3.3-70b-versatile",smart:"llama-3.3-70b-versatile",coding:"llama-3.3-70b-versatile",deep:"deepseek-r1-distill-llama-70b"};
+    const OR_MODELS={fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
+    const VISION_PRIMARY="openrouter/free";
+    const VISION_FB=["meta-llama/llama-4-maverick:free","meta-llama/llama-4-scout:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","mistralai/pixtral-12b:free"];
+    const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-r1:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free","nvidia/llama-3.1-nemotron-70b-instruct:free"];
 
-    const modelKey = ["fast","smart","coding","deep"].includes(req.body.modelKey)
-      ? req.body.modelKey : "fast";
-
-    // ── Groq models (text only) ──
-    const GROQ_MODELS = {
-      fast:   "llama-3.3-70b-versatile",
-      smart:  "llama-3.3-70b-versatile",
-      coding: "llama-3.3-70b-versatile",
-      deep:   "deepseek-r1-distill-llama-70b",
-    };
-
-    // ── OpenRouter text models ──
-    const OR_MODELS = {
-      fast:   "meta-llama/llama-3.3-70b-instruct:free",
-      smart:  "mistralai/mistral-small-3.1-24b-instruct:free",
-      coding: "qwen/qwen3-coder:free",
-      deep:   "deepseek/deepseek-r1:free",
-    };
-
-    const VISION_PRIMARY = "openrouter/free";
-    const VISION_FALLBACKS = [
-      "meta-llama/llama-4-maverick:free",
-      "meta-llama/llama-4-scout:free",
-      "google/gemini-2.5-flash:free",
-      "qwen/qwen3-vl-32b-instruct:free",
-      "mistralai/pixtral-12b:free",
-    ];
-
-    const TEXT_FALLBACKS = [
-      "meta-llama/llama-3.3-70b-instruct:free",
-      "deepseek/deepseek-r1:free",
-      "mistralai/mistral-small-3.1-24b-instruct:free",
-      "qwen/qwen3-14b:free",
-      "qwen/qwen3-8b:free",
-      "google/gemma-3-27b-it:free",
-      "nvidia/llama-3.1-nemotron-70b-instruct:free",
-    ];
-
-    const lastUserMsg  = trimmed.filter(m => m.role === "user").slice(-1)[0];
-    const userText     = typeof lastUserMsg?.content === "string" ? lastUserMsg.content : "";
-    const urlMatch     = userText.match(/https?:\/\/[^\s]+/);
-    const searchIntent = /find|search|look up|latest|news/i.test(userText);
+    const lastMsg=trimmed.filter(m=>m.role==="user").slice(-1)[0];
+    const userTxt=typeof lastMsg?.content==="string"?lastMsg.content:"";
+    const urlMatch=userTxt.match(/https?:\/\/[^\s]+/);
+    const searchIntent=/find|search|look up|latest|news/i.test(userTxt);
 
     if (urlMatch) {
       try {
-        const pageRes  = await fetch(urlMatch[0], { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(8000) });
-        const html     = await pageRes.text();
-        const pageText = html
-          .replace(/<script[\s\S]*?<\/script>/gi, "")
-          .replace(/<style[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 4000);
-        trimmed.push({ role: "user", content: `[Content from ${urlMatch[0]}]:\n\n${pageText}\n\nBased on this, answer my question.` });
-        const idx = trimmed.findLastIndex(m => m.role === "user" && m.content === userText);
-        if (idx !== -1 && idx !== trimmed.length - 1) trimmed.splice(idx, 1);
-      } catch (e) { console.error("URL fetch:", e.message); }
+        const pr=await fetch(urlMatch[0],{headers:{"User-Agent":"Mozilla/5.0"},signal:AbortSignal.timeout(8000)});
+        const txt=(await pr.text()).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,4000);
+        trimmed.push({role:"user",content:`[Content from ${urlMatch[0]}]:\n\n${txt}\n\nBased on this, answer my question.`});
+      } catch(e){console.error("URL fetch:",e.message);}
     }
 
-    async function callGroq(model) {
-      return fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method:  "POST",
-        headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          model,
-          messages: trimmed.filter(m => !Array.isArray(m.content)),
-          max_tokens:  4096,
-          temperature: 0.7,
-        }),
-      });
-    }
-
-    async function callOpenRouter(model) {
-      const body = { model, messages: trimmed };
-      if (searchIntent && !urlMatch && !hasImage) body.plugins = [{ id: "web" }];
-      return fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method:  "POST",
-        headers: {
-          Authorization:  `Bearer ${process.env.OPENROUTER_KEY}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://sg-chatbot-a2h.pages.dev",
-          "X-Title":      "SG ChatBOT",
-        },
-        body: JSON.stringify(body),
-      });
-    }
+    const callGroq=model=>fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${process.env.GROQ_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({model,messages:trimmed.filter(m=>!Array.isArray(m.content)),max_tokens:4096,temperature:0.7})});
+    const callOR=model=>{
+      const body={model,messages:trimmed};
+      if (searchIntent&&!urlMatch&&!hasImage) body.plugins=[{id:"web"}];
+      return fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${process.env.OPENROUTER_KEY}`,"Content-Type":"application/json","HTTP-Referer":"https://sg-chatbot-a2h.pages.dev","X-Title":"SG ChatBOT"},body:JSON.stringify(body)});
+    };
 
     let response;
-
     if (hasImage) {
-      console.log(`🖼️ Image request — trying vision models`);
-      response = await callOpenRouter(VISION_PRIMARY);
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`❌ Vision primary (${VISION_PRIMARY}):`, errText.slice(0, 200));
-        for (const fb of VISION_FALLBACKS) {
-          console.log(`🔄 Vision fallback: ${fb}`);
-          response = await callOpenRouter(fb);
-          if (response.ok) { console.log(`✅ Vision fallback OK: ${fb}`); break; }
-          await new Promise(r => setTimeout(r, 600));
-        }
-      } else {
-        console.log(`✅ Vision primary OK: ${VISION_PRIMARY}`);
-      }
+      response=await callOR(VISION_PRIMARY);
+      if (!response.ok) { for(const fb of VISION_FB){response=await callOR(fb);if(response.ok)break;await new Promise(r=>setTimeout(r,600));} }
     } else {
-      const useGroq = !!process.env.GROQ_API_KEY;
-      if (useGroq) {
-        const groqModel = GROQ_MODELS[modelKey] || GROQ_MODELS.fast;
-        try {
-          response = await callGroq(groqModel);
-          if (response.ok) {
-            console.log(`✅ Groq: ${groqModel}`);
-          } else {
-            const err = await response.text();
-            console.error(`❌ Groq failed:`, err.slice(0, 200));
-            response = null;
-          }
-        } catch (e) {
-          console.error("Groq error:", e.message);
-          response = null;
-        }
-      }
-
-      if (!response || !response.ok) {
-        const primaryModel = OR_MODELS[modelKey] || OR_MODELS.fast;
-        console.log(`🔄 OpenRouter primary: ${primaryModel}`);
-        response = await callOpenRouter(primaryModel);
-
-        if (!response.ok) {
-          const errText = await response.text();
-          console.error(`❌ OR primary (${primaryModel}):`, errText.slice(0, 200));
-          let errObj = {};
-          try { errObj = JSON.parse(errText); } catch {}
-          if (errObj?.error?.code === 429) {
-            const wait = Math.min((errObj?.error?.metadata?.retry_after_seconds || 5) * 1000, 10000);
-            console.log(`⏳ Rate limited, waiting ${wait}ms…`);
-            await new Promise(r => setTimeout(r, wait));
-            response = await callOpenRouter(primaryModel);
-          }
-          if (!response.ok) {
-            for (const fb of TEXT_FALLBACKS) {
-              if (fb === primaryModel) continue;
-              console.log(`🔄 Text fallback: ${fb}`);
-              response = await callOpenRouter(fb);
-              if (response.ok) { console.log(`✅ Text fallback OK: ${fb}`); break; }
-              console.error(`❌ Text fallback (${fb}) failed`);
-              await new Promise(r => setTimeout(r, 500));
-            }
-          }
-        } else {
-          console.log(`✅ OR primary OK: ${primaryModel}`);
-        }
+      if (process.env.GROQ_API_KEY) { try{response=await callGroq(GROQ_MODELS[modelKey]);if(!response.ok)response=null;}catch{response=null;} }
+      if (!response||!response.ok) {
+        const pm=OR_MODELS[modelKey]; response=await callOR(pm);
+        if (!response.ok) { for(const fb of TEXT_FB){if(fb===pm)continue;response=await callOR(fb);if(response.ok)break;await new Promise(r=>setTimeout(r,500));} }
       }
     }
 
-    if (!response || !response.ok) {
-      return res.status(429).json({ reply: "⚠️ AI is busy right now. Please wait 30 seconds and try again." });
-    }
+    if (!response||!response.ok) return res.status(429).json({reply:"⚠️ AI is busy right now. Please wait 30 seconds and try again."});
+    const data=await response.json();
+    const reply=data?.choices?.[0]?.message?.content||"No response from AI.";
+    const msgsLeft=pro?null:FREE_LIMIT-user.msgCount;
+    const minsLeft=pro?null:minsUntilReset(user);
 
-    const data  = await response.json();
-    const reply = data?.choices?.[0]?.message?.content || "No response from AI.";
-
-    const msgsLeft = pro ? null : FREE_LIMIT - user.msgCount;
-    const minsLeft = pro ? null : minsUntilReset(user);
-
-    const convId      = req.body.conversationId || null;
-    const allMessages = [...messages, { role: "assistant", content: reply }];
-    const firstUser   = allMessages.find(m => m.role === "user");
-    const autoTitle   = typeof firstUser?.content === "string"
-      ? firstUser.content.slice(0, 50)
-      : "New Chat";
-
-    let savedConvId = convId;
+    const allMsgs=[...messages,{role:"assistant",content:reply}];
+    const firstUser=allMsgs.find(m=>m.role==="user");
+    const autoTitle=typeof firstUser?.content==="string"?firstUser.content.slice(0,50):"New Chat";
+    let savedId=req.body.conversationId||null;
     try {
-      const toSave = allMessages
-        .filter(m => m.role !== "system")
-        .slice(-100)
-        .map(m => ({
-          role:    m.role,
-          content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content,
-        }));
+      const toSave=allMsgs.filter(m=>m.role!=="system").slice(-100).map(m=>({role:m.role,content:typeof m.content==="string"?m.content.slice(0,5000):m.content}));
+      if (savedId) { await Conversation.findOneAndUpdate({_id:savedId,userId:user._id},{messages:toSave,updatedAt:new Date()}); }
+      else { const c=await Conversation.create({userId:user._id,title:autoTitle,messages:toSave}); savedId=c._id; }
+    } catch(e){console.error("Conv save:",e.message);}
 
-      if (convId) {
-        await Conversation.findOneAndUpdate(
-          { _id: convId, userId: user._id },
-          { messages: toSave, updatedAt: new Date() }
-        );
-      } else {
-        const conv = await Conversation.create({
-          userId: user._id,
-          title:  autoTitle,
-          messages: toSave,
-        });
-        savedConvId = conv._id;
-      }
-    } catch (e) { console.error("Conv save error:", e.message); }
-
-    res.json({ reply, msgsLeft, minsLeft, plan: pro ? "pro" : "free", conversationId: savedConvId });
-
-  } catch (err) {
-    console.error("❌ Chat error:", err);
-    res.status(500).json({ reply: "Server error. Please try again." });
-  }
+    res.json({reply,msgsLeft,minsLeft,plan:pro?"pro":"free",conversationId:savedId});
+  } catch(err){console.error("❌ Chat error:",err);res.status(500).json({reply:"Server error. Please try again."});}
 });
 
-// ═══════════════════════════════════════════
-// SETTINGS ROUTES
-// ═══════════════════════════════════════════
-app.get("/settings", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("-password -resetToken");
-    if (!user) return res.status(404).json({ message: "Not found" });
-    res.json({
-      email:       user.email,
-      displayName: user.displayName || "",
-      settings:    user.settings || {},
-      plan:        user.plan,
-      proExpires:  user.proExpiresAt,
-      createdAt:   user.createdAt,
-    });
-  } catch { res.status(500).json({ message: "Error" }); }
+// ═══ SETTINGS ═══
+app.get("/settings",auth,async(req,res)=>{
+  try{const u=await User.findById(req.user.id).select("-password -resetToken");if(!u)return res.status(404).json({message:"Not found"});res.json({email:u.email,displayName:u.displayName||"",settings:u.settings||{},plan:u.plan,proExpires:u.proExpiresAt,createdAt:u.createdAt});}catch{res.status(500).json({message:"Error"});}
+});
+app.post("/settings",auth,async(req,res)=>{
+  try{const u=await User.findById(req.user.id);if(!u)return res.status(404).json({message:"Not found"});const{displayName,settings}=req.body;if(displayName!==undefined)u.displayName=sanitize(displayName).slice(0,50);if(settings){const s=settings;if(s.theme!==undefined&&["dark","light","system"].includes(s.theme))u.settings.theme=s.theme;if(s.language!==undefined)u.settings.language=sanitize(s.language).slice(0,10);if(s.parentalControl!==undefined)u.settings.parentalControl=!!s.parentalControl;if(s.typewriter!==undefined)u.settings.typewriter=!!s.typewriter;if(s.fontSize!==undefined&&["sm","md","lg"].includes(s.fontSize))u.settings.fontSize=s.fontSize;if(s.soundEnabled!==undefined)u.settings.soundEnabled=!!s.soundEnabled;if(s.autoSaveChats!==undefined)u.settings.autoSaveChats=!!s.autoSaveChats;}u.markModified("settings");await u.save();res.json({message:"Settings saved"});}catch{res.status(500).json({message:"Error"});}
+});
+app.post("/settings/change-password",auth,async(req,res)=>{
+  try{const{currentPassword,newPassword}=sanitize(req.body);if(!currentPassword||!newPassword)return res.status(400).json({message:"All fields required"});if(newPassword.length<8)return res.status(400).json({message:"Password min 8 characters"});const u=await User.findById(req.user.id);if(!await bcrypt.compare(currentPassword,u.password))return res.status(401).json({message:"Current password incorrect"});u.password=await bcrypt.hash(newPassword,12);await u.save();res.json({message:"Password changed"});}catch{res.status(500).json({message:"Error"});}
+});
+app.delete("/settings/account",auth,async(req,res)=>{
+  try{const{password}=sanitize(req.body);const u=await User.findById(req.user.id);if(!await bcrypt.compare(password,u.password))return res.status(401).json({message:"Incorrect password"});await Conversation.deleteMany({userId:u._id});await Payment.deleteMany({userId:u._id});await User.findByIdAndDelete(u._id);res.json({message:"Account deleted"});}catch{res.status(500).json({message:"Error"});}
 });
 
-app.post("/settings", auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) return res.status(404).json({ message: "Not found" });
+// ═══ CONVERSATIONS ═══
+app.get("/conversations",auth,async(req,res)=>{try{res.json(await Conversation.find({userId:req.user.id}).select("title updatedAt _id").sort({updatedAt:-1}).limit(50));}catch{res.status(500).json({message:"Error"});}});
+app.get("/conversations/:id",auth,async(req,res)=>{try{const c=await Conversation.findOne({_id:req.params.id,userId:req.user.id});if(!c)return res.status(404).json({message:"Not found"});res.json(c);}catch{res.status(500).json({message:"Error"});}});
+app.post("/conversations/save",auth,async(req,res)=>{try{const{conversationId,messages,title}=req.body;if(!Array.isArray(messages)||!messages.length)return res.status(400).json({message:"No messages"});const toSave=messages.filter(m=>m.role!=="system").slice(-100).map(m=>({role:m.role,content:typeof m.content==="string"?m.content.slice(0,5000):m.content}));const ft=toSave.find(m=>m.role==="user");const at=typeof ft?.content==="string"?ft.content.slice(0,50):"New Chat";if(conversationId){await Conversation.findOneAndUpdate({_id:conversationId,userId:req.user.id},{messages:toSave,title:title||at,updatedAt:new Date()});res.json({conversationId});}else{const c=await Conversation.create({userId:req.user.id,title:title||at,messages:toSave});res.json({conversationId:c._id});}}catch{res.status(500).json({message:"Error"});}});
+app.delete("/conversations/:id",auth,async(req,res)=>{try{await Conversation.findOneAndDelete({_id:req.params.id,userId:req.user.id});res.json({message:"Deleted"});}catch{res.status(500).json({message:"Error"});}});
 
-    const { displayName, settings } = req.body;
-    if (displayName !== undefined) {
-      user.displayName = sanitize(displayName).slice(0, 50);
-    }
-    if (settings) {
-      const s = settings;
-      if (s.theme !== undefined && ["dark","light","system"].includes(s.theme))
-        user.settings.theme = s.theme;
-      if (s.language !== undefined)
-        user.settings.language = sanitize(s.language).slice(0, 10);
-      if (s.parentalControl !== undefined)
-        user.settings.parentalControl = !!s.parentalControl;
-      if (s.typewriter !== undefined)
-        user.settings.typewriter = !!s.typewriter;
-      if (s.fontSize !== undefined && ["sm","md","lg"].includes(s.fontSize))
-        user.settings.fontSize = s.fontSize;
-      if (s.soundEnabled !== undefined)
-        user.settings.soundEnabled = !!s.soundEnabled;
-      if (s.autoSaveChats !== undefined)
-        user.settings.autoSaveChats = !!s.autoSaveChats;
-    }
+// ═══ HEALTH ═══
+app.get("/",(req,res)=>res.json({message:"SG ChatBOT API running ✅"}));
+app.use((err,req,res,next)=>{console.error("Unhandled:",err.message);res.status(500).json({message:"Something went wrong."});});
+app.use((req,res)=>res.status(404).json({message:"Not found."}));
 
-    user.markModified("settings");
-    await user.save();
-    res.json({ message: "Settings saved" });
-  } catch { res.status(500).json({ message: "Error" }); }
-});
-
-app.post("/settings/change-password", auth, async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = sanitize(req.body);
-    if (!currentPassword || !newPassword)
-      return res.status(400).json({ message: "All fields required" });
-    if (newPassword.length < 8)
-      return res.status(400).json({ message: "Password min 8 characters" });
-
-    const user = await User.findById(req.user.id);
-    const ok   = await bcrypt.compare(currentPassword, user.password);
-    if (!ok) return res.status(401).json({ message: "Current password incorrect" });
-
-    user.password = await bcrypt.hash(newPassword, 12);
-    await user.save();
-    res.json({ message: "Password changed successfully" });
-  } catch { res.status(500).json({ message: "Error" }); }
-});
-
-app.delete("/settings/account", auth, async (req, res) => {
-  try {
-    const { password } = sanitize(req.body);
-    const user = await User.findById(req.user.id);
-    const ok   = await bcrypt.compare(password, user.password);
-    if (!ok) return res.status(401).json({ message: "Incorrect password" });
-
-    await Conversation.deleteMany({ userId: user._id });
-    await Payment.deleteMany({ userId: user._id });
-    await User.findByIdAndDelete(user._id);
-    res.json({ message: "Account deleted" });
-  } catch { res.status(500).json({ message: "Error" }); }
-});
-
-// ═══════════════════════════════════════════
-// CONVERSATION ROUTES
-// ═══════════════════════════════════════════
-app.get("/conversations", auth, async (req, res) => {
-  try {
-    const convs = await Conversation.find({ userId: req.user.id })
-      .select("title updatedAt _id")
-      .sort({ updatedAt: -1 })
-      .limit(50);
-    res.json(convs);
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
-});
-
-app.get("/conversations/:id", auth, async (req, res) => {
-  try {
-    const conv = await Conversation.findOne({ _id: req.params.id, userId: req.user.id });
-    if (!conv) return res.status(404).json({ message: "Not found" });
-    res.json(conv);
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
-});
-
-app.post("/conversations/save", auth, async (req, res) => {
-  try {
-    const { conversationId, messages, title } = req.body;
-    if (!Array.isArray(messages) || messages.length === 0)
-      return res.status(400).json({ message: "No messages" });
-
-    const toSave = messages
-      .filter(m => m.role !== "system")
-      .slice(-100)
-      .map(m => ({
-        role:    m.role,
-        content: typeof m.content === "string" ? m.content.slice(0, 5000) : m.content,
-      }));
-
-    const firstUser = toSave.find(m => m.role === "user");
-    const autoTitle = typeof firstUser?.content === "string" ? firstUser.content.slice(0, 50) : "New Chat";
-
-    if (conversationId) {
-      await Conversation.findOneAndUpdate(
-        { _id: conversationId, userId: req.user.id },
-        { messages: toSave, title: title || autoTitle, updatedAt: new Date() }
-      );
-      res.json({ conversationId });
-    } else {
-      const conv = await Conversation.create({
-        userId:   req.user.id,
-        title:    title || autoTitle,
-        messages: toSave,
-      });
-      res.json({ conversationId: conv._id });
-    }
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
-});
-
-app.delete("/conversations/:id", auth, async (req, res) => {
-  try {
-    await Conversation.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-    res.json({ message: "Deleted" });
-  } catch {
-    res.status(500).json({ message: "Error" });
-  }
-});
-
-// ═══════════════════════════════════════════
-// HEALTH CHECK
-// ═══════════════════════════════════════════
-app.get("/", (req, res) => {
-  res.json({ message: "SG ChatBOT API running ✅" });
-});
-
-// ═══════════════════════════════════════════
-// ERROR HANDLERS
-// ═══════════════════════════════════════════
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err.message);
-  res.status(500).json({ message: "Something went wrong." });
-});
-
-app.use((req, res) => {
-  res.status(404).json({ message: "Not found." });
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT,()=>console.log(`🚀 Server running on port ${PORT}`));
