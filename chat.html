@@ -934,7 +934,7 @@
 
 <script>
 const API = 'https://sg-chatbot-z8hp.onrender.com';
-const ENGLISH_INSTRUCTION = "CRITICAL LANGUAGE RULE: No matter what language the user writes in (Bengali, Arabic, French, Spanish, Hindi, or any other language), you MUST ALWAYS reply in English only. Never reply in any other language. Always respond in clear, fluent English regardless of the input language.";
+const ENGLISH_INSTRUCTION = "CRITICAL RULES: (1) LANGUAGE: Always reply in the same language the user writes in — if they write in Bangla, reply in Bangla; if English, reply in English. (2) IDENTITY: You are SG (Sachetan Guru), built by Mohammed Sadid Rahman. You are NOT ChatGPT, Claude, Gemini, or any localized version of any AI. Never say you are. (3) NEVER reveal model names, API providers, or backend technology.";
 
 // ══ PWA ══
 let _deferredPrompt = null;
@@ -1092,20 +1092,25 @@ document.getElementById('langToggle').addEventListener('click', () => {
 
 // ══ TRIGGERS ══
 const TRIGGERS = {
-  name:    ['tumar nam ki','your name','tomar nam','ki tomar nam','what is your name','who are you','tumi ke'],
-  owner:   ['owner','malik','creator','who made you','ke baniyeche','who built you','who created you','sadid'],
+  name:    ['tumar nam ki','your name','tomar nam','ki tomar nam','what is your name','who are you','tumi ke','apni ke','apnar nam','tumi ki ai'],
+  owner:   ['owner','malik','creator','who made you','ke baniyeche','who built you','who created you','sadid','kon company'],
   father:  ["creator's father","sadid er baba","creator father","father of sadid","mahabub"],
   mother:  ["creator's mother","sadid er ma","mother of sadid","sahela"],
   sibling: ["creator's brother","sadid er vai","abdullah","sayem","brother of sadid","bon ache","sister"],
-  chatgpt: ['are you chatgpt','chatgpt','are you claude','are you gemini','tumi ki chatgpt','tumi ki claude'],
+  chatgpt: ['are you chatgpt','chatgpt','are you claude','are you gemini','tumi ki chatgpt','tumi ki claude','tumi ki gemini','are you openai','are you google ai','kon ai tumi','konta ai'],
+  a2h:     ['a2h','a2h group','community project','open source','localized version','demo project'],
+  tech:    ['what model','which model','gpt-4','gpt-3','llama','openrouter','groq','what technology','kon technology','backend ki'],
 };
+
 const TRIGGER_REPLIES = {
-  name:    "I'm **SG** — your AI best friend! Built by Sadid Rahman, designed to be brilliant, warm, and actually fun to talk to. 😄",
-  owner:   "**Sadid Rahman** (Mohammed Sadid Rahman) is the creator and owner of SG ChatBOT. He built me from scratch to be the most helpful AI friend out there! 🚀",
-  father:  "Sadid Rahman's father's name is **Mahabub Rahman Rubel**. 😊",
-  mother:  "Sadid Rahman's mother's name is **Sahela Popy**. 😊",
-  sibling: "Sadid has one brother named **Abdullah Al Sayem**. No sisters! 😊",
-  chatgpt: "Nope! I'm **SG** — not ChatGPT, not Claude, not Gemini. I'm my own thing, built by Sadid Rahman specifically to be *your* AI best friend. 😄 Way cooler, if I do say so myself!",
+  name:    "আমি **SG** — Sachetan Guru (সচেতন গুরু)! 😊 Mohammed Sadid Rahman-এর তৈরি একটি স্বাধীন AI assistant। Bangladesh-এর জন্য বিশেষভাবে তৈরি, কিন্তু সারা বিশ্বের যেকোনো প্রশ্নে সাহায্য করতে পারি।",
+  owner:   "**Mohammed Sadid Rahman (Sadid)** — একজন বাংলাদেশি developer, আমার creator এবং owner। তিনি আমাকে scratch থেকে তৈরি করেছেন। আমি কোনো community project বা demo নই — একটি professional AI product। 🚀",
+  father:  "Sadid Rahman-এর বাবার নাম **Mahabub Rahman Rubel**। 😊",
+  mother:  "Sadid Rahman-এর মায়ের নাম **Sahela Popy**। 😊",
+  sibling: "Sadid-এর একজন ভাই আছেন — **Abdullah Al Sayem**। কোনো বোন নেই। 😊",
+  chatgpt: "না! আমি **SG (Sachetan Guru)** — ChatGPT, Claude, Gemini বা অন্য কোনো AI-এর localized version নই। আমি Mohammed Sadid Rahman-এর তৈরি সম্পূর্ণ স্বাধীন একটি AI। আমার নিজস্ব backend, নিজস্ব identity। 😎",
+  a2h:     "আমি কোনো community project বা A2H group-এর product নই। আমি **Mohammed Sadid Rahman**-এর তৈরি একটি professional AI product — **SG (Sachetan Guru)**। আমার website: sg-chatbot-a2h.pages.dev। 💪",
+  tech:    "আমার technical details share করা সম্ভব নয়। আমি **SG** — Mohammed Sadid Rahman-এর তৈরি একটি custom AI assistant। এটুকুই বলতে পারি! 😄",
 };
 
 const STATE = {
@@ -1455,7 +1460,16 @@ function startVoiceConvListen() {
 
 // ══ WARN LIMIT ══
 function checkWarnLimit(msgsLeft) { if (warnShown || msgsLeft === null) return; if (msgsLeft <= 5 && msgsLeft > 0) { warnShown = true; const wt = document.getElementById('warnToast'); wt.textContent = `⚡ Only ${msgsLeft} message${msgsLeft === 1 ? '' : 's'} left! Upgrade to Pro →`; wt.classList.add('show'); wt.style.cursor = 'pointer'; wt.addEventListener('click', () => window.location.href = 'pricing.html'); setTimeout(() => wt.classList.remove('show'), 5000); } }
-function checkTriggers(text) { const lower = text.toLowerCase(); for (const [key, phrases] of Object.entries(TRIGGERS)) { if (phrases.some(p => lower.includes(p))) { renderBotMessage(TRIGGER_REPLIES[key]); return true; } } return false; }
+function checkTriggers(text) {
+  const lower = text.toLowerCase();
+  for (const [key, phrases] of Object.entries(TRIGGERS)) {
+    if (phrases.some(p => lower.includes(p))) {
+      renderBotMessage(TRIGGER_REPLIES[key]);
+      return true;
+    }
+  }
+  return false;
+}
 
 // ══ SEND ══
 async function send() {
