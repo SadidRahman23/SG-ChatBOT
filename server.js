@@ -36,7 +36,8 @@ const PERSONA_PROMPTS = {
   writer:  'WRITER MODE: Focus on creative, polished writing. Help with storytelling, tone, structure, grammar, and style. Offer creative alternatives and be expressive.',
 };
 
-// ── Nodemailer ──
+// ── Groq Key Counter (global, persists across requests) ──
+let groqKeyCounter = 0;
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
@@ -625,11 +626,113 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
 
     const hasImage=trimmed.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==="image_url"));
     const modelKey=["fast","smart","coding","deep"].includes(req.body.modelKey)?req.body.modelKey:"fast";
+
+    // ── Model Maps ──
     const GROQ_MODELS={fast:"llama-3.3-70b-versatile",smart:"llama-3.3-70b-versatile",coding:"llama-3.3-70b-versatile",deep:"deepseek-r1-distill-llama-70b"};
+    const GOOGLE_MODELS={fast:"gemini-2.0-flash",smart:"gemini-2.0-flash",coding:"gemini-2.0-flash",deep:"gemini-2.5-flash-preview-04-17"};
+    const MISTRAL_MODELS={fast:"mistral-small-latest",smart:"mistral-small-latest",coding:"codestral-latest",deep:"mistral-large-latest"};
     const OR_MODELS={fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
     const VISION_PRIMARY="openrouter/free";
     const VISION_FB=["meta-llama/llama-4-maverick:free","meta-llama/llama-4-scout:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","mistralai/pixtral-12b:free"];
     const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-r1:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free","nvidia/llama-3.1-nemotron-70b-instruct:free"];
+
+    // ── Groq Multi-Key Rotation ──
+    const GROQ_KEYS=[
+      process.env.GROQ_API_KEY_1,
+      process.env.GROQ_API_KEY_2,
+      process.env.GROQ_API_KEY_3,
+      process.env.GROQ_API_KEY_4,
+      process.env.GROQ_API_KEY_5,
+      process.env.GROQ_API_KEY,  // legacy single key support
+    ].filter(Boolean);
+
+    // Try all Groq keys, skip 429 rate-limited ones
+    async function callGroqRotating(model) {
+      for (let i=0;i<GROQ_KEYS.length;i++) {
+        const key=GROQ_KEYS[(groqKeyCounter+i)%GROQ_KEYS.length];
+        try {
+          const res=await fetch("https://api.groq.com/openai/v1/chat/completions",{
+            method:"POST",
+            headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
+            body:JSON.stringify({model,messages:trimmed.filter(m=>!Array.isArray(m.content)),max_tokens:4096,temperature:0.7})
+          });
+          if (res.status===429){console.log(`Groq key ${i+1} rate limited, rotating...`);continue;}
+          groqKeyCounter=(groqKeyCounter+i+1)%GROQ_KEYS.length;
+          return res;
+        } catch(e){console.log(`Groq key ${i+1} error: ${e.message}`);}
+      }
+      return null;
+    }
+
+    // ── Google AI Studio ──
+    async function callGoogle(model) {
+      const keys=[
+        process.env.GOOGLE_AI_KEY_1,
+        process.env.GOOGLE_AI_KEY_2,
+        process.env.GOOGLE_AI_KEY_3,
+        process.env.GOOGLE_AI_KEY,
+      ].filter(Boolean);
+      if (!keys.length) return null;
+
+      // Convert messages to Google format
+      const systemMsg=trimmed.find(m=>m.role==="system");
+      const chatMsgs=trimmed.filter(m=>m.role!=="system").map(m=>({
+        role: m.role==="assistant"?"model":"user",
+        parts:[{text: typeof m.content==="string"?m.content:JSON.stringify(m.content)}]
+      }));
+
+      for (const key of keys) {
+        try {
+          const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+              systemInstruction: systemMsg?{parts:[{text:systemMsg.content}]}:undefined,
+              contents: chatMsgs,
+              generationConfig:{maxOutputTokens:4096,temperature:0.7}
+            })
+          });
+          if (res.status===429){console.log("Google AI key rate limited, trying next...");continue;}
+          if (!res.ok) continue;
+          const data=await res.json();
+          const text=data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) continue;
+          // Return in OpenAI-compatible format
+          return {ok:true,_googleData:{choices:[{message:{content:text}}]}};
+        } catch(e){console.log(`Google AI error: ${e.message}`);}
+      }
+      return null;
+    }
+
+    // ── Mistral ──
+    async function callMistral(model) {
+      const keys=[
+        process.env.MISTRAL_API_KEY_1,
+        process.env.MISTRAL_API_KEY_2,
+        process.env.MISTRAL_API_KEY,
+      ].filter(Boolean);
+      if (!keys.length) return null;
+
+      for (const key of keys) {
+        try {
+          const res=await fetch("https://api.mistral.ai/v1/chat/completions",{
+            method:"POST",
+            headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
+            body:JSON.stringify({model,messages:trimmed.filter(m=>!Array.isArray(m.content)),max_tokens:4096,temperature:0.7})
+          });
+          if (res.status===429){console.log("Mistral key rate limited, trying next...");continue;}
+          if (res.ok) return res;
+        } catch(e){console.log(`Mistral error: ${e.message}`);}
+      }
+      return null;
+    }
+
+    // ── OpenRouter ──
+    const callOR=model=>{
+      const body={model,messages:trimmed};
+      if (searchIntent&&!urlMatch&&!hasImage) body.plugins=[{id:"web"}];
+      return fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${process.env.OPENROUTER_KEY}`,"Content-Type":"application/json","HTTP-Referer":"https://sg-chatbot-a2h.pages.dev","X-Title":"SG ChatBOT"},body:JSON.stringify(body)});
+    };
 
     const lastMsg=trimmed.filter(m=>m.role==="user").slice(-1)[0];
     const userTxt=typeof lastMsg?.content==="string"?lastMsg.content:"";
@@ -644,28 +747,62 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
       } catch(e){console.error("URL fetch:",e.message);}
     }
 
-    const callGroq=model=>fetch("https://api.groq.com/openai/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${process.env.GROQ_API_KEY}`,"Content-Type":"application/json"},body:JSON.stringify({model,messages:trimmed.filter(m=>!Array.isArray(m.content)),max_tokens:4096,temperature:0.7})});
-    const callOR=model=>{
-      const body={model,messages:trimmed};
-      if (searchIntent&&!urlMatch&&!hasImage) body.plugins=[{id:"web"}];
-      return fetch("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{Authorization:`Bearer ${process.env.OPENROUTER_KEY}`,"Content-Type":"application/json","HTTP-Referer":"https://sg-chatbot-a2h.pages.dev","X-Title":"SG ChatBOT"},body:JSON.stringify(body)});
-    };
+    // ── Response helper — handles Google's different format ──
+    function extractReply(res, data) {
+      if (res?._googleData) return res._googleData?.choices?.[0]?.message?.content;
+      return data?.choices?.[0]?.message?.content;
+    }
 
-    let response;
+    let response; let responseData=null;
+
     if (hasImage) {
+      // Image: OpenRouter only (Groq/Mistral don't support vision well)
       response=await callOR(VISION_PRIMARY);
-      if (!response.ok) { for(const fb of VISION_FB){response=await callOR(fb);if(response.ok)break;await new Promise(r=>setTimeout(r,600));} }
+      if (!response?.ok) { for(const fb of VISION_FB){response=await callOR(fb);if(response?.ok)break;await new Promise(r=>setTimeout(r,600));} }
     } else {
-      if (process.env.GROQ_API_KEY) { try{response=await callGroq(GROQ_MODELS[modelKey]);if(!response.ok)response=null;}catch{response=null;} }
-      if (!response||!response.ok) {
-        const pm=OR_MODELS[modelKey]; response=await callOR(pm);
-        if (!response.ok) { for(const fb of TEXT_FB){if(fb===pm)continue;response=await callOR(fb);if(response.ok)break;await new Promise(r=>setTimeout(r,500));} }
+      // Text: Groq → Google → Mistral → OpenRouter
+
+      // 1. Groq (fastest, highest limit with rotation)
+      if (GROQ_KEYS.length>0) {
+        try { response=await callGroqRotating(GROQ_MODELS[modelKey]); } catch{response=null;}
+      }
+
+      // 2. Google AI Studio
+      if (!response?.ok) {
+        try {
+          const gRes=await callGoogle(GOOGLE_MODELS[modelKey]);
+          if (gRes?.ok) { response=gRes; responseData=gRes._googleData; }
+        } catch{response=null;}
+      }
+
+      // 3. Mistral
+      if (!response?.ok) {
+        try { response=await callMistral(MISTRAL_MODELS[modelKey]); } catch{response=null;}
+      }
+
+      // 4. OpenRouter primary
+      if (!response?.ok) {
+        try {
+          const pm=OR_MODELS[modelKey]; response=await callOR(pm);
+          if (!response?.ok) {
+            for(const fb of TEXT_FB){
+              if(fb===pm) continue;
+              response=await callOR(fb);
+              if(response?.ok) break;
+              await new Promise(r=>setTimeout(r,500));
+            }
+          }
+        } catch{response=null;}
       }
     }
 
-    if (!response||!response.ok) return res.status(429).json({reply:"⚠️ AI is busy right now. Please wait 30 seconds and try again."});
-    const data=await response.json();
-    const reply=data?.choices?.[0]?.message?.content||"No response from AI.";
+    if (!response?.ok) return res.status(429).json({reply:"⚠️ AI is busy right now. Please wait 30 seconds and try again."});
+
+    // Parse response — Google returns pre-parsed data, others return raw Response
+    if (!responseData) {
+      try { responseData=await response.json(); } catch { return res.status(500).json({reply:"Failed to parse AI response."}); }
+    }
+    const reply=responseData?.choices?.[0]?.message?.content||"No response from AI.";
     const msgsLeft=pro?null:FREE_LIMIT-user.msgCount;
     const minsLeft=pro?null:minsUntilReset(user);
 
