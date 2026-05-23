@@ -28,6 +28,14 @@ const MAX_HISTORY  = 20;
 const FREE_LIMIT   = 25;
 const FREE_WINDOW  = 4 * 60 * 60 * 1000;
 
+// ── Persona Prompts ──
+const PERSONA_PROMPTS = {
+  dev:     'DEVELOPER MODE: Be highly technical and concise. Code-first answers. Use markdown code blocks always. Assume the user is an experienced developer. Skip lengthy preambles.',
+  teacher: 'TEACHER MODE: Explain everything step-by-step like teaching a student. Use simple analogies, real examples, and bullet points. Offer to elaborate on any part.',
+  friend:  'FRIEND MODE: Be casual, warm, and conversational. Use everyday language, light humor when appropriate. Talk like a smart best friend would.',
+  writer:  'WRITER MODE: Focus on creative, polished writing. Help with storytelling, tone, structure, grammar, and style. Offer creative alternatives and be expressive.',
+};
+
 // ── Nodemailer ──
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -375,7 +383,6 @@ app.post("/payment/submit", auth, async (req,res) => {
 // ADMIN ROUTES
 // ════════════════════════════════
 
-// Payments
 app.get("/admin/payments", adminLimiter, adminAuth, async (req,res) => {
   try { res.json(await Payment.find().sort({createdAt:-1})); } catch { res.status(500).json({message:"Error"}); }
 });
@@ -401,7 +408,6 @@ app.post("/admin/reject/:id", adminLimiter, adminAuth, async (req,res) => {
   } catch { res.status(500).json({message:"Error"}); }
 });
 
-// Users
 app.get("/admin/users", adminLimiter, adminAuth, async (req,res) => {
   try {
     const page=parseInt(req.query.page)||1, limit=parseInt(req.query.limit)||50;
@@ -494,7 +500,6 @@ app.delete("/admin/users/:id", adminLimiter, adminAuth, async (req,res) => {
   } catch { res.status(500).json({message:"Error"}); }
 });
 
-// Security Logs
 app.get("/admin/security/logs", adminLimiter, adminAuth, async (req,res) => {
   try {
     const page=parseInt(req.query.page)||1, limit=parseInt(req.query.limit)||50;
@@ -522,7 +527,6 @@ app.delete("/admin/security/logs/resolved", adminLimiter, adminAuth, async (req,
   } catch { res.status(500).json({message:"Error"}); }
 });
 
-// Blocked IPs
 app.get("/admin/security/blocked-ips", adminLimiter, adminAuth, async (req,res) => {
   try { res.json(await BlockedIP.find().sort({createdAt:-1})); } catch { res.status(500).json({message:"Error"}); }
 });
@@ -544,7 +548,6 @@ app.delete("/admin/security/blocked-ips/:ip", adminLimiter, adminAuth, async (re
   } catch { res.status(500).json({message:"Error"}); }
 });
 
-// Broadcast
 app.post("/admin/broadcast", adminLimiter, adminAuth, async (req,res) => {
   try {
     const {subject,message,proOnly}=req.body;
@@ -559,7 +562,6 @@ app.post("/admin/broadcast", adminLimiter, adminAuth, async (req,res) => {
   } catch { res.status(500).json({message:"Error"}); }
 });
 
-// System Health
 app.get("/admin/system/health", adminLimiter, adminAuth, async (req,res) => {
   try {
     const db=mongoose.connection.readyState, up=process.uptime(), mem=process.memoryUsage();
@@ -593,6 +595,10 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     catch { return res.status(400).json({reply:"Invalid messages format."}); }
     if (!Array.isArray(messages)||messages.length===0) return res.status(400).json({reply:"Invalid messages"});
 
+    // ── Persona ──
+    const personaKey = req.body.personaKey || 'default';
+    const personaExtra = PERSONA_PROMPTS[personaKey] ? ' ' + PERSONA_PROMPTS[personaKey] : '';
+
     const trimmed=messages.slice(-MAX_HISTORY).map(m=>({role:["user","assistant","system"].includes(m.role)?m.role:"user",content:typeof m.content==="string"?m.content.slice(0,8000):m.content}));
     if (trimmed[0]?.role!=="system") {
       trimmed.unshift({role:"system",content:
@@ -601,8 +607,12 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
         "PERSONALITY: Talk like a genius best friend. Warm, witty, fun, real. Never start with 'Certainly!','Of course!','Sure!'. "+
         "CODE: Explain before code, add inline comments, show How it works + Example output + Tips after code. "+
         (user.settings?.parentalControl?"SAFE MODE ON: Keep all responses appropriate for children under 13. ":"")+
-        "HARD RULES: No sexual/explicit content. No harm to minors. No help with violence/weapons/terrorism/illegal. No hate speech."
+        "HARD RULES: No sexual/explicit content. No harm to minors. No help with violence/weapons/terrorism/illegal. No hate speech."+
+        personaExtra
       });
+    } else {
+      // system prompt already exists — append persona to it
+      trimmed[0].content += personaExtra;
     }
 
     if (req.file) {
