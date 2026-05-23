@@ -691,6 +691,10 @@
             <div class="plus-menu-icon-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div>
             <div><div class="plus-menu-label">Templates</div><div class="plus-menu-desc">Ready-made prompts</div></div>
           </button>
+          <button class="plus-menu-item" id="imageGenBtn">
+            <div class="plus-menu-icon-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+            <div><div class="plus-menu-label">Generate Image</div><div class="plus-menu-desc">AI image from text</div></div>
+          </button>
         </div>
       </div>
       <textarea id="input" placeholder="Message SG ChatBOT…" rows="1"></textarea>
@@ -870,6 +874,57 @@
       <button class="btn-full" id="submitBtn">Sign in</button>
       <button class="btn-cancel" id="forgotBtn" style="font-size:12px;color:var(--muted);background:transparent;border:none;cursor:pointer;padding:4px;">Forgot password?</button>
       <button class="btn-cancel" id="cancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- IMAGE GENERATION MODAL -->
+<div class="templates-overlay" id="imageGenOverlay">
+  <div class="templates-card" style="max-width:520px;">
+    <div class="templates-header">
+      <span style="font-size:16px;font-weight:800;">Generate Image</span>
+      <button class="modal-close-x" id="imageGenClose">✕</button>
+    </div>
+    <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:6px;">Describe your image</div>
+        <textarea id="imagePromptInput" placeholder="A futuristic city at sunset, cyberpunk style, ultra detailed…" style="width:100%;min-height:90px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-md);padding:12px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;resize:none;line-height:1.6;transition:border-color var(--anim);" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-2)'"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:6px;">Size</div>
+          <select id="imageSize" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-md);color:var(--text);font-family:var(--font);font-size:13px;outline:none;cursor:pointer;">
+            <option value="1024x1024">1024×1024 (Square)</option>
+            <option value="1280x720">1280×720 (Landscape)</option>
+            <option value="720x1280">720×1280 (Portrait)</option>
+            <option value="512x512">512×512 (Small)</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:6px;">Style hint</div>
+          <select id="imageStyle" style="width:100%;padding:9px 12px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-md);color:var(--text);font-family:var(--font);font-size:13px;outline:none;cursor:pointer;">
+            <option value="">None</option>
+            <option value=", photorealistic, 8k">Photorealistic</option>
+            <option value=", digital art, vibrant">Digital Art</option>
+            <option value=", anime style, detailed">Anime</option>
+            <option value=", oil painting, classical">Oil Painting</option>
+            <option value=", minimalist, flat design">Minimalist</option>
+            <option value=", cinematic, movie still">Cinematic</option>
+          </select>
+        </div>
+      </div>
+      <div id="imageGenError" style="display:none;font-size:12.5px;color:#ff8080;background:rgba(255,100,100,.07);border:1px solid rgba(255,100,100,.2);border-radius:var(--r-sm);padding:8px 11px;"></div>
+      <div id="imageGenPreview" style="display:none;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border-2);">
+        <img id="imageGenResult" style="width:100%;display:block;" alt="Generated image">
+        <div style="display:flex;gap:8px;padding:10px;background:var(--surface-2);">
+          <button id="imageGenDownload" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);font-family:var(--font);font-size:12px;cursor:pointer;transition:all var(--anim);" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='transparent'">Download</button>
+          <button id="imageGenSendToChat" style="flex:1;padding:8px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:filter .2s;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter='none'">Send to Chat</button>
+        </div>
+      </div>
+      <button id="imageGenSubmit" style="width:100%;padding:12px;border-radius:var(--r-md);border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:14px;font-weight:700;cursor:pointer;transition:filter .2s;display:flex;align-items:center;justify-content:center;gap:8px;" onmouseover="this.style.filter='brightness(1.12)'" onmouseout="this.style.filter='none'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Generate Image
+      </button>
     </div>
   </div>
 </div>
@@ -1147,6 +1202,7 @@ document.addEventListener('keydown', e => {
     if (document.getElementById('sandboxOverlay').classList.contains('open')) { closeSandbox(); return; }
     if (document.getElementById('notepadOverlay').classList.contains('open')) { closeNotepad(); return; }
     if (document.getElementById('templatesOverlay').classList.contains('open')) { closeTemplates(); return; }
+    if (document.getElementById('imageGenOverlay').classList.contains('open')) { closeImageGen(); return; }
     if (currentAbortController) { currentAbortController.abort(); currentAbortController = null; showToast('Generation stopped', ''); return; }
     closeModal();
   }
@@ -1483,6 +1539,76 @@ function updateNotifBtn() { if (!('Notification' in window) || !STATE.token) { n
 async function requestPushPermission() { if (!('Notification' in window)) return; if (Notification.permission !== 'default') return; const permission = await Notification.requestPermission(); if (permission === 'granted') showToast('🔔 Notifications enabled!', 'success'); }
 function maybeAskNotification() { if (!STATE.token) return; if (Notification.permission === 'default') setTimeout(requestPushPermission, 3000); }
 notifBtn.addEventListener('click', async () => { if (Notification.permission === 'granted') { new Notification('SG ChatBOT 🎉', { body: 'Notifications are working!', icon: '/logo.svg' }); showToast('🔔 Test notification sent!', 'success'); return; } const perm = await Notification.requestPermission(); if (perm === 'granted') { showToast('🔔 Notifications enabled!', 'success'); new Notification('SG ChatBOT 🎉', { body: 'You will now get notified!', icon: '/logo.svg' }); } else { showToast('Notifications blocked in browser settings', 'error'); } updateNotifBtn(); });
+
+// ══ IMAGE GENERATION ══
+function openImageGen() { document.getElementById('imageGenOverlay').classList.add('open'); document.getElementById('imageGenPreview').style.display='none'; document.getElementById('imageGenError').style.display='none'; document.getElementById('imagePromptInput').value=''; }
+function closeImageGen() { document.getElementById('imageGenOverlay').classList.remove('open'); }
+document.getElementById('imageGenClose').addEventListener('click', closeImageGen);
+document.getElementById('imageGenOverlay').addEventListener('click', e => { if (e.target.id==='imageGenOverlay') closeImageGen(); });
+document.getElementById('imageGenBtn').addEventListener('click', () => {
+  plusMenu.classList.remove('open'); plusBtn.classList.remove('active');
+  if (!STATE.token) { showToast('Please sign in first', 'error'); openModal(); return; }
+  openImageGen();
+});
+
+document.getElementById('imageGenSubmit').addEventListener('click', async () => {
+  const prompt = document.getElementById('imagePromptInput').value.trim();
+  const styleHint = document.getElementById('imageStyle').value;
+  const sizeVal = document.getElementById('imageSize').value;
+  const [w, h] = sizeVal.split('x').map(Number);
+  const errEl = document.getElementById('imageGenError');
+  const btn = document.getElementById('imageGenSubmit');
+
+  errEl.style.display = 'none';
+  if (!prompt) { errEl.textContent = 'Please describe the image you want.'; errEl.style.display='block'; return; }
+
+  const fullPrompt = prompt + styleHint;
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating…`;
+
+  try {
+    const res = await fetch(`${API}/generate-image`, {
+      method: 'POST',
+      headers: { Authorization:`Bearer ${STATE.token}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ prompt: fullPrompt, width: w, height: h }),
+    });
+    const data = await res.json();
+    if (!res.ok) { errEl.textContent = data.message || 'Generation failed.'; errEl.style.display='block'; return; }
+
+    // Show preview
+    const imgEl = document.getElementById('imageGenResult');
+    imgEl.src = data.image;
+    document.getElementById('imageGenPreview').style.display = 'block';
+
+    // Download button
+    document.getElementById('imageGenDownload').onclick = () => {
+      const a = document.createElement('a'); a.href = data.image;
+      a.download = `sg-image-${Date.now()}.jpg`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+
+    // Send to chat button
+    document.getElementById('imageGenSendToChat').onclick = () => {
+      closeImageGen();
+      hideWelcome();
+      // Render image in chat as bot message
+      const row = document.createElement('div'); row.className = 'msg-row bot';
+      const bubble = document.createElement('div'); bubble.className = 'bubble';
+      const previewId = 'igen_' + Date.now();
+      bubble.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Generated image for: <em>${escapeHtml(prompt)}</em></div>
+        <img src="${data.image}" alt="generated" style="width:100%;max-width:480px;border-radius:12px;cursor:zoom-in;display:block;" onclick="document.getElementById('imgModal_${previewId}').classList.add('open')">
+        <div class="img-modal-overlay" id="imgModal_${previewId}" onclick="this.classList.remove('open')"><img src="${data.image}" alt="full"></div>`;
+      row.innerHTML = botAvatarHtml(false); row.appendChild(bubble);
+      chatEl.appendChild(row);
+      chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
+    };
+
+  } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display='block'; }
+  finally {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image`;
+  }
+});
 
 // ══ INIT ══
 updateAuthUI();
