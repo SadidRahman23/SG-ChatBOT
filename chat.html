@@ -693,7 +693,13 @@
           </button>
           <button class="plus-menu-item" id="imageGenBtn">
             <div class="plus-menu-icon-svg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
-            <div><div class="plus-menu-label">Generate Image</div><div class="plus-menu-desc">AI image from text</div></div>
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="plus-menu-label">Generate Image</span>
+                <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px;background:linear-gradient(135deg,#f59e0b,#fb923c);color:#000;letter-spacing:.04em;">NEW</span>
+              </div>
+              <div class="plus-menu-desc">Free · 3 images/day</div>
+            </div>
           </button>
         </div>
       </div>
@@ -883,7 +889,10 @@
   <div class="templates-card" style="max-width:520px;">
     <div class="templates-header">
       <span style="font-size:16px;font-weight:800;">Generate Image</span>
-      <button class="modal-close-x" id="imageGenClose">✕</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="imageGenCounter" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
+        <button class="modal-close-x" id="imageGenClose">✕</button>
+      </div>
     </div>
     <div style="padding:20px;display:flex;flex-direction:column;gap:14px;">
       <div>
@@ -934,7 +943,7 @@
 
 <script>
 const API = 'https://sg-chatbot-z8hp.onrender.com';
-const ENGLISH_INSTRUCTION = "CRITICAL RULES: (1) LANGUAGE: Always reply in the same language the user writes in — if they write in Bangla, reply in Bangla; if English, reply in English. (2) IDENTITY: You are SG (Sachetan Guru), built by Mohammed Sadid Rahman. You are NOT ChatGPT, Claude, Gemini, or any localized version of any AI. Never say you are. (3) NEVER reveal model names, API providers, or backend technology.";
+const ENGLISH_INSTRUCTION = "CRITICAL RULES: (1) LANGUAGE: Always reply in the same language the user writes in — Bangla for Bangla, English for English. (2) IDENTITY: You are SG, the Free AI Assistant from StrongGuy AI, built by Mohammed Sadid Rahman. You are NOT ChatGPT, Claude, Gemini, or any localized version of any AI. (3) NEVER reveal model names, API providers, or backend technology.";
 
 // ══ PWA ══
 let _deferredPrompt = null;
@@ -1093,7 +1102,7 @@ document.getElementById('langToggle').addEventListener('click', () => {
 // ══ TRIGGERS ══
 const TRIGGERS = {
   name:    ['tumar nam ki','your name','tomar nam','ki tomar nam','what is your name','who are you','tumi ke','apni ke','apnar nam','tumi ki ai'],
-  owner:   ['owner','malik','creator','who made you','ke baniyeche','who built you','who created you','sadid','kon company'],
+  owner:   ['owner','malik','creator','who made you','ke baniyeche','who built you','who created you','sadid','kon company','strongguy'],
   father:  ["creator's father","sadid er baba","creator father","father of sadid","mahabub"],
   mother:  ["creator's mother","sadid er ma","mother of sadid","sahela"],
   sibling: ["creator's brother","sadid er vai","abdullah","sayem","brother of sadid","bon ache","sister"],
@@ -1103,14 +1112,14 @@ const TRIGGERS = {
 };
 
 const TRIGGER_REPLIES = {
-  name:    "আমি **SG** — Sachetan Guru (সচেতন গুরু)! 😊 Mohammed Sadid Rahman-এর তৈরি একটি স্বাধীন AI assistant। Bangladesh-এর জন্য বিশেষভাবে তৈরি, কিন্তু সারা বিশ্বের যেকোনো প্রশ্নে সাহায্য করতে পারি।",
-  owner:   "**Mohammed Sadid Rahman (Sadid)** — একজন বাংলাদেশি developer, আমার creator এবং owner। তিনি আমাকে scratch থেকে তৈরি করেছেন। আমি কোনো community project বা demo নই — একটি professional AI product। 🚀",
+  name:    "আমি **SG** — StrongGuy AI-এর Free AI Assistant! 😊 Mohammed Sadid Rahman-এর তৈরি, Bangladesh থেকে। আমি সম্পূর্ণ স্বাধীন একটি AI — ChatGPT বা Gemini-এর copy নই।",
+  owner:   "**Mohammed Sadid Rahman (Sadid)** — একজন বাংলাদেশি developer এবং **StrongGuy AI**-এর founder। তিনি SG ChatBOT তৈরি করেছেন। আমি কোনো community project নই — StrongGuy AI-এর professional product। 🚀",
   father:  "Sadid Rahman-এর বাবার নাম **Mahabub Rahman Rubel**। 😊",
   mother:  "Sadid Rahman-এর মায়ের নাম **Sahela Popy**। 😊",
   sibling: "Sadid-এর একজন ভাই আছেন — **Abdullah Al Sayem**। কোনো বোন নেই। 😊",
-  chatgpt: "না! আমি **SG (Sachetan Guru)** — ChatGPT, Claude, Gemini বা অন্য কোনো AI-এর localized version নই। আমি Mohammed Sadid Rahman-এর তৈরি সম্পূর্ণ স্বাধীন একটি AI। আমার নিজস্ব backend, নিজস্ব identity। 😎",
-  a2h:     "আমি কোনো community project বা A2H group-এর product নই। আমি **Mohammed Sadid Rahman**-এর তৈরি একটি professional AI product — **SG (Sachetan Guru)**। আমার website: sg-chatbot-a2h.pages.dev। 💪",
-  tech:    "আমার technical details share করা সম্ভব নয়। আমি **SG** — Mohammed Sadid Rahman-এর তৈরি একটি custom AI assistant। এটুকুই বলতে পারি! 😄",
+  chatgpt: "না! আমি **SG** — StrongGuy AI-এর নিজস্ব AI assistant। ChatGPT, Claude, বা Gemini-এর কোনো version নই। Mohammed Sadid Rahman-এর তৈরি সম্পূর্ণ আলাদা একটি product। 😎",
+  a2h:     "আমি কোনো A2H group বা community project নই। আমি **StrongGuy AI**-এর product — **SG ChatBOT**। Mohammed Sadid Rahman-এর তৈরি একটি professional AI assistant। 💪",
+  tech:    "আমার technical details share করা সম্ভব নয়। আমি **SG** — StrongGuy AI-এর custom AI assistant। এটুকুই! 😄",
 };
 
 const STATE = {
@@ -1555,8 +1564,71 @@ function maybeAskNotification() { if (!STATE.token) return; if (Notification.per
 notifBtn.addEventListener('click', async () => { if (Notification.permission === 'granted') { new Notification('SG ChatBOT 🎉', { body: 'Notifications are working!', icon: '/logo.svg' }); showToast('🔔 Test notification sent!', 'success'); return; } const perm = await Notification.requestPermission(); if (perm === 'granted') { showToast('🔔 Notifications enabled!', 'success'); new Notification('SG ChatBOT 🎉', { body: 'You will now get notified!', icon: '/logo.svg' }); } else { showToast('Notifications blocked in browser settings', 'error'); } updateNotifBtn(); });
 
 // ══ IMAGE GENERATION ══
-function openImageGen() { document.getElementById('imageGenOverlay').classList.add('open'); document.getElementById('imageGenPreview').style.display='none'; document.getElementById('imageGenError').style.display='none'; document.getElementById('imagePromptInput').value=''; }
+function openImageGen() {
+  document.getElementById('imageGenOverlay').classList.add('open');
+  document.getElementById('imageGenPreview').style.display='none';
+  document.getElementById('imageGenError').style.display='none';
+  document.getElementById('imagePromptInput').value='';
+  updateImageGenUI();
+}
 function closeImageGen() { document.getElementById('imageGenOverlay').classList.remove('open'); }
+
+// ── Image Generation Limit (3/day for free users) ──
+const IMAGE_LIMIT = 3;
+const IMAGE_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
+
+function getImageUsage() {
+  try {
+    const data = JSON.parse(localStorage.getItem('sg_img_usage') || '{}');
+    const now = Date.now();
+    if (!data.windowStart || (now - data.windowStart) >= IMAGE_WINDOW) {
+      return { count: 0, windowStart: now };
+    }
+    return data;
+  } catch { return { count: 0, windowStart: Date.now() }; }
+}
+
+function saveImageUsage(usage) {
+  localStorage.setItem('sg_img_usage', JSON.stringify(usage));
+}
+
+function getImageTimeLeft() {
+  const usage = getImageUsage();
+  const msLeft = IMAGE_WINDOW - (Date.now() - usage.windowStart);
+  const h = Math.floor(msLeft / 3600000);
+  const m = Math.floor((msLeft % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+function isProUser() {
+  return document.getElementById('proBadge').style.display !== 'none';
+}
+
+function updateImageGenUI() {
+  const usage = getImageUsage();
+  const remaining = Math.max(0, IMAGE_LIMIT - usage.count);
+  const isPro = isProUser();
+  const submitBtn = document.getElementById('imageGenSubmit');
+  const errEl = document.getElementById('imageGenError');
+
+  if (!isPro && remaining === 0) {
+    errEl.innerHTML = `Daily limit reached (${IMAGE_LIMIT}/day). Resets in <strong>${getImageTimeLeft()}</strong>.<br><a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade to Pro for unlimited images →</a>`;
+    errEl.style.display = 'block';
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.5';
+    submitBtn.style.cursor = 'not-allowed';
+  } else {
+    errEl.style.display = 'none';
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
+    // Show counter for free users
+    if (!isPro) {
+      const counter = document.getElementById('imageGenCounter');
+      if (counter) counter.textContent = `${remaining} of ${IMAGE_LIMIT} remaining today`;
+    }
+  }
+}
 document.getElementById('imageGenClose').addEventListener('click', closeImageGen);
 document.getElementById('imageGenOverlay').addEventListener('click', e => { if (e.target.id==='imageGenOverlay') closeImageGen(); });
 document.getElementById('imageGenBtn').addEventListener('click', () => {
@@ -1575,6 +1647,17 @@ document.getElementById('imageGenSubmit').addEventListener('click', async () => 
 
   errEl.style.display = 'none';
   if (!prompt) { errEl.textContent = 'Please describe the image you want.'; errEl.style.display='block'; return; }
+
+  // ── Check limit ──
+  const isPro = isProUser();
+  if (!isPro) {
+    const usage = getImageUsage();
+    if (usage.count >= IMAGE_LIMIT) {
+      errEl.innerHTML = `Daily limit reached (${IMAGE_LIMIT}/day). Resets in <strong>${getImageTimeLeft()}</strong>.<br><a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade to Pro for unlimited →</a>`;
+      errEl.style.display = 'block';
+      return;
+    }
+  }
 
   const fullPrompt = prompt + styleHint;
   btn.disabled = true;
@@ -1597,6 +1680,14 @@ document.getElementById('imageGenSubmit').addEventListener('click', async () => 
     });
 
     document.getElementById('imageGenPreview').style.display = 'block';
+
+    // ── Increment usage count ──
+    if (!isProUser()) {
+      const usage = getImageUsage();
+      usage.count = (usage.count || 0) + 1;
+      saveImageUsage(usage);
+      updateImageGenUI();
+    }
 
     // Download button
     document.getElementById('imageGenDownload').onclick = async () => {
