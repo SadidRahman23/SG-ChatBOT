@@ -10,6 +10,7 @@
   <link rel="canonical" href="https://sg-chatbot-a2h.pages.dev/chat.html">
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#05070b">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="SG ChatBOT">
@@ -379,6 +380,29 @@
     .template-title{font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:4px;}
     .template-desc{font-size:12px;color:var(--dim);line-height:1.5;}
 
+    /* ══ MOBILE BOTTOM BAR ══ */
+    .mobile-bottom-bar{
+      display:none; overflow-x:auto; padding:6px 12px;
+      background:var(--surface); border-top:1px solid var(--border);
+      gap:6px; align-items:center; flex-shrink:0;
+      scrollbar-width:none;
+    }
+    .mobile-bottom-bar::-webkit-scrollbar{display:none;}
+    .mobile-model-pills,.mobile-persona-pills{display:flex;gap:4px;flex-shrink:0;}
+    .mobile-divider{width:1px;height:20px;background:var(--border-2);flex-shrink:0;margin:0 4px;}
+    .mobile-pill{
+      height:28px;padding:0 11px;border-radius:99px;
+      border:1px solid var(--border-2);background:var(--surface-2);
+      color:var(--muted);font-family:var(--font);font-size:11.5px;font-weight:600;
+      cursor:pointer;transition:all var(--anim);white-space:nowrap;
+      display:flex;align-items:center;gap:4px;flex-shrink:0;
+    }
+    .mobile-pill:hover{background:var(--surface-3);color:var(--text);}
+    .mobile-pill.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+    .mobile-pill-bd.active{background:linear-gradient(135deg,#006a4e,#f42a41)!important;border-color:transparent!important;}
+    .mobile-pill-search.active{background:var(--accent2)!important;color:#000!important;border-color:transparent!important;}
+    @media(max-width:768px){.mobile-bottom-bar{display:flex;}}
+
     /* ══ INPUT ══ */
     .input-area{padding:8px 16px 16px;flex-shrink:0;padding-bottom:max(16px,env(safe-area-inset-bottom));}
     .input-wrap{max-width:var(--max-chat-w);margin:0 auto;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r-xl);padding:10px 10px 10px 15px;display:flex;align-items:flex-end;gap:8px;transition:border-color var(--anim),box-shadow var(--anim);}
@@ -478,30 +502,91 @@
     *{scrollbar-width:thin;scrollbar-color:var(--surface-3) transparent;}
 
     @media(max-width:768px){
-      :root{--sidebar-w:280px;}
+      :root{--sidebar-w:300px;--topbar-h:52px;}
+
+      /* ── Sidebar ── */
       .sidebar{position:fixed;top:0;left:0;bottom:0;transform:translateX(-100%);z-index:20;box-shadow:4px 0 40px rgba(0,0,0,.4);}
       .sidebar.open{transform:translateX(0);}
-      .sidebar.collapsed{transform:translateX(-100%);width:280px;}
+      .sidebar.collapsed{transform:translateX(-100%);width:300px;}
       .sidebar-close-btn{display:flex;}
       .sidebar-toggle{display:none;}
       .hamburger{display:flex;}
-      .topbar{padding:0 14px;}
-      .btn-ghost{display:none;}
-      .export-btn{display:none;}
-      .persona-selector{display:none;}
+
+      /* ── Topbar — clean, minimal ── */
+      .topbar{padding:0 12px;gap:6px;}
+      .topbar-right{gap:6px;}
+
+      /* Hide desktop-only buttons */
+      .btn-ghost{display:none!important;}
+      .export-btn{display:none!important;}
+      .persona-selector{display:none!important;}
+      #shortcutsBtn{display:none!important;}
+
+      /* Show only essential topbar items on mobile */
+      #msgCounter{display:none!important;}
+      #proBadge{font-size:11px!important;padding:4px 10px!important;}
+      #upgradeBtn{display:none!important;}
+      #notifBtn{display:none!important;}
+
+      /* Model selector — compact on mobile */
+      .model-selector{padding:4px 10px;font-size:11px;gap:5px;}
+      .model-selector .dot{width:5px;height:5px;}
+      #modelLabel{max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+      /* Mobile top-right: only notepad icon + sign in/out */
+      #notepadBtn{padding:0!important;width:34px!important;height:34px!important;border-radius:9px!important;justify-content:center!important;}
+      #notepadBtn svg{margin:0!important;}
+
+      /* ── Chat ── */
       .msg-row{padding:4px 12px;gap:8px;}
-      .bubble{max-width:88%;font-size:14px;padding:10px 13px;}
-      .welcome{padding:24px 16px;}
-      .suggestion-grid{grid-template-columns:1fr;max-width:320px;}
-      .input-area{padding:8px 12px;padding-bottom:max(12px,env(safe-area-inset-bottom));}
-      .input-wrap{border-radius:18px;padding:8px 8px 8px 13px;}
+      .bubble{max-width:88%;font-size:14.5px;padding:11px 14px;}
+      .msg-row.bot .bubble{max-width:95%;}
+
+      /* ── Welcome ── */
+      .welcome{padding:20px 16px;gap:8px;}
+      .welcome h1{font-size:20px;}
+      .welcome p{font-size:13.5px;}
+      .welcome-icon{width:56px;height:56px;font-size:24px;border-radius:18px;}
+      .suggestion-grid{grid-template-columns:1fr 1fr;max-width:100%;gap:8px;margin-top:12px;}
+      .suggestion-card{padding:11px 12px;font-size:12px;}
+      .suggestion-card strong{font-size:12px;}
+      .daily-challenge{padding:13px 14px;margin-top:12px;}
+
+      /* ── Input area — floating pill style ── */
+      .input-area{padding:6px 12px;padding-bottom:max(10px,env(safe-area-inset-bottom));}
+      .input-wrap{border-radius:20px;padding:8px 8px 8px 14px;gap:6px;box-shadow:0 4px 24px rgba(0,0,0,.3);}
+      #input{font-size:14.5px;}
       .input-hint{display:none;}
+
+      /* ── File preview ── */
       .file-preview-bar{margin:0 12px 8px;}
+
+      /* ── Sandbox ── */
       .sandbox-body{grid-template-columns:1fr;grid-template-rows:1fr 1fr;}
       .sandbox-editor{border-right:none;border-bottom:1px solid var(--border);}
+
+      /* ── Templates/modals ── */
       .templates-grid{grid-template-columns:1fr;}
+      .templates-card,.notepad-card{border-radius:16px;}
+
+      /* ── Follow up chips ── */
+      .follow-ups-wrap{padding-left:12px;}
+      .follow-up-chip{font-size:12px;padding:5px 11px;}
+
+      /* ── Message actions always visible on mobile ── */
+      .msg-actions{opacity:1!important;margin-left:0;}
+
+      /* ── Bot avatar smaller on mobile ── */
+      .bot-avatar-bg{width:28px;height:28px;font-size:12px;}
+      .bot-avatar-wrap{width:28px;height:28px;}
     }
-    @media(max-width:360px){.bubble{max-width:92%;font-size:13.5px;}}
+
+    @media(max-width:380px){
+      .suggestion-grid{grid-template-columns:1fr;}
+      .bubble{font-size:14px;}
+      .topbar{padding:0 10px;}
+    }
+
   </style>
 </head>
 <body>
@@ -675,6 +760,29 @@
     </div>
     <button class="file-preview-remove" id="fileRemoveBtn" title="Remove">&#x2715;</button>
   </div>
+
+      <!-- MOBILE BOTTOM BAR -->
+      <div class="mobile-bottom-bar" id="mobileBottomBar">
+        <div class="mobile-model-pills">
+          <button class="mobile-pill active" data-model="fast">Fast</button>
+          <button class="mobile-pill" data-model="smart">Smart</button>
+          <button class="mobile-pill" data-model="coding">Code</button>
+          <button class="mobile-pill" data-model="deep">Deep</button>
+        </div>
+        <div class="mobile-divider"></div>
+        <div class="mobile-persona-pills">
+          <button class="mobile-pill active" data-mpersona="default">Default</button>
+          <button class="mobile-pill" data-mpersona="dev">Dev</button>
+          <button class="mobile-pill" data-mpersona="teacher">Teacher</button>
+          <button class="mobile-pill" data-mpersona="friend">Friend</button>
+          <button class="mobile-pill" data-mpersona="writer">Writer</button>
+          <button class="mobile-pill mobile-pill-bd" data-mpersona="bangladesh">🇧🇩 BD</button>
+          <button class="mobile-pill mobile-pill-search" data-mpersona="search">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Search
+          </button>
+        </div>
+      </div>
 
   <div class="input-area">
     <div class="input-wrap">
@@ -1600,6 +1708,20 @@ async function send() {
             });
             actionsWrap.appendChild(actions);
 
+            if(chunk.sources && chunk.sources.length > 0) {
+              const sourcesHtml = chunk.sources.map((s,i) =>
+                `<a href="${s.url}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--surface-2);border:1px solid var(--border-2);border-radius:8px;color:var(--dim);text-decoration:none;font-size:12px;transition:all .2s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='var(--border-2)';this.style.color='var(--dim)'">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">[${i+1}] ${escapeHtml(s.title||s.url)}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>`
+              ).join('');
+              const sourcesWrap = document.createElement('div');
+              sourcesWrap.style.cssText = 'max-width:calc(var(--max-chat-w) + 48px);margin:4px auto 8px;padding:0 24px 0 67px;display:flex;flex-direction:column;gap:4px;animation:fadeUp .2s ease;';
+              sourcesWrap.innerHTML = `<div style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Sources</div>${sourcesHtml}`;
+              chatEl.appendChild(sourcesWrap);
+              chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+            }
             if(chunk.msgsLeft!=null){const cn=document.getElementById('msgCountNum');cn.textContent=chunk.msgsLeft;if(chunk.msgsLeft<=3)cn.style.color='#f87171';else if(chunk.msgsLeft<=6)cn.style.color='#f59e0b';checkWarnLimit(chunk.msgsLeft);}
             if(STATE.lastWasVoice){speakText(fullText);STATE.lastWasVoice=false;}
             setTimeout(()=>renderFollowUps(generateFollowUps(fullText)),200);
@@ -1827,7 +1949,44 @@ document.getElementById('imageGenSubmit').addEventListener('click', async () => 
   }
 });
 
-// ══ INIT ══
+// ══ MOBILE BOTTOM BAR ══
+document.querySelectorAll('.mobile-pill[data-model]').forEach(pill => {
+  pill.addEventListener('click', () => {
+    selectedModel = pill.dataset.model;
+    document.querySelectorAll('.mobile-pill[data-model]').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    // Sync with desktop model selector
+    modelLabel.textContent = MODELS[selectedModel].label;
+    document.querySelectorAll('.model-option').forEach(o => o.classList.toggle('active', o.dataset.model === selectedModel));
+    showToast(`${MODELS[selectedModel].label} mode`, 'success');
+  });
+});
+
+document.querySelectorAll('.mobile-pill[data-mpersona]').forEach(pill => {
+  pill.addEventListener('click', () => {
+    selectedPersona = pill.dataset.mpersona;
+    document.querySelectorAll('.mobile-pill[data-mpersona]').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    // Sync with desktop persona selector
+    document.querySelectorAll('.persona-btn').forEach(b => b.classList.toggle('active', b.dataset.persona === selectedPersona));
+    showToast(`${PERSONAS[selectedPersona].label} mode`, 'success');
+  });
+});
+
+// Sync desktop persona → mobile pills
+document.querySelectorAll('.persona-btn').forEach(btn => {
+  const orig = btn.onclick;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mobile-pill[data-mpersona]').forEach(p => p.classList.toggle('active', p.dataset.mpersona === btn.dataset.persona));
+  });
+});
+
+// Sync desktop model → mobile pills
+document.querySelectorAll('.model-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('.mobile-pill[data-model]').forEach(p => p.classList.toggle('active', p.dataset.model === opt.dataset.model));
+  });
+});
 updateAuthUI();
 bindSuggestions();
 initDailyChallenge();
