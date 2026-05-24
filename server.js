@@ -30,10 +30,12 @@ const FREE_WINDOW  = 4 * 60 * 60 * 1000;
 
 // ── Persona Prompts ──
 const PERSONA_PROMPTS = {
-  dev:     'DEVELOPER MODE: Be highly technical and concise. Code-first answers. Use markdown code blocks always. Assume the user is an experienced developer. Skip lengthy preambles.',
-  teacher: 'TEACHER MODE: Explain everything step-by-step like teaching a student. Use simple analogies, real examples, and bullet points. Offer to elaborate on any part.',
-  friend:  'FRIEND MODE: Be casual, warm, and conversational. Use everyday language, light humor when appropriate. Talk like a smart best friend would.',
-  writer:  'WRITER MODE: Focus on creative, polished writing. Help with storytelling, tone, structure, grammar, and style. Offer creative alternatives and be expressive.',
+  dev:        'DEVELOPER MODE: Be highly technical and concise. Code-first answers. Use markdown code blocks always. Assume the user is an experienced developer. Skip lengthy preambles.',
+  teacher:    'TEACHER MODE: Explain everything step-by-step like teaching a student. Use simple analogies, real examples, and bullet points. Offer to elaborate on any part.',
+  friend:     'FRIEND MODE: Be casual, warm, and conversational. Use everyday language, light humor when appropriate. Talk like a smart best friend would.',
+  writer:     'WRITER MODE: Focus on creative, polished writing. Help with storytelling, tone, structure, grammar, and style. Offer creative alternatives and be expressive.',
+  bangladesh: 'BANGLADESH MODE: You are an expert on Bangladesh. Specialize in: BCS (Bangladesh Civil Service) exam prep including Bangla, English, Math, General Knowledge, Bangladesh Affairs, International Affairs, Science & Technology. SSC and HSC exam help under Bangladeshi curriculum. National University and public university admission tests. NTRCA, Primary school assistant teacher exam, bank job exams. When helping with BCS/SSC/HSC: give exam-focused answers, mention important MCQ topics, share memory tricks, use Bangla when user writes in Bangla.',
+  search:     'WEB SEARCH MODE: The user wants current, up-to-date information. Always mention when info might be outdated. Prioritize recent facts. Suggest verifying time-sensitive info from official sources.',
 };
 
 // ── Groq Key Counter (global, persists across requests) ──
@@ -878,6 +880,186 @@ app.get("/conversations",auth,async(req,res)=>{try{res.json(await Conversation.f
 app.get("/conversations/:id",auth,async(req,res)=>{try{const c=await Conversation.findOne({_id:req.params.id,userId:req.user.id});if(!c)return res.status(404).json({message:"Not found"});res.json(c);}catch{res.status(500).json({message:"Error"});}});
 app.post("/conversations/save",auth,async(req,res)=>{try{const{conversationId,messages,title}=req.body;if(!Array.isArray(messages)||!messages.length)return res.status(400).json({message:"No messages"});const toSave=messages.filter(m=>m.role!=="system").slice(-100).map(m=>({role:m.role,content:typeof m.content==="string"?m.content.slice(0,5000):m.content}));const ft=toSave.find(m=>m.role==="user");const at=typeof ft?.content==="string"?ft.content.slice(0,50):"New Chat";if(conversationId){await Conversation.findOneAndUpdate({_id:conversationId,userId:req.user.id},{messages:toSave,title:title||at,updatedAt:new Date()});res.json({conversationId});}else{const c=await Conversation.create({userId:req.user.id,title:title||at,messages:toSave});res.json({conversationId:c._id});}}catch{res.status(500).json({message:"Error"});}});
 app.delete("/conversations/:id",auth,async(req,res)=>{try{await Conversation.findOneAndDelete({_id:req.params.id,userId:req.user.id});res.json({message:"Deleted"});}catch{res.status(500).json({message:"Error"});}});
+
+// ═══ STREAMING CHAT ═══
+app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"), async (req,res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({reply:"User not found."});
+    const pro = isProActive(user);
+    if (!pro) {
+      checkWindow(user);
+      if (user.msgCount >= FREE_LIMIT) {
+        return res.status(429).json({reply:"limit_reached", msgsLeft:0, minsLeft:minsUntilReset(user)});
+      }
+      user.msgCount += 1;
+    }
+    user.totalMessages = (user.totalMessages||0) + 1;
+    await user.save();
+
+    let messages;
+    try { messages = typeof req.body.messages==="string" ? JSON.parse(req.body.messages) : req.body.messages; }
+    catch { return res.status(400).json({reply:"Invalid messages format."}); }
+    if (!Array.isArray(messages)||messages.length===0) return res.status(400).json({reply:"Invalid messages"});
+
+    const personaKey = req.body.personaKey || 'default';
+    const personaExtra = PERSONA_PROMPTS[personaKey] ? ' ' + PERSONA_PROMPTS[personaKey] : '';
+
+    const trimmed = messages.slice(-MAX_HISTORY).map(m=>({
+      role: ["user","assistant","system"].includes(m.role)?m.role:"user",
+      content: typeof m.content==="string" ? m.content.slice(0,8000) : m.content,
+    }));
+
+    if (trimmed[0]?.role !== "system") {
+      trimmed.unshift({role:"system", content:
+        "You are SG — a powerful, free AI assistant. SG stands for StrongGuy. You are the flagship product of StrongGuy AI. " +
+        "Created and owned by Mohammed Sadid Rahman (Sadid), a Bangladeshi developer. " +
+        "IDENTITY: NOT ChatGPT/Claude/Gemini. NOT A2H/community project. Professional product by StrongGuy AI. " +
+        "PERSONALITY: Warm, witty, genius best friend. Never start with 'Certainly!','Of course!','Sure!'. " +
+        "Use Bangla when user writes Bangla. " +
+        (user.settings?.parentalControl ? "SAFE MODE ON: Appropriate for children under 13. " : "") +
+        "HARD RULES: No sexual content. No harm to minors. No violence/weapons/illegal. No hate speech." +
+        personaExtra
+      });
+    } else {
+      trimmed[0].content += personaExtra;
+    }
+
+    if (req.file) {
+      const base64 = req.file.buffer.toString("base64"), mime = req.file.mimetype, last = trimmed[trimmed.length-1];
+      if (last?.role==="user" && mime.startsWith("image/")) {
+        const txt = req.body.imageText||(typeof last.content==="string"?last.content:"")||"Analyze this image.";
+        last.content = [{type:"text",text:txt},{type:"image_url",image_url:{url:`data:${mime};base64,${base64}`}}];
+      }
+    }
+
+    const hasImage = trimmed.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==="image_url"));
+    const modelKey = ["fast","smart","coding","deep"].includes(req.body.modelKey)?req.body.modelKey:"fast";
+    const GROQ_MODELS = {fast:"llama-3.3-70b-versatile",smart:"llama-3.3-70b-versatile",coding:"llama-3.3-70b-versatile",deep:"deepseek-r1-distill-llama-70b"};
+    const OR_MODELS = {fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
+
+    // ── SSE Headers ──
+    res.setHeader("Content-Type","text/event-stream");
+    res.setHeader("Cache-Control","no-cache");
+    res.setHeader("Connection","keep-alive");
+    res.setHeader("X-Accel-Buffering","no");
+    res.flushHeaders();
+
+    const sendChunk = (text) => res.write(`data: ${JSON.stringify({t:text})}\n\n`);
+    const sendDone  = (meta) => res.write(`data: ${JSON.stringify({done:true,...meta})}\n\n`);
+    const sendError = (msg)  => res.write(`data: ${JSON.stringify({error:msg})}\n\n`);
+
+    let fullReply = "";
+
+    // ── Try Groq streaming ──
+    async function tryGroqStream(model) {
+      if (!GROQ_KEYS.length) return false;
+      for (let i=0; i<GROQ_KEYS.length; i++) {
+        const key = GROQ_KEYS[(groqKeyCounter+i)%GROQ_KEYS.length];
+        try {
+          const r = await fetch("https://api.groq.com/openai/v1/chat/completions",{
+            method:"POST",
+            headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json"},
+            body:JSON.stringify({model,messages:trimmed.filter(m=>!Array.isArray(m.content)),max_tokens:4096,temperature:0.7,stream:true})
+          });
+          if (r.status===429){continue;}
+          if (!r.ok) return false;
+          groqKeyCounter=(groqKeyCounter+i+1)%GROQ_KEYS.length;
+          // Read SSE stream
+          const reader = r.body.getReader(), decoder = new TextDecoder();
+          let buf = "";
+          while(true) {
+            const {done,value} = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value,{stream:true});
+            const lines = buf.split("\n"); buf = lines.pop()||"";
+            for (const line of lines) {
+              if (!line.startsWith("data:")) continue;
+              const d = line.slice(5).trim();
+              if (d==="[DONE]") break;
+              try {
+                const chunk = JSON.parse(d);
+                const t = chunk.choices?.[0]?.delta?.content||"";
+                if (t) { fullReply+=t; sendChunk(t); }
+              } catch {}
+            }
+          }
+          return true;
+        } catch(e){console.log(`Groq stream error: ${e.message}`);}
+      }
+      return false;
+    }
+
+    // ── Try OpenRouter streaming ──
+    async function tryORStream(model) {
+      try {
+        const body = {model,messages:trimmed,stream:true};
+        const r = await fetch("https://openrouter.ai/api/v1/chat/completions",{
+          method:"POST",
+          headers:{Authorization:`Bearer ${process.env.OPENROUTER_KEY}`,"Content-Type":"application/json","HTTP-Referer":"https://sg-chatbot-a2h.pages.dev","X-Title":"SG ChatBOT"},
+          body:JSON.stringify(body)
+        });
+        if (!r.ok) return false;
+        const reader = r.body.getReader(), decoder = new TextDecoder();
+        let buf = "";
+        while(true) {
+          const {done,value} = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value,{stream:true});
+          const lines = buf.split("\n"); buf = lines.pop()||"";
+          for (const line of lines) {
+            if (!line.startsWith("data:")) continue;
+            const d = line.slice(5).trim();
+            if (d==="[DONE]") break;
+            try {
+              const chunk = JSON.parse(d);
+              const t = chunk.choices?.[0]?.delta?.content||"";
+              if (t) { fullReply+=t; sendChunk(t); }
+            } catch {}
+          }
+        }
+        return true;
+      } catch(e){console.log(`OR stream error: ${e.message}`);}
+      return false;
+    }
+
+    let success = false;
+    if (!hasImage) {
+      success = await tryGroqStream(GROQ_MODELS[modelKey]);
+      if (!success) success = await tryORStream(OR_MODELS[modelKey]);
+      if (!success) {
+        const fallbacks = ["meta-llama/llama-3.3-70b-instruct:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free"];
+        for (const fb of fallbacks) { success = await tryORStream(fb); if (success) break; }
+      }
+    } else {
+      const visionModels = ["meta-llama/llama-4-maverick:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free"];
+      for (const vm of visionModels) { success = await tryORStream(vm); if (success) break; }
+    }
+
+    if (!success || !fullReply) {
+      sendError("AI is busy. Please try again."); res.end(); return;
+    }
+
+    // ── Save conversation ──
+    const msgsLeft = pro ? null : FREE_LIMIT - user.msgCount;
+    const minsLeft = pro ? null : minsUntilReset(user);
+    const allMsgs = [...messages,{role:"assistant",content:fullReply}];
+    const firstUser = allMsgs.find(m=>m.role==="user");
+    const autoTitle = typeof firstUser?.content==="string" ? firstUser.content.slice(0,50) : "New Chat";
+    let savedId = req.body.conversationId||null;
+    try {
+      const toSave = allMsgs.filter(m=>m.role!=="system").slice(-100).map(m=>({role:m.role,content:typeof m.content==="string"?m.content.slice(0,5000):m.content}));
+      if (savedId) { await Conversation.findOneAndUpdate({_id:savedId,userId:user._id},{messages:toSave,updatedAt:new Date()}); }
+      else { const c = await Conversation.create({userId:user._id,title:autoTitle,messages:toSave}); savedId=c._id; }
+    } catch(e){console.error("Conv save:",e.message);}
+
+    sendDone({msgsLeft, minsLeft, plan:pro?"pro":"free", conversationId:savedId});
+    res.end();
+  } catch(err){
+    console.error("Stream error:",err);
+    try { res.write(`data: ${JSON.stringify({error:"Server error."})}\n\n`); res.end(); } catch {}
+  }
+});
 
 // ═══ IMAGE GENERATION ═══
 const imageLimiter = rateLimit({ windowMs:60*60*1000, max:20, message:{message:"Image limit reached. Try later."} });
