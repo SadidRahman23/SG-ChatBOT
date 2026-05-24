@@ -876,13 +876,6 @@ app.get("/conversations/:id",auth,async(req,res)=>{try{const c=await Conversatio
 app.post("/conversations/save",auth,async(req,res)=>{try{const{conversationId,messages,title}=req.body;if(!Array.isArray(messages)||!messages.length)return res.status(400).json({message:"No messages"});const toSave=messages.filter(m=>m.role!=="system").slice(-100).map(m=>({role:m.role,content:typeof m.content==="string"?m.content.slice(0,5000):m.content}));const ft=toSave.find(m=>m.role==="user");const at=typeof ft?.content==="string"?ft.content.slice(0,50):"New Chat";if(conversationId){await Conversation.findOneAndUpdate({_id:conversationId,userId:req.user.id},{messages:toSave,title:title||at,updatedAt:new Date()});res.json({conversationId});}else{const c=await Conversation.create({userId:req.user.id,title:title||at,messages:toSave});res.json({conversationId:c._id});}}catch{res.status(500).json({message:"Error"});}});
 app.delete("/conversations/:id",auth,async(req,res)=>{try{await Conversation.findOneAndDelete({_id:req.params.id,userId:req.user.id});res.json({message:"Deleted"});}catch{res.status(500).json({message:"Error"});}});
 
-// ═══ HEALTH ═══
-app.get("/",(req,res)=>res.json({message:"SG ChatBOT API running ✅"}));
-app.use((err,req,res,next)=>{console.error("Unhandled:",err.message);res.status(500).json({message:"Something went wrong."});});
-app.use((req,res)=>res.status(404).json({message:"Not found."}));
-
-app.listen(PORT,()=>console.log(`🚀 Server running on port ${PORT}`));
-
 // ═══ IMAGE GENERATION ═══
 const imageLimiter = rateLimit({ windowMs:60*60*1000, max:20, message:{message:"Image limit reached. Try later."} });
 
@@ -925,3 +918,10 @@ app.post("/generate-image", imageLimiter, auth, checkBlocked, async (req,res) =>
     res.status(500).json({message:"Server error."});
   }
 });
+
+// ═══ HEALTH ═══
+app.get("/",(req,res)=>res.json({message:"SG ChatBOT API running ✅"}));
+app.use((err,req,res,next)=>{console.error("Unhandled:",err.message);res.status(500).json({message:"Something went wrong."});});
+app.use((req,res)=>res.status(404).json({message:"Not found."}));
+
+app.listen(PORT,()=>console.log(`🚀 Server running on port ${PORT}`));
