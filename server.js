@@ -891,31 +891,33 @@ app.post("/generate-image", imageLimiter, auth, checkBlocked, async (req,res) =>
       if (blocked.some(t => prompt.toLowerCase().includes(t)))
         return res.status(403).json({message:"Blocked by Safe Mode."});
     }
-    if (!process.env.TOGETHER_API_KEY) return res.status(500).json({message:"Image generation not configured."});
+
     console.log(`🎨 Generating: ${prompt.slice(0,50)}…`);
-    const response = await fetch("https://api.together.xyz/v1/images/generations", {
-      method: "POST",
-      headers: { Authorization:`Bearer ${process.env.TOGETHER_API_KEY}`, "Content-Type":"application/json" },
-      body: JSON.stringify({
-        model: "black-forest-labs/FLUX.1-schnell-Free",
-        prompt: prompt.slice(0,500),
-        width: Math.min(Math.max(parseInt(width)||1024, 256), 1440),
-        height: Math.min(Math.max(parseInt(height)||1024, 256), 1440),
-        steps: 4, n: 1, response_format: "b64_json",
-      }),
+
+    // ── Pollinations AI — completely free, no API key needed ──
+    const encodedPrompt = encodeURIComponent(prompt);
+    const seed = Math.floor(Math.random() * 999999);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=true`;
+
+    // Fetch image as buffer
+    const response = await fetch(imageUrl, {
+      headers: { "User-Agent": "Mozilla/5.0" },
+      signal: AbortSignal.timeout(60000),
     });
+
     if (!response.ok) {
-      const err = await response.text();
-      console.error("Together AI error:", err.slice(0,200));
+      console.error("Pollinations error:", response.status);
       return res.status(500).json({message:"Image generation failed. Please try again."});
     }
-    const data = await response.json();
-    const b64 = data?.data?.[0]?.b64_json;
-    if (!b64) return res.status(500).json({message:"No image returned."});
-    res.json({ image:`data:image/jpeg;base64,${b64}`, prompt });
+
+    const buffer = await response.arrayBuffer();
+    const b64 = Buffer.from(buffer).toString("base64");
+    const mime = response.headers.get("content-type") || "image/jpeg";
+
+    res.json({ image:`data:${mime};base64,${b64}`, prompt });
   } catch(err) {
     console.error("Image gen error:", err.message);
-    res.status(500).json({message:"Server error."});
+    res.status(500).json({message:"Server error. Please try again."});
   }
 });
 
