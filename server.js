@@ -40,6 +40,16 @@ const PERSONA_PROMPTS = {
 
 // ── Groq Key Counter (global, persists across requests) ──
 let groqKeyCounter = 0;
+
+// ── Groq Keys (global) ──
+const GROQ_KEYS = [
+  process.env.GROQ_API_KEY_1,
+  process.env.GROQ_API_KEY_2,
+  process.env.GROQ_API_KEY_3,
+  process.env.GROQ_API_KEY_4,
+  process.env.GROQ_API_KEY_5,
+  process.env.GROQ_API_KEY,
+].filter(Boolean);
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
@@ -677,16 +687,6 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const VISION_FB=["meta-llama/llama-4-maverick:free","meta-llama/llama-4-scout:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","mistralai/pixtral-12b:free"];
     const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-r1:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free","nvidia/llama-3.1-nemotron-70b-instruct:free"];
 
-    // ── Groq Multi-Key Rotation ──
-    const GROQ_KEYS=[
-      process.env.GROQ_API_KEY_1,
-      process.env.GROQ_API_KEY_2,
-      process.env.GROQ_API_KEY_3,
-      process.env.GROQ_API_KEY_4,
-      process.env.GROQ_API_KEY_5,
-      process.env.GROQ_API_KEY,  // legacy single key support
-    ].filter(Boolean);
-
     // Try all Groq keys, skip 429 rate-limited ones
     async function callGroqRotating(model) {
       for (let i=0;i<GROQ_KEYS.length;i++) {
@@ -778,15 +778,62 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const lastMsg=trimmed.filter(m=>m.role==="user").slice(-1)[0];
     const userTxt=typeof lastMsg?.content==="string"?lastMsg.content:"";
     const urlMatch=userTxt.match(/https?:\/\/[^\s]+/);
-    const searchIntent=/find|search|look up|latest|news/i.test(userTxt);
 
+    // ── Detect search intent ──
+    const searchKeywords = /সার্চ|খুঁজ|খবর|আজকে|এখন|কবে|কোথায়|কে জিতেছে|latest|news|today|current|who is|what happened|search|find|look up|price of|weather|score|result/i;
+    const searchIntent = searchKeywords.test(userTxt) || req.body.personaKey === 'search';
+
+    let webSources = [];
+
+    // ── URL fetch ──
     if (urlMatch) {
       try {
         const pr=await fetch(urlMatch[0],{headers:{"User-Agent":"Mozilla/5.0"},signal:AbortSignal.timeout(8000)});
         const txt=(await pr.text()).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,4000);
-        trimmed.push({role:"user",content:`[Content from ${urlMatch[0]}]:\n\n${txt}\n\nBased on this, answer my question.`});
+        trimmed.push({role:"user",content:`[Webpage content from ${urlMatch[0]}]:\n\n${txt}\n\nBased on this content, answer my question.`});
+        webSources.push({ title: urlMatch[0], url: urlMatch[0] });
       } catch(e){console.error("URL fetch:",e.message);}
     }
+
+    // ── Tavily Web Search ──
+    if (searchIntent && !urlMatch && !hasImage && process.env.TAVILY_API_KEY) {
+      try {
+        console.log(`🔍 Searching: ${userTxt.slice(0,60)}…`);
+        const tavilyRes = await fetch("https://api.tavily.com/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            api_key: process.env.TAVILY_API_KEY,
+            query: userTxt.slice(0, 400),
+            search_depth: "basic",
+            max_results: 5,
+            include_answer: true,
+            include_raw_content: false,
+          }),
+          signal: AbortSignal.timeout(10000),
+        });
+
+        if (tavilyRes.ok) {
+          const tavilyData = await tavilyRes.json();
+          const results = tavilyData.results || [];
+          webSources = results.map(r => ({ title: r.title, url: r.url }));
+
+          // Build context from search results
+          let searchContext = `[Web Search Results for: "${userTxt}"]\n\n`;
+          if (tavilyData.answer) {
+            searchContext += `Quick Answer: ${tavilyData.answer}\n\n`;
+          }
+          results.slice(0, 4).forEach((r, i) => {
+            searchContext += `[${i+1}] ${r.title}\nSource: ${r.url}\n${r.content?.slice(0,600)||''}\n\n`;
+          });
+          searchContext += `Based on these search results, answer the user's question. Cite sources using [1], [2] etc.`;
+
+          trimmed.push({ role: "user", content: searchContext });
+          console.log(`✅ Found ${results.length} results`);
+        }
+      } catch(e) { console.error("Tavily error:", e.message); }
+    }
+
 
     // ── Response helper — handles Google's different format ──
     function extractReply(res, data) {
@@ -843,7 +890,13 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     if (!responseData) {
       try { responseData=await response.json(); } catch { return res.status(500).json({reply:"Failed to parse AI response."}); }
     }
-    const reply=responseData?.choices?.[0]?.message?.content||"No response from AI.";
+    let reply=responseData?.choices?.[0]?.message?.content||"No response from AI.";
+
+    // ── Append sources if web search was used ──
+    if (webSources.length > 0) {
+      const sourceList = webSources.map((s,i) => `[${i+1}] [${s.title}](${s.url})`).join('\n');
+      reply += `\n\n---\n**Sources:**\n${sourceList}`;
+    }
     const msgsLeft=pro?null:FREE_LIMIT-user.msgCount;
     const minsLeft=pro?null:minsUntilReset(user);
 
@@ -937,6 +990,47 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     const modelKey = ["fast","smart","coding","deep"].includes(req.body.modelKey)?req.body.modelKey:"fast";
     const GROQ_MODELS = {fast:"llama-3.3-70b-versatile",smart:"llama-3.3-70b-versatile",coding:"llama-3.3-70b-versatile",deep:"deepseek-r1-distill-llama-70b"};
     const OR_MODELS = {fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
+
+    // ── Web Search (Tavily) ──
+    const lastMsgS = trimmed.filter(m=>m.role==="user").slice(-1)[0];
+    const userTxtS = typeof lastMsgS?.content==="string" ? lastMsgS.content : "";
+    const urlMatchS = userTxtS.match(/https?:\/\/[^\s]+/);
+    const searchKW = /সার্চ|খুঁজ|খবর|আজকে|এখন|কবে|কোথায়|latest|news|today|current|who is|what happened|search|find|look up|price of|weather|score|result/i;
+    const doSearch = (searchKW.test(userTxtS) || req.body.personaKey==='search') && !urlMatchS && !hasImage;
+
+    let streamSources = [];
+
+    if (urlMatchS) {
+      try {
+        const pr = await fetch(urlMatchS[0],{headers:{"User-Agent":"Mozilla/5.0"},signal:AbortSignal.timeout(8000)});
+        const txt = (await pr.text()).replace(/<script[\s\S]*?<\/script>/gi,"").replace(/<style[\s\S]*?<\/style>/gi,"").replace(/<[^>]+>/g," ").replace(/\s+/g," ").trim().slice(0,4000);
+        trimmed.push({role:"user",content:`[Webpage content from ${urlMatchS[0]}]:\n\n${txt}\n\nAnswer my question based on this.`});
+        streamSources.push({title:urlMatchS[0],url:urlMatchS[0]});
+      } catch(e){console.error("URL fetch:",e.message);}
+    }
+
+    if (doSearch && process.env.TAVILY_API_KEY) {
+      try {
+        console.log(`🔍 Stream searching: ${userTxtS.slice(0,60)}…`);
+        const tr = await fetch("https://api.tavily.com/search",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({api_key:process.env.TAVILY_API_KEY,query:userTxtS.slice(0,400),search_depth:"basic",max_results:5,include_answer:true}),
+          signal:AbortSignal.timeout(10000),
+        });
+        if (tr.ok) {
+          const td = await tr.json();
+          const results = td.results||[];
+          streamSources = results.map(r=>({title:r.title,url:r.url}));
+          let ctx = `[Web Search Results for: "${userTxtS}"]\n\n`;
+          if (td.answer) ctx += `Quick Answer: ${td.answer}\n\n`;
+          results.slice(0,4).forEach((r,i)=>{ ctx+=`[${i+1}] ${r.title}\nSource: ${r.url}\n${r.content?.slice(0,600)||''}\n\n`; });
+          ctx += `Answer the user's question based on these results. Cite sources as [1], [2] etc.`;
+          trimmed.push({role:"user",content:ctx});
+          console.log(`✅ Stream found ${results.length} results`);
+        }
+      } catch(e){console.error("Tavily stream error:",e.message);}
+    }
 
     // ── SSE Headers ──
     res.setHeader("Content-Type","text/event-stream");
@@ -1053,7 +1147,7 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
       else { const c = await Conversation.create({userId:user._id,title:autoTitle,messages:toSave}); savedId=c._id; }
     } catch(e){console.error("Conv save:",e.message);}
 
-    sendDone({msgsLeft, minsLeft, plan:pro?"pro":"free", conversationId:savedId});
+    sendDone({msgsLeft, minsLeft, plan:pro?"pro":"free", conversationId:savedId, sources:streamSources});
     res.end();
   } catch(err){
     console.error("Stream error:",err);
