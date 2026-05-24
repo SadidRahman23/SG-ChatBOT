@@ -30,7 +30,7 @@
       --red:rgba(255,80,80,0.8); --font:'Cabinet Grotesk',sans-serif;
       --r-sm:8px; --r-md:14px; --r-lg:20px; --r-xl:26px;
       --sidebar-w:268px; --topbar-h:58px; --anim:0.2s cubic-bezier(0.4,0,0.2,1);
-      --chat-font-size:14.5px; --max-chat-w:740px;
+      --chat-font-size:15px; --max-chat-w:860px;
     }
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
     html,body{height:100%;}
@@ -95,6 +95,10 @@
     .persona-btn{height:26px;padding:0 10px;border-radius:99px;border:none;background:transparent;cursor:pointer;font-size:11px;font-weight:600;font-family:var(--font);color:var(--muted);letter-spacing:.02em;display:flex;align-items:center;justify-content:center;transition:all var(--anim);white-space:nowrap;}
     .persona-btn:hover{background:var(--surface-3);color:var(--text);}
     .persona-btn.active{background:var(--accent);color:#fff;box-shadow:0 0 0 0px var(--glow);}
+    .persona-btn-bd{display:flex;align-items:center;gap:4px;}
+    .persona-btn-bd.active{background:linear-gradient(135deg,#006a4e,#f42a41)!important;}
+    .persona-btn-search{display:flex;align-items:center;gap:4px;}
+    .persona-btn-search.active{background:var(--accent2)!important;color:#000!important;}
 
     /* ══ MODEL SELECTOR ══ */
     .model-selector{display:flex;align-items:center;gap:7px;padding:5px 12px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border);font-size:12px;color:var(--dim);font-weight:600;white-space:nowrap;flex-shrink:0;cursor:pointer;position:relative;transition:all var(--anim);user-select:none;}
@@ -581,6 +585,11 @@
         <button class="persona-btn" data-persona="teacher" title="Teacher Mode">Teacher</button>
         <button class="persona-btn" data-persona="friend" title="Friend Mode">Friend</button>
         <button class="persona-btn" data-persona="writer" title="Writer Mode">Writer</button>
+        <button class="persona-btn persona-btn-bd" data-persona="bangladesh" title="Bangladesh Mode — BCS, SSC, HSC">🇧🇩 BD</button>
+        <button class="persona-btn persona-btn-search" data-persona="search" title="Web Search Mode">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Search
+        </button>
       </div>
     </div>
 
@@ -980,6 +989,8 @@ const PERSONAS = {
   teacher: { label: 'Teacher', system: 'TEACHER MODE: Explain everything step-by-step like teaching a student. Use simple analogies, real examples, and bullet points. Offer to elaborate on any part.' },
   friend: { label: 'Friend', system: 'FRIEND MODE: Be casual, warm, and conversational. Use everyday language, light humor when appropriate. Talk like a smart best friend would.' },
   writer: { label: 'Writer', system: 'WRITER MODE: Focus on creative, polished writing. Help with storytelling, tone, structure, grammar, and style. Offer creative alternatives and be expressive.' },
+  bangladesh: { label: '🇧🇩 Bangladesh', system: 'BANGLADESH MODE: You are an expert on Bangladesh — its education system, history, culture, laws, and current affairs. Specialize in: BCS (Bangladesh Civil Service) exam preparation including all subjects (Bangla, English, Math, General Knowledge, Bangladesh Affairs, International Affairs, Science & Technology), SSC and HSC exam help for all subjects under Bangladeshi curriculum, National University and public university admission test preparation, NTRCA teacher registration exam, Primary school assistant teacher exam, Bangladesh Bank and other bank job exams. When helping with BCS/SSC/HSC: give exam-focused answers, mention important MCQ topics, share memory tricks, cite Bangladesh-specific examples. Always use Bangla when the user writes in Bangla. For general questions, still use your Bangladesh expertise to give locally relevant answers.' },
+  search: { label: 'Search', system: 'WEB SEARCH MODE: The user wants current, up-to-date information. Always mention when information might be outdated. Prioritize recent facts, news, and developments. Be explicit about what you know vs what may have changed. Suggest the user verify time-sensitive information from official sources.' },
 };
 let selectedPersona = 'default';
 document.querySelectorAll('.persona-btn').forEach(btn => {
@@ -1480,41 +1491,130 @@ function checkTriggers(text) {
   return false;
 }
 
-// ══ SEND ══
+// ══ SEND (Streaming) ══
 async function send() {
   const text = inputEl.value.trim();
-  const file = STATE.pendingFile || (pastedContext?.type === 'image' ? { file: new File([], 'pasted.jpg'), base64: pastedContext.content, isImage: true, mimeType: 'image/jpeg', fromContext: true } : null);
+  const file = STATE.pendingFile||(pastedContext?.type==='image'?{file:new File([],'pasted.jpg'),base64:pastedContext.content,isImage:true,mimeType:'image/jpeg',fromContext:true}:null);
   let finalText = text;
-  if (pastedContext?.type === 'text') { finalText = text ? `${text}\n\n\`\`\`\n${pastedContext.content}\n\`\`\`` : pastedContext.content; }
-  if (replyingTo) { finalText = `[Replying to: "${replyingTo.slice(0, 100)}"]\n\n${finalText}`; clearReply(); }
-  if (!finalText && !file) return;
-  if (!STATE.token) { showToast('Please sign in to chat', 'error'); openModal(); return; }
-  chatEl.querySelectorAll('.follow-ups-wrap').forEach(el => el.remove());
-  inputEl.value = ''; inputEl.style.height = 'auto'; inputEl.placeholder = UI_STRINGS[currentLang].inputPlaceholder;
-  renderUserMessage(finalText, file); clearPendingFile(); clearContextBox();
-  if (finalText && checkTriggers(finalText)) return;
+  if (pastedContext?.type==='text'){finalText=text?`${text}\n\n\`\`\`\n${pastedContext.content}\n\`\`\``:pastedContext.content;}
+  if (replyingTo){finalText=`[Replying to: "${replyingTo.slice(0,100)}"]\n\n${finalText}`;clearReply();}
+  if (!finalText&&!file) return;
+  if (!STATE.token){showToast('Please sign in to chat','error');openModal();return;}
+  chatEl.querySelectorAll('.follow-ups-wrap').forEach(el=>el.remove());
+  inputEl.value='';inputEl.style.height='auto';inputEl.placeholder=UI_STRINGS[currentLang].inputPlaceholder;
+  renderUserMessage(finalText,file);clearPendingFile();clearContextBox();
+  if (finalText&&checkTriggers(finalText)) return;
+
   let userContent;
-  if (file && !file.fromContext) { const parts = []; if (file.isImage) { parts.push({ type: 'image_url', image_url: { url: `data:${file.mimeType};base64,${file.base64}` } }); parts.push({ type: 'text', text: finalText || 'Analyze this image.' }); } else { parts.push({ type: 'text', text: finalText ? `[Attached: ${file.file.name}]\n\n${finalText}` : `[Attached: ${file.file.name}]` }); } userContent = parts.length === 1 ? parts[0].text : parts; }
-  else if (file?.fromContext) { userContent = [{ type: 'image_url', image_url: { url: `data:${file.mimeType};base64,${file.base64}` } }, { type: 'text', text: finalText || 'Analyze this image.' }]; }
-  else { userContent = finalText; }
-  STATE.memory.push({ role: 'user', content: userContent });
-  const sendBtnEl = document.getElementById('sendBtn'); sendBtnEl.classList.add('loading');
-  const isImageRequest = !!(file?.isImage || file?.fromContext);
-  const typingRow = renderTyping(isImageRequest); currentAbortController = new AbortController(); const signal = currentAbortController.signal;
-  const msgsToSend = buildMessages(STATE.memory);
-  async function fetchWithRetry(retries = 3, delayMs = 3000) {
-    for (let i = 0; i < retries; i++) {
-      try { const fd = new FormData(); fd.append('messages', JSON.stringify(msgsToSend)); fd.append('modelKey', selectedModel); fd.append('personaKey', selectedPersona); if (STATE.conversationId) fd.append('conversationId', STATE.conversationId); if (file && !file.fromContext) { fd.append('file', file.file); fd.append('fileType', file.isImage ? 'image' : 'document'); } if (file?.isImage && finalText) fd.append('imageText', finalText); const res = await fetch(`${API}/chat`, { method: 'POST', headers: { Authorization: `Bearer ${STATE.token}` }, body: fd, signal }); if (res.status === 401) { signOut(); showToast('Session expired.', 'error'); openModal(); return null; } return await res.json(); }
-      catch (err) { if (err.name === 'AbortError') return 'aborted'; if (i < retries - 1) { const tb = typingRow.querySelector('.bubble'); if (tb) tb.innerHTML = `<div class="typing-indicator"><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><span class="typing-label">Retrying… (${i + 2}/${retries})</span></div>`; await new Promise(r => setTimeout(r, delayMs)); } }
-    } return null;
-  }
+  if (file&&!file.fromContext){const parts=[];if(file.isImage){parts.push({type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}});parts.push({type:'text',text:finalText||'Analyze this image.'});}else{parts.push({type:'text',text:finalText?`[Attached: ${file.file.name}]\n\n${finalText}`:`[Attached: ${file.file.name}]`});}userContent=parts.length===1?parts[0].text:parts;}
+  else if(file?.fromContext){userContent=[{type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}},{type:'text',text:finalText||'Analyze this image.'}];}
+  else{userContent=finalText;}
+  STATE.memory.push({role:'user',content:userContent});
+
+  const sendBtnEl=document.getElementById('sendBtn');
+  sendBtnEl.classList.add('loading');
+  currentAbortController=new AbortController();
+
+  const isImageRequest=!!(file?.isImage||file?.fromContext);
+  const typingRow=renderTyping(isImageRequest);
+
+  const fd=new FormData();
+  fd.append('messages',JSON.stringify(buildMessages(STATE.memory)));
+  fd.append('modelKey',selectedModel);
+  fd.append('personaKey',selectedPersona);
+  if(STATE.conversationId) fd.append('conversationId',STATE.conversationId);
+  if(file&&!file.fromContext){fd.append('file',file.file);fd.append('fileType',file.isImage?'image':'document');}
+  if(file?.isImage&&finalText) fd.append('imageText',finalText);
+
   try {
-    const data = await fetchWithRetry(); typingRow.remove(); sendBtnEl.classList.remove('loading'); currentAbortController = null;
-    if (data === 'aborted') { STATE.memory.pop(); showToast('Generation stopped', ''); return; }
-    if (!data) { STATE.memory.pop(); renderBotMessage('⚠️ **Connection error.** Please try again.'); }
-    else if (data.reply === 'limit_reached') { STATE.memory.pop(); const mins = data.minsLeft || 0, h = Math.floor(mins / 60), m = mins % 60, ts = h > 0 ? `${h}h ${m}m` : `${m} min`; document.getElementById('resetTimer').textContent = ts; document.getElementById('resetTimerBtn').textContent = ts; document.getElementById('limitOverlay').classList.add('open'); }
-    else { if (data.conversationId) { STATE.conversationId = data.conversationId; loadConversations(); } renderBotMessage(data.reply || 'No response.'); if (data.msgsLeft != null) { const cn = document.getElementById('msgCountNum'); cn.textContent = data.msgsLeft; if (data.msgsLeft <= 3) cn.style.color = '#f87171'; else if (data.msgsLeft <= 6) cn.style.color = '#f59e0b'; checkWarnLimit(data.msgsLeft); if (data.msgsLeft === 0) { const mins = data.minsLeft || 0, h = Math.floor(mins / 60), m = mins % 60, ts = h > 0 ? `${h}h ${m}m` : `${m} min`; document.getElementById('resetTimer').textContent = ts; document.getElementById('resetTimerBtn').textContent = ts; setTimeout(() => document.getElementById('limitOverlay').classList.add('open'), 1500); } } }
-  } catch { typingRow.remove(); sendBtnEl.classList.remove('loading'); STATE.memory.pop(); renderBotMessage('⚠️ **Connection error.** Please try again.'); }
+    const res=await fetch(`${API}/chat/stream`,{
+      method:'POST',headers:{Authorization:`Bearer ${STATE.token}`},
+      body:fd,signal:currentAbortController.signal,
+    });
+
+    if(res.status===401){signOut();showToast('Session expired.','error');openModal();typingRow.remove();sendBtnEl.classList.remove('loading');STATE.memory.pop();return;}
+    if(res.status===429){
+      const data=await res.json();typingRow.remove();sendBtnEl.classList.remove('loading');STATE.memory.pop();
+      if(data.reply==='limit_reached'){const mins=data.minsLeft||0,h=Math.floor(mins/60),m=mins%60,ts=h>0?`${h}h ${m}m`:`${m} min`;document.getElementById('resetTimer').textContent=ts;document.getElementById('resetTimerBtn').textContent=ts;document.getElementById('limitOverlay').classList.add('open');}
+      return;
+    }
+    if(!res.ok){typingRow.remove();sendBtnEl.classList.remove('loading');STATE.memory.pop();renderBotMessage('⚠️ **Connection error.** Please try again.');return;}
+
+    // Remove typing, create streaming bubble
+    typingRow.remove();
+    const row=document.createElement('div');row.className='msg-row bot';
+    const bubble=document.createElement('div');bubble.className='bubble';
+    row.innerHTML=botAvatarHtml(false);row.appendChild(bubble);
+    const actionsWrap=document.createElement('div');actionsWrap.className='msg-actions-wrap';
+    chatEl.appendChild(row);chatEl.appendChild(actionsWrap);
+
+    const reader=res.body.getReader(),decoder=new TextDecoder();
+    let buf='',fullText='';
+
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      buf+=decoder.decode(value,{stream:true});
+      const lines=buf.split('\n');buf=lines.pop()||'';
+      for(const line of lines){
+        if(!line.startsWith('data:')) continue;
+        const raw=line.slice(5).trim();
+        try{
+          const chunk=JSON.parse(raw);
+          if(chunk.error){bubble.innerHTML=`⚠️ ${chunk.error}`;break;}
+          if(chunk.t){
+            fullText+=chunk.t;
+            bubble.innerHTML=marked.parse(preprocessLatex(fullText))+'<span class="typewriter-cursor"></span>';
+            addCopyButtons(bubble);
+            chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+          }
+          if(chunk.done){
+            bubble.innerHTML=marked.parse(preprocessLatex(fullText));
+            addCopyButtons(bubble);renderMath(bubble);
+            chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+            STATE.memory.push({role:'assistant',content:fullText});
+            if(chunk.conversationId){STATE.conversationId=chunk.conversationId;loadConversations();}
+
+            // Action buttons
+            const actions=document.createElement('div');actions.className='msg-actions';
+            const svgReply=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>`;
+            const svgCopy=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+            const svgLike=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`;
+            const svgDislike=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>`;
+            const svgRegen=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.84"/></svg>`;
+            const svgVolume=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`;
+            const svgPin=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10m0 0l-3-3m3 3l3-3M5 15h14M8 19h8"/></svg>`;
+            actions.innerHTML=`<button class="msg-action-btn" title="Reply" data-action="reply">${svgReply}</button><button class="msg-action-btn" title="Copy" data-action="copy">${svgCopy}</button><button class="msg-action-btn" title="Good" data-action="like">${svgLike}</button><button class="msg-action-btn" title="Bad" data-action="dislike">${svgDislike}</button><button class="msg-action-btn" title="Regenerate" data-action="regenerate">${svgRegen}</button><button class="msg-action-btn" title="Listen" data-action="speak">${svgVolume}</button><button class="msg-action-btn" title="Save to notepad" data-action="pin">${svgPin}</button>`;
+            actions.querySelector('[data-action="reply"]').addEventListener('click',()=>setReply(fullText));
+            actions.querySelector('[data-action="copy"]').addEventListener('click',function(){navigator.clipboard.writeText(fullText);this.classList.add('copied');showToast('Copied!','success');setTimeout(()=>this.classList.remove('copied'),2000);});
+            actions.querySelector('[data-action="like"]').addEventListener('click',function(){this.classList.toggle('liked');actions.querySelector('[data-action="dislike"]').classList.remove('disliked');showToast(this.classList.contains('liked')?'👍 Helpful':'Removed','');});
+            actions.querySelector('[data-action="dislike"]').addEventListener('click',function(){this.classList.toggle('disliked');actions.querySelector('[data-action="like"]').classList.remove('liked');showToast(this.classList.contains('disliked')?'👎 Unhelpful':'Removed','');});
+            actions.querySelector('[data-action="speak"]').addEventListener('click',function(){speakReply(fullText,this);});
+            actions.querySelector('[data-action="pin"]').addEventListener('click',()=>{notepadContent+=(notepadContent?'\n\n---\n\n':'')+fullText.slice(0,600);localStorage.setItem('sg_notepad',notepadContent);showToast('📌 Saved to notepad','success');});
+            actions.querySelector('[data-action="regenerate"]').addEventListener('click',async()=>{
+              STATE.memory=STATE.memory.slice(0,-1);row.remove();actionsWrap.remove();
+              chatEl.querySelectorAll('.follow-ups-wrap').forEach(el=>el.remove());
+              // Re-send last user message
+              const lastUser=STATE.memory[STATE.memory.length-1];
+              if(lastUser?.role==='user'){STATE.memory.pop();inputEl.value=typeof lastUser.content==='string'?lastUser.content:'';send();}
+            });
+            actionsWrap.appendChild(actions);
+
+            if(chunk.msgsLeft!=null){const cn=document.getElementById('msgCountNum');cn.textContent=chunk.msgsLeft;if(chunk.msgsLeft<=3)cn.style.color='#f87171';else if(chunk.msgsLeft<=6)cn.style.color='#f59e0b';checkWarnLimit(chunk.msgsLeft);}
+            if(STATE.lastWasVoice){speakText(fullText);STATE.lastWasVoice=false;}
+            setTimeout(()=>renderFollowUps(generateFollowUps(fullText)),200);
+          }
+        }catch{}
+      }
+    }
+  }catch(err){
+    typingRow?.remove();
+    if(err.name!=='AbortError'){STATE.memory.pop();renderBotMessage('⚠️ **Connection error.** Please try again.');}
+    else{STATE.memory.pop();showToast('Generation stopped','');}
+  }finally{
+    sendBtnEl.classList.remove('loading');
+    currentAbortController=null;
+  }
 }
 
 function clearChat() {
