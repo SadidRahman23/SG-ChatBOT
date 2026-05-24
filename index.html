@@ -3,399 +3,199 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SG ChatBOT — AI Assistant by Mohammed Sadid Rahman</title>
+  <title>SG ChatBOT — Free AI Assistant</title>
   <link rel="icon" href="logo.svg" type="image/svg+xml">
-
-  <!-- ═══ SEO META ═══ -->
-  <meta name="description" content="SG ChatBOT is a powerful free AI assistant built by Mohammed Sadid Rahman. Chat with AI, analyze images, get code help, and more — instantly.">
-  <meta name="keywords"    content="SG ChatBOT, AI chatbot, free AI assistant, Mohammed Sadid Rahman, SG AI, chat with AI">
-  <meta name="author"      content="Mohammed Sadid Rahman">
-  <meta name="robots"      content="index, follow">
+  <meta name="description" content="SG ChatBOT — a powerful free AI assistant. Chat, analyze images, generate art, write code, voice conversation and more.">
+  <meta name="keywords" content="SG ChatBOT, AI chatbot, free AI, image generation, voice AI, code AI">
+  <meta name="robots" content="index, follow">
   <meta name="google-site-verification" content="hXlB67cHuZiQ9cV7dIJ2ffW7VXkWePooWsWVormG0aE" />
-  <link rel="canonical"    href="https://sg-chatbot-a2h.pages.dev/">
-
-  <!-- ═══ Open Graph (Facebook / WhatsApp preview) ═══ -->
-  <meta property="og:type"        content="website">
-  <meta property="og:url"         content="https://sg-chatbot-a2h.pages.dev/">
-  <meta property="og:title"       content="SG ChatBOT — Free AI Assistant">
-  <meta property="og:description" content="Chat with SG AI — answer questions, write code, analyze images, and more. Completely free.">
-  <meta property="og:image"       content="https://sg-chatbot-a2h.pages.dev/og-image.png">
-
-  <!-- ═══ Twitter Card ═══ -->
-  <meta name="twitter:card"        content="summary_large_image">
-  <meta name="twitter:title"       content="SG ChatBOT — Free AI Assistant">
-  <meta name="twitter:description" content="Chat with SG AI. Powered by SG AI. Built by Mohammed Sadid Rahman.">
-
-  <!-- ═══ JSON-LD Structured Data (Google Rich Results) ═══ -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "SG ChatBOT",
-    "url": "https://sg-chatbot-a2h.pages.dev/",
-    "description": "A free AI chatbot assistant powered by SG AI, built by Mohammed Sadid Rahman.",
-    "applicationCategory": "AIApplication",
-    "author": {
-      "@type": "Person",
-      "name": "Mohammed Sadid Rahman"
-    },
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    }
-  }
-  </script>
-
+  <link rel="canonical" href="https://sg-chatbot-a2h.pages.dev/">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://sg-chatbot-a2h.pages.dev/">
+  <meta property="og:title" content="SG ChatBOT — Free AI Assistant">
+  <meta property="og:description" content="Chat, generate images, analyze files, voice conversation — all free.">
+  <meta property="og:image" content="https://sg-chatbot-a2h.pages.dev/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="SG ChatBOT — Free AI Assistant">
+  <meta name="twitter:description" content="Your AI best friend. Free forever.">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#05070b">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"SG ChatBOT","url":"https://sg-chatbot-a2h.pages.dev/","description":"Free AI assistant with image generation, voice conversation, code sandbox and more.","applicationCategory":"AIApplication","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
-
   <style>
-    :root {
-      --bg:        #050709;
-      --surface:   #0b0f17;
-      --border:    rgba(255,255,255,0.06);
-      --border-2:  rgba(255,255,255,0.12);
-      --text:      #e4ecf7;
-      --muted:     #4a5a72;
-      --dim:       #8a9bb5;
-      --accent:    #4f8eff;
-      --accent2:   #00d4aa;
-      --glow:      rgba(79,142,255,0.15);
-      --head:      'Cabinet Grotesk', sans-serif;
-      --serif:     'Instrument Serif', serif;
-      --body:      'Cabinet Grotesk', sans-serif;
-    }
+    :root{--bg:#050709;--surface:#0b0f17;--surface-2:#111827;--border:rgba(255,255,255,0.06);--border-2:rgba(255,255,255,0.12);--text:#e4ecf7;--muted:#4a5a72;--dim:#8a9bb5;--accent:#4f8eff;--accent2:#00d4aa;--purple:#a855f7;--glow:rgba(79,142,255,0.15);--head:'Cabinet Grotesk',sans-serif;--serif:'Instrument Serif',serif;}
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{font-family:var(--head);background:var(--bg);color:var(--text);overflow-x:hidden;}
 
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: var(--body);
-      background: var(--bg);
-      color: var(--text);
-      overflow-x: hidden;
-    }
+    body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");opacity:0.4;}
+    body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:linear-gradient(rgba(79,142,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(79,142,255,0.025) 1px,transparent 1px);background-size:60px 60px;}
 
-    /* ─── NOISE TEXTURE ─── */
-    body::before {
-      content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-      opacity: 0.4;
-    }
+    /* ── NAV ── */
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;background:rgba(5,7,9,0.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);}
+    .nav-logo{display:flex;align-items:center;gap:9px;font-size:18px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+    .nav-links{display:flex;align-items:center;gap:28px;}
+    .nav-links a{font-size:14px;color:var(--dim);text-decoration:none;transition:color .2s;}
+    .nav-links a:hover{color:var(--text);}
+    .nav-cta{padding:8px 22px;border-radius:9px;background:var(--accent);color:#fff;font-size:14px;font-weight:700;text-decoration:none;transition:all .2s;}
+    .nav-cta:hover{filter:brightness(1.15);box-shadow:0 0 0 4px var(--glow);}
 
-    /* ─── GRID BG ─── */
-    body::after {
-      content:''; position:fixed; inset:0; pointer-events:none; z-index:0;
-      background-image:
-        linear-gradient(rgba(79,142,255,0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(79,142,255,0.025) 1px, transparent 1px);
-      background-size: 60px 60px;
-    }
+    /* ── HERO ── */
+    .hero{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:110px 24px 80px;overflow:hidden;}
+    .orb{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none;z-index:0;}
+    .orb-1{width:600px;height:600px;background:rgba(79,142,255,0.1);top:-150px;left:-150px;animation:drift1 14s ease-in-out infinite alternate;}
+    .orb-2{width:500px;height:500px;background:rgba(0,212,170,0.07);top:80px;right:-100px;animation:drift2 17s ease-in-out infinite alternate;}
+    .orb-3{width:350px;height:350px;background:rgba(168,85,247,0.07);bottom:0;left:35%;animation:drift1 11s ease-in-out infinite alternate-reverse;}
+    @keyframes drift1{from{transform:translate(0,0)}to{transform:translate(35px,45px)}}
+    @keyframes drift2{from{transform:translate(0,0)}to{transform:translate(-45px,25px)}}
 
-    /* ─── NAV ─── */
-    nav {
-      position: fixed; top:0; left:0; right:0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 40px; height: 64px;
-      background: rgba(5,7,9,0.8);
-      backdrop-filter: blur(24px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-logo {
-      font-family: var(--head);
-      font-size: 18px; font-weight: 800;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      letter-spacing: -0.3px;
-    }
-    .nav-links { display:flex; align-items:center; gap:28px; }
-    .nav-links a { font-size:14px; color:var(--dim); text-decoration:none; transition:color .2s; }
-    .nav-links a:hover { color:var(--text); }
-    .nav-cta {
-      padding: 8px 20px; border-radius: 8px;
-      background: var(--accent); color:#fff;
-      font-size:14px; font-weight:600;
-      text-decoration:none; transition:all .2s;
-    }
-    .nav-cta:hover { filter:brightness(1.15); box-shadow:0 0 0 4px var(--glow); }
+    .hero-badge{position:relative;z-index:2;display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:99px;border:1px solid var(--border-2);background:rgba(255,255,255,0.03);font-size:12px;color:var(--dim);font-weight:500;margin-bottom:28px;animation:fadeUp .6s ease both;}
+    .hero-badge .dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);box-shadow:0 0 8px var(--accent2);animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
-    /* ─── HERO ─── */
-    .hero {
-      position: relative; z-index: 1;
-      min-height: 100vh;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      text-align: center;
-      padding: 100px 24px 60px;
-      overflow: hidden;
-    }
+    .hero h1{position:relative;z-index:2;font-size:clamp(44px,8vw,90px);font-weight:900;line-height:1.04;letter-spacing:-2.5px;margin-bottom:24px;animation:fadeUp .7s .1s ease both;}
+    .hero h1 em{font-family:var(--serif);font-style:italic;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;font-weight:400;}
 
-    /* Glowing orbs */
-    .orb {
-      position: absolute; border-radius: 50%;
-      filter: blur(80px); pointer-events: none; z-index: 0;
-    }
-    .orb-1 { width:500px; height:500px; background:rgba(79,142,255,0.12); top:-100px; left:-120px; animation: drift1 12s ease-in-out infinite alternate; }
-    .orb-2 { width:400px; height:400px; background:rgba(0,212,170,0.08);  top:100px; right:-80px; animation: drift2 15s ease-in-out infinite alternate; }
-    .orb-3 { width:300px; height:300px; background:rgba(168,85,247,0.07); bottom:0; left:30%; animation: drift1 10s ease-in-out infinite alternate-reverse; }
+    .hero p{position:relative;z-index:2;font-size:clamp(16px,2vw,20px);color:var(--dim);line-height:1.7;max-width:580px;margin:0 auto 44px;animation:fadeUp .7s .2s ease both;}
 
-    @keyframes drift1 { from{transform:translate(0,0)} to{transform:translate(30px,40px)} }
-    @keyframes drift2 { from{transform:translate(0,0)} to{transform:translate(-40px,20px)} }
+    .hero-btns{position:relative;z-index:2;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;margin-bottom:70px;animation:fadeUp .7s .3s ease both;}
+    .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:15px 34px;border-radius:12px;background:var(--accent);color:#fff;font-family:var(--head);font-size:15px;font-weight:700;text-decoration:none;transition:all .25s;}
+    .btn-primary:hover{filter:brightness(1.15);transform:translateY(-2px);box-shadow:0 14px 44px rgba(79,142,255,0.35);}
+    .btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:15px 28px;border-radius:12px;border:1px solid var(--border-2);background:transparent;color:var(--text);font-family:var(--head);font-size:15px;font-weight:600;text-decoration:none;transition:all .25s;}
+    .btn-secondary:hover{background:rgba(255,255,255,0.04);transform:translateY(-2px);}
 
-    .hero-badge {
-      position: relative; z-index: 2;
-      display: inline-flex; align-items: center; gap: 8px;
-      padding: 6px 14px; border-radius: 99px;
-      border: 1px solid var(--border-2);
-      background: rgba(255,255,255,0.03);
-      font-size: 12px; color: var(--dim); font-weight: 500;
-      margin-bottom: 28px;
-      animation: fadeUp .6s ease both;
-    }
-    .hero-badge .dot { width:7px; height:7px; border-radius:50%; background:var(--accent2); box-shadow:0 0 8px var(--accent2); animation:pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    /* ── HERO PREVIEW ── */
+    .hero-preview{position:relative;z-index:2;width:100%;max-width:720px;background:var(--surface);border:1px solid var(--border-2);border-radius:22px;overflow:hidden;box-shadow:0 50px 120px rgba(0,0,0,0.7),0 0 0 1px rgba(79,142,255,0.08);animation:fadeUp .9s .4s ease both;}
+    .preview-bar{display:flex;align-items:center;gap:7px;padding:14px 18px;border-bottom:1px solid var(--border);background:rgba(255,255,255,0.02);}
+    .pd{width:10px;height:10px;border-radius:50%;}
+    .pd:nth-child(1){background:#ff5f56;} .pd:nth-child(2){background:#febc2e;} .pd:nth-child(3){background:#27c93f;}
+    .preview-bar-title{margin-left:auto;font-size:12px;color:var(--muted);}
+    .preview-body{padding:20px;display:flex;flex-direction:column;gap:14px;}
+    .pmsg{display:flex;gap:12px;align-items:flex-start;}
+    .pmsg.user{justify-content:flex-end;}
+    .pav{width:32px;height:32px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;}
+    .pb{max-width:75%;padding:11px 15px;border-radius:14px;font-size:13.5px;line-height:1.65;}
+    .pmsg.bot .pb{background:rgba(255,255,255,0.05);border:1px solid var(--border);border-bottom-left-radius:4px;}
+    .pmsg.user .pb{background:var(--accent);color:#fff;border-bottom-right-radius:4px;}
+    .pcode{background:rgba(0,0,0,0.45);border:1px solid var(--border-2);border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;color:#a8d8a8;margin-top:8px;line-height:1.7;}
 
-    .hero h1 {
-      position: relative; z-index: 2;
-      font-family: var(--head);
-      font-size: clamp(42px, 7vw, 84px);
-      font-weight: 900;
-      line-height: 1.05;
-      letter-spacing: -2px;
-      margin-bottom: 24px;
-      animation: fadeUp .7s .1s ease both;
-    }
-    .hero h1 em {
-      font-family: var(--serif);
-      font-style: italic;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      font-weight: 400;
-    }
+    /* ── FEATURE PILLS ── */
+    .feature-pills{position:relative;z-index:2;display:flex;flex-wrap:wrap;justify-content:center;gap:10px;margin-bottom:60px;animation:fadeUp .7s .35s ease both;}
+    .pill{display:inline-flex;align-items:center;gap:7px;padding:7px 16px;border-radius:99px;border:1px solid var(--border-2);background:rgba(255,255,255,0.03);font-size:12.5px;color:var(--dim);font-weight:500;transition:all .2s;cursor:default;}
+    .pill:hover{border-color:var(--accent);color:var(--text);background:rgba(79,142,255,0.06);}
+    .pill-icon{font-size:14px;}
 
-    .hero p {
-      position: relative; z-index: 2;
-      font-size: clamp(16px, 2vw, 19px);
-      color: var(--dim); line-height: 1.7;
-      max-width: 560px; margin: 0 auto 40px;
-      animation: fadeUp .7s .2s ease both;
-    }
+    /* ── SECTIONS ── */
+    .section{position:relative;z-index:1;padding:100px 24px;max-width:1200px;margin:0 auto;}
+    .section-label{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:14px;}
+    .section-title{font-size:clamp(30px,4vw,52px);font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:14px;}
+    .section-title em{font-family:var(--serif);font-style:italic;font-weight:400;}
+    .section-sub{font-size:17px;color:var(--dim);max-width:540px;line-height:1.7;margin-bottom:56px;}
 
-    .hero-btns {
-      position: relative; z-index: 2;
-      display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center;
-      animation: fadeUp .7s .3s ease both;
-    }
-    .btn-hero-primary {
-      display: flex; align-items: center; gap: 8px;
-      padding: 14px 32px; border-radius: 12px;
-      background: var(--accent); color: #fff;
-      font-family: var(--head); font-size: 15px; font-weight: 700;
-      text-decoration: none; transition: all .25s;
-    }
-    .btn-hero-primary:hover { filter:brightness(1.15); transform:translateY(-2px); box-shadow:0 12px 40px rgba(79,142,255,0.35); }
-    .btn-hero-secondary {
-      display: flex; align-items: center; gap: 8px;
-      padding: 14px 28px; border-radius: 12px;
-      border: 1px solid var(--border-2); background: transparent;
-      color: var(--text); font-family: var(--head); font-size: 15px; font-weight: 600;
-      text-decoration: none; transition: all .25s;
-    }
-    .btn-hero-secondary:hover { background: rgba(255,255,255,0.04); transform:translateY(-2px); }
+    /* ── FEATURE CARDS ── */
+    .feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
+    .feat-card{padding:28px;border-radius:18px;border:1px solid var(--border);background:var(--surface);transition:all .25s;position:relative;overflow:hidden;}
+    .feat-card::before{content:'';position:absolute;inset:0;opacity:0;background:radial-gradient(circle at top left,var(--glow),transparent 60%);transition:opacity .3s;}
+    .feat-card:hover{border-color:var(--border-2);transform:translateY(-4px);box-shadow:0 24px 60px rgba(0,0,0,0.45);}
+    .feat-card:hover::before{opacity:1;}
+    .feat-icon{width:50px;height:50px;border-radius:14px;background:linear-gradient(135deg,rgba(79,142,255,0.15),rgba(0,212,170,0.1));border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:16px;}
+    .feat-title{font-size:17px;font-weight:700;margin-bottom:8px;}
+    .feat-desc{font-size:14px;color:var(--dim);line-height:1.65;}
+    .feat-new{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.3);color:var(--purple);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-left:8px;vertical-align:middle;}
 
-    /* floating chat preview */
-    .hero-preview {
-      position: relative; z-index: 2;
-      margin-top: 70px;
-      width: 100%; max-width: 700px;
-      background: var(--surface);
-      border: 1px solid var(--border-2);
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(79,142,255,0.1);
-      animation: fadeUp .8s .4s ease both;
-    }
-    .preview-bar {
-      display: flex; align-items: center; gap: 8px;
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255,255,255,0.02);
-    }
-    .preview-dot { width:10px; height:10px; border-radius:50%; }
-    .preview-dot:nth-child(1) { background:#ff5f56; }
-    .preview-dot:nth-child(2) { background:#febc2e; }
-    .preview-dot:nth-child(3) { background:#27c93f; }
-    .preview-bar-title { margin-left:auto; font-size:12px; color:var(--muted); font-weight:500; }
+    /* ── BENTO GRID ── */
+    .bento{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;max-width:1100px;margin:0 auto;}
+    .bento-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:28px;overflow:hidden;position:relative;transition:all .25s;}
+    .bento-card:hover{border-color:var(--border-2);transform:translateY(-3px);box-shadow:0 20px 50px rgba(0,0,0,0.4);}
+    .bento-card .bc-label{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:10px;}
+    .bento-card .bc-title{font-size:22px;font-weight:800;margin-bottom:8px;letter-spacing:-.5px;}
+    .bento-card .bc-desc{font-size:14px;color:var(--dim);line-height:1.6;}
+    .bento-card .bc-icon{font-size:40px;margin-bottom:14px;}
+    .bc-1{grid-column:span 7;}
+    .bc-2{grid-column:span 5;}
+    .bc-3{grid-column:span 4;}
+    .bc-4{grid-column:span 4;}
+    .bc-5{grid-column:span 4;}
+    .bc-6{grid-column:span 12;}
 
-    .preview-body { padding: 20px; display:flex; flex-direction:column; gap:14px; }
+    /* ── VOICE CARD ── */
+    .voice-demo{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:20px;}
+    .voice-bar{width:4px;border-radius:99px;background:linear-gradient(180deg,var(--accent),var(--accent2));animation:voiceAnim 1s ease-in-out infinite;}
+    .voice-bar:nth-child(1){height:20px;animation-delay:0s;}
+    .voice-bar:nth-child(2){height:34px;animation-delay:.12s;}
+    .voice-bar:nth-child(3){height:28px;animation-delay:.24s;}
+    .voice-bar:nth-child(4){height:42px;animation-delay:.36s;}
+    .voice-bar:nth-child(5){height:28px;animation-delay:.48s;}
+    .voice-bar:nth-child(6){height:34px;animation-delay:.6s;}
+    .voice-bar:nth-child(7){height:20px;animation-delay:.72s;}
+    @keyframes voiceAnim{0%,100%{transform:scaleY(.4);opacity:.4}50%{transform:scaleY(1);opacity:1}}
 
-    .preview-msg { display:flex; gap:12px; align-items:flex-start; }
-    .preview-msg.user { justify-content:flex-end; }
-    .preview-avatar {
-      width:32px; height:32px; border-radius:10px; flex-shrink:0;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display:flex; align-items:center; justify-content:center;
-      font-size:12px; font-weight:700; color:#fff;
-    }
-    .preview-bubble {
-      max-width: 75%; padding:10px 14px;
-      border-radius:14px; font-size:13.5px; line-height:1.6;
-    }
-    .preview-msg.bot .preview-bubble  { background:rgba(255,255,255,0.05); border:1px solid var(--border); border-bottom-left-radius:4px; }
-    .preview-msg.user .preview-bubble { background:var(--accent); color:#fff; border-bottom-right-radius:4px; }
-    .preview-code {
-      background: rgba(0,0,0,0.4); border:1px solid var(--border-2);
-      border-radius:8px; padding:10px 12px; font-family:monospace;
-      font-size:12px; color:#a8d8a8; margin-top:8px; line-height:1.6;
-    }
+    /* ── IMAGE GEN PREVIEW ── */
+    .img-gen-demo{margin-top:16px;border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#1a2336,#0d1420);aspect-ratio:1;display:flex;align-items:center;justify-content:center;border:1px solid var(--border-2);position:relative;}
+    .img-gen-demo::after{content:'🎨';font-size:48px;}
+    .img-prompt-demo{margin-top:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border-2);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--dim);font-style:italic;}
 
-    /* ─── FEATURES ─── */
-    .section {
-      position: relative; z-index: 1;
-      padding: 100px 24px;
-    }
-    .section-label {
-      display: inline-block; font-size:11px; font-weight:700;
-      letter-spacing:.14em; text-transform:uppercase; color:var(--accent);
-      margin-bottom:16px;
-    }
-    .section-title {
-      font-family: var(--head); font-size: clamp(32px, 4vw, 52px);
-      font-weight: 900; letter-spacing:-1.5px; line-height:1.1;
-      margin-bottom: 16px;
-    }
-    .section-title em { font-family:var(--serif); font-style:italic; font-weight:400; }
-    .section-sub { font-size:17px; color:var(--dim); max-width:520px; line-height:1.7; margin-bottom:60px; }
+    /* ── PERSONAS ── */
+    .persona-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;}
+    .persona-chip{padding:10px 14px;border-radius:12px;border:1px solid var(--border-2);background:rgba(255,255,255,0.03);font-size:13px;font-weight:600;transition:all .2s;cursor:default;}
+    .persona-chip:hover{background:rgba(79,142,255,0.08);border-color:var(--accent);color:var(--accent);}
 
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px; max-width: 1100px; margin: 0 auto;
-    }
-    .feature-card {
-      padding: 28px; border-radius: 16px;
-      border: 1px solid var(--border);
-      background: var(--surface);
-      transition: all .25s;
-      position: relative; overflow: hidden;
-    }
-    .feature-card::before {
-      content:''; position:absolute; inset:0; opacity:0;
-      background: radial-gradient(circle at top left, var(--glow), transparent 60%);
-      transition: opacity .3s;
-    }
-    .feature-card:hover { border-color: var(--border-2); transform: translateY(-4px); box-shadow: 0 20px 50px rgba(0,0,0,0.4); }
-    .feature-card:hover::before { opacity:1; }
-    .feature-icon {
-      width:48px; height:48px; border-radius:12px;
-      background: linear-gradient(135deg, rgba(79,142,255,0.15), rgba(0,212,170,0.1));
-      border: 1px solid var(--border-2);
-      display:flex; align-items:center; justify-content:center;
-      font-size:22px; margin-bottom:16px;
-    }
-    .feature-title { font-family:var(--head); font-size:17px; font-weight:700; margin-bottom:8px; }
-    .feature-desc  { font-size:14px; color:var(--dim); line-height:1.65; }
+    /* ── TEMPLATES ── */
+    .template-list{display:flex;flex-direction:column;gap:8px;margin-top:14px;}
+    .template-item{display:flex;align-items:center;gap:10px;padding:9px 13px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.02);font-size:13px;color:var(--dim);transition:all .2s;cursor:default;}
+    .template-item:hover{border-color:var(--accent2);color:var(--text);}
 
-    /* ─── STATS ─── */
-    .stats {
-      position: relative; z-index: 1;
-      display: flex; justify-content:center; flex-wrap:wrap; gap:0;
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      max-width: 900px; margin: 0 auto;
-    }
-    .stat-item {
-      flex:1; min-width:160px; padding:40px 32px;
-      text-align:center;
-      border-right: 1px solid var(--border);
-    }
-    .stat-item:last-child { border-right:none; }
-    .stat-num {
-      font-family:var(--head); font-size:42px; font-weight:900;
-      letter-spacing:-2px;
-      background: linear-gradient(90deg, var(--accent), var(--accent2));
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-      margin-bottom:6px;
-    }
-    .stat-label { font-size:13px; color:var(--muted); font-weight:500; }
+    /* ── STATS BAR ── */
+    .stats-bar{position:relative;z-index:1;display:flex;justify-content:center;flex-wrap:wrap;border-top:1px solid var(--border);border-bottom:1px solid var(--border);max-width:960px;margin:0 auto;}
+    .stat-item{flex:1;min-width:150px;padding:40px 28px;text-align:center;border-right:1px solid var(--border);}
+    .stat-item:last-child{border-right:none;}
+    .stat-num{font-size:42px;font-weight:900;letter-spacing:-2px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px;}
+    .stat-label{font-size:13px;color:var(--muted);}
 
-    /* ─── HOW IT WORKS ─── */
-    .steps {
-      display:flex; flex-direction:column; gap:0;
-      max-width:700px; margin:0 auto;
-    }
-    .step {
-      display:flex; gap:24px; padding:28px 0;
-      border-bottom:1px solid var(--border);
-      align-items:flex-start;
-    }
-    .step:last-child { border-bottom:none; }
-    .step-num {
-      width:40px; height:40px; border-radius:10px; flex-shrink:0;
-      background: var(--surface); border:1px solid var(--border-2);
-      display:flex; align-items:center; justify-content:center;
-      font-family:var(--head); font-size:14px; font-weight:800; color:var(--accent);
-    }
-    .step-content {}
-    .step-title { font-family:var(--head); font-size:17px; font-weight:700; margin-bottom:6px; }
-    .step-desc  { font-size:14px; color:var(--dim); line-height:1.65; }
+    /* ── HOW IT WORKS ── */
+    .steps{max-width:680px;margin:0 auto;}
+    .step{display:flex;gap:22px;padding:26px 0;border-bottom:1px solid var(--border);align-items:flex-start;}
+    .step:last-child{border-bottom:none;}
+    .step-num{width:40px;height:40px;border-radius:10px;flex-shrink:0;background:var(--surface);border:1px solid var(--border-2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:var(--accent);}
+    .step-title{font-size:17px;font-weight:700;margin-bottom:6px;}
+    .step-desc{font-size:14px;color:var(--dim);line-height:1.65;}
 
-    /* ─── CTA SECTION ─── */
-    .cta-section {
-      position:relative; z-index:1;
-      text-align:center; padding:100px 24px;
-    }
-    .cta-card {
-      max-width:700px; margin:0 auto;
-      padding:64px 48px; border-radius:24px;
-      border:1px solid var(--border-2);
-      background: linear-gradient(135deg, rgba(79,142,255,0.06), rgba(0,212,170,0.04));
-      position:relative; overflow:hidden;
-    }
-    .cta-card::before {
-      content:''; position:absolute; inset:0;
-      background: radial-gradient(ellipse at center top, rgba(79,142,255,0.1), transparent 60%);
-    }
-    .cta-card h2 {
-      position:relative; z-index:1;
-      font-family:var(--head); font-size:clamp(28px,4vw,44px);
-      font-weight:900; letter-spacing:-1.5px; margin-bottom:16px;
-    }
-    .cta-card p { position:relative; z-index:1; font-size:17px; color:var(--dim); margin-bottom:36px; }
+    /* ── CTA ── */
+    .cta-section{position:relative;z-index:1;text-align:center;padding:100px 24px;}
+    .cta-card{max-width:720px;margin:0 auto;padding:70px 52px;border-radius:28px;border:1px solid var(--border-2);background:linear-gradient(135deg,rgba(79,142,255,0.07),rgba(0,212,170,0.04));position:relative;overflow:hidden;}
+    .cta-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center top,rgba(79,142,255,0.12),transparent 60%);}
+    .cta-card h2{position:relative;z-index:1;font-size:clamp(28px,4vw,48px);font-weight:900;letter-spacing:-1.5px;margin-bottom:16px;}
+    .cta-card p{position:relative;z-index:1;font-size:17px;color:var(--dim);margin-bottom:38px;}
 
-    /* ─── FOOTER ─── */
-    footer {
-      position:relative; z-index:1;
-      padding:40px; border-top:1px solid var(--border);
-      display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px;
-    }
-    footer .footer-logo { font-family:var(--head); font-size:16px; font-weight:800; color:var(--dim); }
-    footer p { font-size:13px; color:var(--muted); }
-    footer a { color:var(--dim); text-decoration:none; }
-    footer a:hover { color:var(--text); }
+    /* ── FOOTER ── */
+    footer{position:relative;z-index:1;padding:40px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;}
+    .footer-logo{font-size:16px;font-weight:800;color:var(--dim);}
+    .footer-links{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;}
+    .footer-links a{font-size:13px;color:var(--muted);text-decoration:none;transition:color .2s;}
+    .footer-links a:hover{color:var(--text);}
 
-    /* ─── ANIMATIONS ─── */
-    @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
 
-    /* ─── RESPONSIVE ─── */
-    @media (max-width:768px) {
-      nav { padding:0 20px; }
-      .nav-links { display:none; }
-      .hero { padding:90px 20px 50px; }
-      .hero h1 { letter-spacing:-1px; }
-      .section { padding:70px 20px; }
-      .stat-item { padding:28px 20px; }
-      .cta-card { padding:40px 28px; }
-      footer { flex-direction:column; text-align:center; padding:28px 20px; }
+    @media(max-width:768px){
+      nav{padding:0 18px;} .nav-links{display:none;}
+      .hero{padding:90px 18px 60px;}
+      .hero h1{letter-spacing:-1.5px;}
+      .section{padding:70px 18px;}
+      .bento{grid-template-columns:1fr;}
+      .bc-1,.bc-2,.bc-3,.bc-4,.bc-5,.bc-6{grid-column:span 1;}
+      .persona-grid{grid-template-columns:1fr;}
+      .stat-item{padding:28px 18px;}
+      .cta-card{padding:44px 28px;}
+      footer{flex-direction:column;text-align:center;padding:28px 18px;}
     }
   </style>
 </head>
 <body>
 
-<!-- ═══ NAV ═══ -->
 <nav>
   <div class="nav-logo">
-    <img src="logo.svg" width="28" height="28" style="border-radius:8px;vertical-align:middle;margin-right:8px;">SG ChatBOT
+    <img src="logo.svg" width="28" height="28" style="border-radius:8px;">SG ChatBOT
   </div>
   <div class="nav-links">
     <a href="#features">Features</a>
@@ -403,10 +203,10 @@
     <a href="pricing.html">Pricing</a>
     <a href="chat.html">Open App</a>
   </div>
-  <a href="chat.html" class="nav-cta">Start chatting →</a>
+  <a href="chat.html" class="nav-cta">Start free →</a>
 </nav>
 
-<!-- ═══ HERO ═══ -->
+<!-- HERO -->
 <section class="hero">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -414,165 +214,278 @@
 
   <div class="hero-badge">
     <span class="dot"></span>
-    Powered by SG AI · Free to use
+    Free forever · No credit card needed
   </div>
 
-  <h1>Your AI assistant,<br><em>always ready.</em></h1>
+  <h1>Your AI best friend,<br><em>always ready.</em></h1>
+  <p>Chat, generate images, analyze files, write code, voice conversation — SG ChatBOT does it all. Completely free.</p>
 
-  <p>Ask anything, analyze images, write code, get explanations — SG ChatBOT gives you instant, intelligent answers.</p>
+  <!-- Feature pills -->
+  <div class="feature-pills">
+    <div class="pill"><span class="pill-icon">💬</span> AI Chat</div>
+    <div class="pill"><span class="pill-icon">🎨</span> Image Generation</div>
+    <div class="pill"><span class="pill-icon">🗣️</span> Voice Conversation</div>
+    <div class="pill"><span class="pill-icon">💻</span> Code Sandbox</div>
+    <div class="pill"><span class="pill-icon">🧑‍💻</span> AI Personas</div>
+    <div class="pill"><span class="pill-icon">📝</span> Chat Templates</div>
+    <div class="pill"><span class="pill-icon">🎯</span> Daily Challenges</div>
+    <div class="pill"><span class="pill-icon">📋</span> AI Notepad</div>
+  </div>
 
   <div class="hero-btns">
-    <a href="chat.html" class="btn-hero-primary">
+    <a href="chat.html" class="btn-primary">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
       Start chatting free
     </a>
-    <a href="#features" class="btn-hero-secondary">See features ↓</a>
+    <a href="pricing.html" class="btn-secondary">See Pro plans →</a>
   </div>
 
-  <!-- Mock chat preview -->
+  <!-- Chat preview -->
   <div class="hero-preview">
     <div class="preview-bar">
-      <div class="preview-dot"></div>
-      <div class="preview-dot"></div>
-      <div class="preview-dot"></div>
+      <div class="pd"></div><div class="pd"></div><div class="pd"></div>
       <div class="preview-bar-title">SG ChatBOT · AI Assistant</div>
     </div>
     <div class="preview-body">
-      <div class="preview-msg user">
-        <div class="preview-bubble">Write a Python function to reverse a string</div>
-      </div>
-      <div class="preview-msg bot">
-        <div class="preview-avatar">SG</div>
-        <div class="preview-bubble">
-          Sure! Here's a clean Python function:
-          <div class="preview-code">def reverse_string(s: str) -> str:<br>&nbsp;&nbsp;&nbsp;&nbsp;return s[::-1]<br><br># Example<br>print(reverse_string("hello"))  # "olleh"</div>
+      <div class="pmsg user"><div class="pb">Generate an image of a futuristic city at night 🎨</div></div>
+      <div class="pmsg bot">
+        <div class="pav">SG</div>
+        <div class="pb">Done! Here's your futuristic cityscape — neon lights, flying cars, and a stunning skyline. You can download it or send it directly to the chat. Want me to try a different style?
+          <div class="pcode" style="color:#a8d8ff;">🎨 Generated with FLUX.1 AI · 1024×1024px</div>
         </div>
       </div>
-      <div class="preview-msg user">
-        <div class="preview-bubble">Can you also explain how the slice syntax works?</div>
-      </div>
-      <div class="preview-msg bot">
-        <div class="preview-avatar">SG</div>
-        <div class="preview-bubble">Of course! <code style="background:rgba(79,142,255,0.15);padding:1px 5px;border-radius:4px;font-size:12px;">s[::-1]</code> uses Python slice notation: <strong style="color:#e4ecf7">start:stop:step</strong>. A step of -1 means iterate backwards from end to start — effectively reversing the string.</div>
+      <div class="pmsg user"><div class="pb">Now write Python code to fetch weather data from an API</div></div>
+      <div class="pmsg bot">
+        <div class="pav">SG</div>
+        <div class="pb">
+          Here's a clean implementation using <code style="background:rgba(79,142,255,0.2);padding:1px 5px;border-radius:4px;font-size:12px;">requests</code>:
+          <div class="pcode">import requests<br><br>def get_weather(city: str) -> dict:<br>&nbsp;&nbsp;url = f"https://api.openweathermap.org/data/2.5/weather"<br>&nbsp;&nbsp;params = {"q": city, "appid": API_KEY}<br>&nbsp;&nbsp;return requests.get(url, params=params).json()</div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══ STATS ═══ -->
+<!-- STATS -->
 <div style="position:relative;z-index:1;padding:0 24px;">
-  <div class="stats">
-    <div class="stat-item">
-      <div class="stat-num">Free</div>
-      <div class="stat-label">Always free to use</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num">Fast</div>
-      <div class="stat-label">Instant AI responses</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num">Smart</div>
-      <div class="stat-label">Powered by SG AI</div>
-    </div>
-    <div class="stat-item">
-      <div class="stat-num">Safe</div>
-      <div class="stat-label">JWT secured accounts</div>
-    </div>
+  <div class="stats-bar">
+    <div class="stat-item"><div class="stat-num">Free</div><div class="stat-label">Always free tier</div></div>
+    <div class="stat-item"><div class="stat-num">10+</div><div class="stat-label">Unique features</div></div>
+    <div class="stat-item"><div class="stat-num">4</div><div class="stat-label">AI personas</div></div>
+    <div class="stat-item"><div class="stat-num">Fast</div><div class="stat-label">Groq-powered</div></div>
+    <div class="stat-item"><div class="stat-num">Safe</div><div class="stat-label">Secure & private</div></div>
   </div>
 </div>
 
-<!-- ═══ FEATURES ═══ -->
+<!-- FEATURES -->
 <section class="section" id="features" style="text-align:center;">
-  <div class="section-label">Capabilities</div>
-  <h2 class="section-title">Everything you need<br><em>in one place</em></h2>
-  <p class="section-sub" style="margin:0 auto 60px;">SG ChatBOT is built for real work — from answering quick questions to analyzing complex documents.</p>
+  <div class="section-label">What SG can do</div>
+  <h2 class="section-title">More than just a chatbot.<br><em>Your AI toolkit.</em></h2>
+  <p class="section-sub" style="margin:0 auto 56px;">Every feature you need in one place — no switching between apps.</p>
 
-  <div class="features-grid">
-    <div class="feature-card">
-      <div class="feature-icon">💬</div>
-      <div class="feature-title">Natural Conversation</div>
-      <div class="feature-desc">Chat naturally in any language. SG ChatBOT understands context, follows up, and remembers the conversation.</div>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon">💬</div>
+      <div class="feat-title">Smart AI Chat</div>
+      <div class="feat-desc">Natural conversation with memory. SG remembers your chat history and answers follow-up questions intelligently.</div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">🖼️</div>
-      <div class="feature-title">Image Analysis</div>
-      <div class="feature-desc">Upload any image and ask questions about it. Great for diagrams, screenshots, photos, and documents.</div>
+    <div class="feat-card">
+      <div class="feat-icon">🎨</div>
+      <div class="feat-title">Image Generation <span class="feat-new">New</span></div>
+      <div class="feat-desc">Generate stunning AI images from text using FLUX.1 — the same technology behind leading image AI tools.</div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">💻</div>
-      <div class="feature-title">Code Generation</div>
-      <div class="feature-desc">Write, debug, and explain code in any language. Get working solutions with clear explanations.</div>
+    <div class="feat-card">
+      <div class="feat-icon">🗣️</div>
+      <div class="feat-title">Voice Conversation <span class="feat-new">New</span></div>
+      <div class="feat-desc">Talk to SG like calling a friend. Real-time voice input and AI voice output — hands-free AI conversation.</div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">📄</div>
-      <div class="feature-title">Document Support</div>
-      <div class="feature-desc">Attach PDFs, Word files, spreadsheets, and text files. Ask questions and get instant summaries.</div>
+    <div class="feat-card">
+      <div class="feat-icon">💻</div>
+      <div class="feat-title">Code Sandbox <span class="feat-new">New</span></div>
+      <div class="feat-desc">Run JavaScript and HTML code directly in the browser. See instant output without leaving the chat.</div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">🔐</div>
-      <div class="feature-title">Secure Accounts</div>
-      <div class="feature-desc">Your conversations are protected with JWT authentication and bcrypt password hashing.</div>
+    <div class="feat-card">
+      <div class="feat-icon">🧑‍💻</div>
+      <div class="feat-title">AI Personas</div>
+      <div class="feat-desc">Switch between Developer, Teacher, Friend, and Writer modes. SG adapts its style to how you want to work.</div>
     </div>
-    <div class="feature-card">
-      <div class="feature-icon">⚡</div>
-      <div class="feature-title">Always Available</div>
-      <div class="feature-desc">Available 24/7. No waiting, no limits. Just open the chat and start asking.</div>
+    <div class="feat-card">
+      <div class="feat-icon">🖼️</div>
+      <div class="feat-title">Image Analysis</div>
+      <div class="feat-desc">Upload any image and ask questions. Analyze screenshots, diagrams, photos, charts, and documents.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📝</div>
+      <div class="feat-title">Chat Templates</div>
+      <div class="feat-desc">One-click templates for emails, resumes, code reviews, and more. Start faster with pre-built prompts.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🎯</div>
+      <div class="feat-title">Daily Challenges</div>
+      <div class="feat-desc">New AI challenge every day — coding, math, writing, and trivia. Solve it right in the chat and earn bonus messages.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📋</div>
+      <div class="feat-title">AI Notepad</div>
+      <div class="feat-desc">Save important points from any conversation. SG automatically generates a smart summary of your notes.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">📤</div>
+      <div class="feat-title">Export Chats</div>
+      <div class="feat-desc">Download conversations as TXT, Markdown, JSON, or printable HTML. Your data, your format.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🌐</div>
+      <div class="feat-title">Multi-language UI</div>
+      <div class="feat-desc">Switch the interface between English and বাংলা. SG understands and replies in both languages naturally.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🔒</div>
+      <div class="feat-title">Secure & Private</div>
+      <div class="feat-desc">JWT auth, bcrypt passwords, rate limiting, IP blocking, and parental controls. Built for safety from day one.</div>
     </div>
   </div>
 </section>
 
-<!-- ═══ HOW IT WORKS ═══ -->
+<!-- BENTO SHOWCASE -->
+<section class="section" style="text-align:left;">
+  <div style="text-align:center;margin-bottom:56px;">
+    <div class="section-label">Highlights</div>
+    <h2 class="section-title">Designed to<br><em>impress.</em></h2>
+  </div>
+
+  <div class="bento">
+    <!-- Image Generation -->
+    <div class="bento-card bc-1" style="background:linear-gradient(135deg,rgba(168,85,247,0.08),var(--surface));">
+      <div class="bc-label">New Feature</div>
+      <div class="bc-icon">🎨</div>
+      <div class="bc-title">AI Image Generation</div>
+      <div class="bc-desc">Type any description and get a beautiful AI-generated image in seconds — powered by FLUX.1 Schnell.</div>
+      <div class="img-prompt-demo">"A cyberpunk samurai under cherry blossoms at night, cinematic lighting"</div>
+    </div>
+
+    <!-- Voice -->
+    <div class="bento-card bc-2" style="background:linear-gradient(135deg,rgba(0,212,170,0.07),var(--surface));">
+      <div class="bc-label">Voice AI</div>
+      <div class="bc-icon">🗣️</div>
+      <div class="bc-title">Voice Conversation</div>
+      <div class="bc-desc">Speak, listen, reply — a full voice-to-voice AI conversation.</div>
+      <div class="voice-demo">
+        <div class="voice-bar"></div><div class="voice-bar"></div><div class="voice-bar"></div>
+        <div class="voice-bar"></div><div class="voice-bar"></div><div class="voice-bar"></div>
+        <div class="voice-bar"></div>
+      </div>
+    </div>
+
+    <!-- Personas -->
+    <div class="bento-card bc-3">
+      <div class="bc-label">Personas</div>
+      <div class="bc-title">4 AI Modes</div>
+      <div class="bc-desc">SG adapts to how you work.</div>
+      <div class="persona-grid">
+        <div class="persona-chip">🧑‍💻 Developer</div>
+        <div class="persona-chip">👨‍🏫 Teacher</div>
+        <div class="persona-chip">🤝 Friend</div>
+        <div class="persona-chip">📝 Writer</div>
+      </div>
+    </div>
+
+    <!-- Templates -->
+    <div class="bento-card bc-4">
+      <div class="bc-label">Templates</div>
+      <div class="bc-title">10+ Templates</div>
+      <div class="bc-desc">Start instantly.</div>
+      <div class="template-list">
+        <div class="template-item">✉️ Write a professional email</div>
+        <div class="template-item">📄 Review my code</div>
+        <div class="template-item">📝 Write a resume</div>
+        <div class="template-item">🌐 Translate this text</div>
+      </div>
+    </div>
+
+    <!-- Daily Challenge -->
+    <div class="bento-card bc-5" style="background:linear-gradient(135deg,rgba(79,142,255,0.08),var(--surface));">
+      <div class="bc-label">Daily</div>
+      <div class="bc-icon">🎯</div>
+      <div class="bc-title">Daily Challenges</div>
+      <div class="bc-desc">New coding, math, or writing challenge every day. Solve it and earn bonus messages!</div>
+    </div>
+
+    <!-- Code Sandbox -->
+    <div class="bento-card bc-6" style="background:linear-gradient(135deg,rgba(0,212,170,0.06),var(--surface));">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px;">
+        <div>
+          <div class="bc-label">Code Sandbox</div>
+          <div class="bc-title">Run code directly in chat</div>
+          <div class="bc-desc" style="max-width:500px;">JavaScript and HTML code blocks have a ▶ Run button. Click it and see instant output — no copy-pasting, no switching tabs.</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.4);border:1px solid var(--border-2);border-radius:12px;padding:16px 20px;font-family:monospace;font-size:13px;color:#a8d8a8;min-width:260px;">
+          <span style="color:#ff6b6b;">const</span> greet = (<span style="color:#f59e0b;">name</span>) => {<br>
+          &nbsp;&nbsp;<span style="color:#ff6b6b;">return</span> `Hello, ${name}!`;<br>
+          };<br>
+          console.<span style="color:#4f8eff;">log</span>(greet(<span style="color:#a8d8a8;">"SG"</span>));<br>
+          <span style="color:#4a5a72;">// → Hello, SG!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
 <section class="section" id="how-it-works" style="text-align:center;">
   <div class="section-label">Getting Started</div>
-  <h2 class="section-title">Simple as<br><em>1, 2, 3</em></h2>
-  <p class="section-sub" style="margin:0 auto 60px;">Get started in seconds — no downloads, no setup required.</p>
-
+  <h2 class="section-title">Up and running<br><em>in 30 seconds.</em></h2>
+  <p class="section-sub" style="margin:0 auto 56px;">No downloads, no setup. Just open and start.</p>
   <div class="steps">
     <div class="step">
       <div class="step-num">01</div>
-      <div class="step-content">
+      <div>
         <div class="step-title">Create a free account</div>
-        <div class="step-desc">Sign up with your email and a password. Your account is secured with industry-standard encryption.</div>
+        <div class="step-desc">Sign up with your email. Your data is encrypted with bcrypt and JWT. Takes 10 seconds.</div>
       </div>
     </div>
     <div class="step">
       <div class="step-num">02</div>
-      <div class="step-content">
-        <div class="step-title">Type your question or upload a file</div>
-        <div class="step-desc">Ask anything in plain language. You can also attach images or documents for deeper analysis.</div>
+      <div>
+        <div class="step-title">Choose your mode</div>
+        <div class="step-desc">Pick Fast, Smart, Coding, or Deep Thinking mode. Or choose a persona — Developer, Teacher, Friend, Writer.</div>
       </div>
     </div>
     <div class="step">
       <div class="step-num">03</div>
-      <div class="step-content">
-        <div class="step-title">Get an instant AI response</div>
-        <div class="step-desc">SG ChatBOT replies within seconds — with code, explanations, summaries, or whatever you need.</div>
+      <div>
+        <div class="step-title">Chat, create, and explore</div>
+        <div class="step-desc">Ask questions, generate images, run code, have a voice conversation — SG is ready for anything.</div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ═══ CTA ═══ -->
+<!-- CTA -->
 <section class="cta-section">
   <div class="cta-card">
-    <h2>Ready to start?</h2>
-    <p>Join SG ChatBOT today — it's completely free, no credit card needed.</p>
-    <a href="chat.html" class="btn-hero-primary" style="display:inline-flex;margin:0 auto;">
-      Open SG ChatBOT →
-    </a>
+    <h2>Start for free today.</h2>
+    <p>No credit card. No limits on getting started. Just open SG and go.</p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;position:relative;z-index:1;">
+      <a href="chat.html" class="btn-primary">Open SG ChatBOT →</a>
+      <a href="pricing.html" class="btn-secondary">See Pro plans</a>
+    </div>
   </div>
 </section>
 
-<!-- ═══ FOOTER ═══ -->
+<!-- FOOTER -->
 <footer>
-  <div class="footer-logo">SG ChatBOT</div>
-  <div style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;">
-    <a href="about.html" style="font-size:13px;color:var(--dim);text-decoration:none;">About</a>
-    <a href="terms.html" style="font-size:13px;color:var(--dim);text-decoration:none;">Terms</a>
-    <a href="privacy.html" style="font-size:13px;color:var(--dim);text-decoration:none;">Privacy</a>
-    <a href="chat.html" style="font-size:13px;color:var(--accent);text-decoration:none;">Open App →</a>
+  <div class="footer-logo">
+    <img src="logo.svg" width="24" height="24" style="border-radius:6px;vertical-align:middle;margin-right:7px;">SG ChatBOT
   </div>
-  <p>Built by <a href="about.html" style="color:var(--dim);text-decoration:none;">Mohammed Sadid Rahman</a> · © 2025 SG ChatBOT</p>
+  <div class="footer-links">
+    <a href="about.html">About</a>
+    <a href="pricing.html">Pricing</a>
+    <a href="terms.html">Terms</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="chat.html" style="color:var(--accent);">Open App →</a>
+  </div>
+  <p style="font-size:13px;color:var(--muted);">© 2025 SG ChatBOT</p>
 </footer>
 
 </body>
