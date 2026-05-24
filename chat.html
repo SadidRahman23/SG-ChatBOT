@@ -1579,46 +1579,58 @@ document.getElementById('imageGenSubmit').addEventListener('click', async () => 
   const fullPrompt = prompt + styleHint;
   btn.disabled = true;
   btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Generating…`;
+  document.getElementById('imageGenPreview').style.display = 'none';
 
   try {
-    const res = await fetch(`${API}/generate-image`, {
-      method: 'POST',
-      headers: { Authorization:`Bearer ${STATE.token}`, 'Content-Type':'application/json' },
-      body: JSON.stringify({ prompt: fullPrompt, width: w, height: h }),
-    });
-    const data = await res.json();
-    if (!res.ok) { errEl.textContent = data.message || 'Generation failed.'; errEl.style.display='block'; return; }
+    // ── Pollinations AI — direct from browser, completely free ──
+    const seed = Math.floor(Math.random() * 999999);
+    const encodedPrompt = encodeURIComponent(fullPrompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${w}&height=${h}&seed=${seed}&nologo=true&enhance=true&model=flux`;
 
-    // Show preview
-    const imgEl = document.getElementById('imageGenResult');
-    imgEl.src = data.image;
+    // Load image directly in browser
+    await new Promise((resolve, reject) => {
+      const img = document.getElementById('imageGenResult');
+      const timeout = setTimeout(() => reject(new Error('Timeout')), 90000);
+      img.onload = () => { clearTimeout(timeout); resolve(); };
+      img.onerror = () => { clearTimeout(timeout); reject(new Error('Failed to load image')); };
+      img.src = imageUrl;
+    });
+
     document.getElementById('imageGenPreview').style.display = 'block';
 
     // Download button
-    document.getElementById('imageGenDownload').onclick = () => {
-      const a = document.createElement('a'); a.href = data.image;
-      a.download = `sg-image-${Date.now()}.jpg`;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    document.getElementById('imageGenDownload').onclick = async () => {
+      try {
+        const res = await fetch(document.getElementById('imageGenResult').src);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url;
+        a.download = `sg-image-${Date.now()}.jpg`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+      } catch { showToast('Download failed', 'error'); }
     };
 
     // Send to chat button
     document.getElementById('imageGenSendToChat').onclick = () => {
+      const imgSrc = document.getElementById('imageGenResult').src;
       closeImageGen();
       hideWelcome();
-      // Render image in chat as bot message
       const row = document.createElement('div'); row.className = 'msg-row bot';
       const bubble = document.createElement('div'); bubble.className = 'bubble';
       const previewId = 'igen_' + Date.now();
-      bubble.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Generated image for: <em>${escapeHtml(prompt)}</em></div>
-        <img src="${data.image}" alt="generated" style="width:100%;max-width:480px;border-radius:12px;cursor:zoom-in;display:block;" onclick="document.getElementById('imgModal_${previewId}').classList.add('open')">
-        <div class="img-modal-overlay" id="imgModal_${previewId}" onclick="this.classList.remove('open')"><img src="${data.image}" alt="full"></div>`;
+      bubble.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Generated: <em>${escapeHtml(prompt)}</em></div>
+        <img src="${imgSrc}" alt="generated" style="width:100%;max-width:480px;border-radius:12px;cursor:zoom-in;display:block;" onclick="document.getElementById('imgModal_${previewId}').classList.add('open')">
+        <div class="img-modal-overlay" id="imgModal_${previewId}" onclick="this.classList.remove('open')"><img src="${imgSrc}" alt="full"></div>`;
       row.innerHTML = botAvatarHtml(false); row.appendChild(bubble);
       chatEl.appendChild(row);
       chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' });
     };
 
-  } catch { errEl.textContent = 'Network error. Please try again.'; errEl.style.display='block'; }
-  finally {
+  } catch(e) {
+    errEl.textContent = 'Generation failed. Pollinations AI may be busy — please try again.';
+    errEl.style.display = 'block';
+  } finally {
     btn.disabled = false;
     btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image`;
   }
