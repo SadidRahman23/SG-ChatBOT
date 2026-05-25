@@ -1039,9 +1039,14 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     res.setHeader("X-Accel-Buffering","no");
     res.flushHeaders();
 
-    const sendChunk = (text) => res.write(`data: ${JSON.stringify({t:text})}\n\n`);
-    const sendDone  = (meta) => res.write(`data: ${JSON.stringify({done:true,...meta})}\n\n`);
-    const sendError = (msg)  => res.write(`data: ${JSON.stringify({error:msg})}\n\n`);
+    const sendChunk = (text) => { try { res.write(`data: ${JSON.stringify({t:text})}\n\n`); } catch {} };
+    const sendDone  = (meta) => { try { res.write(`data: ${JSON.stringify({done:true,...meta})}\n\n`); } catch {} };
+    const sendError = (msg)  => { try { res.write(`data: ${JSON.stringify({error:msg})}\n\n`); } catch {} };
+
+    // ── Keepalive ping every 15s to prevent Render timeout ──
+    const keepalive = setInterval(() => {
+      try { res.write(`: ping\n\n`); } catch { clearInterval(keepalive); }
+    }, 15000);
 
     let fullReply = "";
 
@@ -1134,7 +1139,7 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     }
 
     if (!success || !fullReply) {
-      sendError("AI is busy. Please try again."); res.end(); return;
+      sendError("AI is busy. Please try again."); clearInterval(keepalive); res.end(); return;
     }
 
     // ── Save conversation ──
@@ -1151,9 +1156,11 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     } catch(e){console.error("Conv save:",e.message);}
 
     sendDone({msgsLeft, minsLeft, plan:pro?"pro":"free", conversationId:savedId, sources:streamSources});
+    clearInterval(keepalive);
     res.end();
   } catch(err){
     console.error("Stream error:",err);
+    clearInterval(keepalive);
     try { res.write(`data: ${JSON.stringify({error:"Server error."})}\n\n`); res.end(); } catch {}
   }
 });
