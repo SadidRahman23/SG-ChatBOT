@@ -1059,25 +1059,26 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
           if (r.status===429){continue;}
           if (!r.ok) return false;
           groqKeyCounter=(groqKeyCounter+i+1)%GROQ_KEYS.length;
-          // Read SSE stream
-          const reader = r.body.getReader(), decoder = new TextDecoder();
+          // Node.js compatible stream reading
           let buf = "";
-          while(true) {
-            const {done,value} = await reader.read();
-            if (done) break;
-            buf += decoder.decode(value,{stream:true});
-            const lines = buf.split("\n"); buf = lines.pop()||"";
-            for (const line of lines) {
-              if (!line.startsWith("data:")) continue;
-              const d = line.slice(5).trim();
-              if (d==="[DONE]") break;
-              try {
-                const chunk = JSON.parse(d);
-                const t = chunk.choices?.[0]?.delta?.content||"";
-                if (t) { fullReply+=t; sendChunk(t); }
-              } catch {}
-            }
-          }
+          await new Promise((resolve, reject) => {
+            r.body.on("data", (chunk) => {
+              buf += chunk.toString();
+              const lines = buf.split("\n"); buf = lines.pop()||"";
+              for (const line of lines) {
+                if (!line.startsWith("data:")) continue;
+                const d = line.slice(5).trim();
+                if (d==="[DONE]") return;
+                try {
+                  const parsed = JSON.parse(d);
+                  const t = parsed.choices?.[0]?.delta?.content||"";
+                  if (t) { fullReply+=t; sendChunk(t); }
+                } catch {}
+              }
+            });
+            r.body.on("end", resolve);
+            r.body.on("error", reject);
+          });
           return true;
         } catch(e){console.log(`Groq stream error: ${e.message}`);}
       }
@@ -1094,24 +1095,26 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
           body:JSON.stringify(body)
         });
         if (!r.ok) return false;
-        const reader = r.body.getReader(), decoder = new TextDecoder();
+        // Node.js compatible stream reading
         let buf = "";
-        while(true) {
-          const {done,value} = await reader.read();
-          if (done) break;
-          buf += decoder.decode(value,{stream:true});
-          const lines = buf.split("\n"); buf = lines.pop()||"";
-          for (const line of lines) {
-            if (!line.startsWith("data:")) continue;
-            const d = line.slice(5).trim();
-            if (d==="[DONE]") break;
-            try {
-              const chunk = JSON.parse(d);
-              const t = chunk.choices?.[0]?.delta?.content||"";
-              if (t) { fullReply+=t; sendChunk(t); }
-            } catch {}
-          }
-        }
+        await new Promise((resolve, reject) => {
+          r.body.on("data", (chunk) => {
+            buf += chunk.toString();
+            const lines = buf.split("\n"); buf = lines.pop()||"";
+            for (const line of lines) {
+              if (!line.startsWith("data:")) continue;
+              const d = line.slice(5).trim();
+              if (d==="[DONE]") return;
+              try {
+                const parsed = JSON.parse(d);
+                const t = parsed.choices?.[0]?.delta?.content||"";
+                if (t) { fullReply+=t; sendChunk(t); }
+              } catch {}
+            }
+          });
+          r.body.on("end", resolve);
+          r.body.on("error", reject);
+        });
         return true;
       } catch(e){console.log(`OR stream error: ${e.message}`);}
       return false;
