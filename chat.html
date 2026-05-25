@@ -1697,7 +1697,7 @@ async function send() {
       buf+=decoder.decode(value,{stream:true});
       const lines=buf.split('\n');buf=lines.pop()||'';
       for(const line of lines){
-        if(!line.startsWith('data:')) continue;
+        if(!line.startsWith('data:')) continue; // skip ping lines (": ping")
         const raw=line.slice(5).trim();
         try{
           const chunk=JSON.parse(raw);
