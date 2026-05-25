@@ -216,12 +216,19 @@
     .bot-avatar-wrap.thinking .bot-avatar-bg{border-radius:50%;}
     .bot-avatar-wrap.thinking .bot-avatar-ring{border-radius:50%;opacity:1;animation:spin 1.2s linear infinite;}
     @keyframes spin{to{transform:rotate(360deg)}}
-    .typing-indicator{display:flex;align-items:center;gap:6px;padding:4px 2px;}
-    .typing-bar{width:3px;border-radius:99px;background:linear-gradient(180deg,var(--accent),var(--accent2));box-shadow:0 0 6px var(--accent);animation:barPulse 1s ease-in-out infinite;}
-    .typing-bar:nth-child(1){height:14px;animation-delay:0s;}.typing-bar:nth-child(2){height:22px;animation-delay:.12s;}.typing-bar:nth-child(3){height:18px;animation-delay:.24s;}.typing-bar:nth-child(4){height:26px;animation-delay:.36s;}.typing-bar:nth-child(5){height:14px;animation-delay:.48s;}
-    @keyframes barPulse{0%,100%{transform:scaleY(.4);opacity:.4}50%{transform:scaleY(1);opacity:1}}
-    .typing-label{font-size:12px;color:var(--accent);font-weight:600;letter-spacing:.04em;animation:labelFade 1.5s ease-in-out infinite;}
-    @keyframes labelFade{0%,100%{opacity:.5}50%{opacity:1}}
+    .typing-indicator{display:flex;align-items:center;gap:8px;padding:2px 0;}
+    .typing-dots{display:flex;gap:4px;align-items:center;}
+    .typing-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.3;animation:dotPulse 1.2s ease-in-out infinite;}
+    .typing-dot:nth-child(1){animation-delay:0s;}
+    .typing-dot:nth-child(2){animation-delay:.2s;}
+    .typing-dot:nth-child(3){animation-delay:.4s;}
+    @keyframes dotPulse{0%,100%{opacity:.25;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+    .typing-label{font-size:13px;color:var(--dim);font-weight:500;letter-spacing:.01em;}
+
+    /* Search indicator */
+    .search-indicator{display:flex;align-items:center;gap:8px;padding:2px 0;}
+    .search-spinner{width:14px;height:14px;border-radius:50%;border:2px solid var(--border-2);border-top-color:var(--accent2);animation:spin 0.8s linear infinite;flex-shrink:0;}
+    .search-label{font-size:13px;color:var(--dim);font-weight:500;}
     .typewriter-cursor{display:inline-block;width:2px;height:1em;background:var(--accent);border-radius:2px;margin-left:2px;vertical-align:text-bottom;animation:cursorBlink .6s ease-in-out infinite;}
     @keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
     .bubble pre .copy-btn{position:absolute;top:8px;right:8px;padding:3px 9px;border-radius:6px;border:1px solid var(--border-2);background:var(--surface);color:var(--dim);font-family:var(--font);font-size:11px;cursor:pointer;opacity:0;transition:all var(--anim);}
@@ -1487,7 +1494,7 @@ async function saveEdit(btn) {
   if (STATE.memory.length > 0) STATE.memory[STATE.memory.length - 1] = { role: 'user', content: newText }; else STATE.memory.push({ role: 'user', content: newText });
   if (!STATE.token) { showToast('Please sign in', 'error'); openModal(); return; }
   const sendBtnEl = document.getElementById('sendBtn'); sendBtnEl.classList.add('loading');
-  const typingRow = renderTyping(false); currentAbortController = new AbortController();
+  const typingRow = renderTyping(false, false); currentAbortController = new AbortController();
   try { const fd = new FormData(); fd.append('messages', JSON.stringify(buildMessages(STATE.memory))); fd.append('modelKey', selectedModel); fd.append('personaKey', selectedPersona); if (STATE.conversationId) fd.append('conversationId', STATE.conversationId); const res = await fetch(`${API}/chat`, { method: 'POST', headers: { Authorization: `Bearer ${STATE.token}` }, body: fd, signal: currentAbortController.signal }); const data = await res.json(); typingRow.remove(); sendBtnEl.classList.remove('loading'); currentAbortController = null; if (data && data.reply && data.reply !== 'limit_reached') { if (data.conversationId) STATE.conversationId = data.conversationId; renderBotMessage(data.reply); if (data.msgsLeft != null) { const cn = document.getElementById('msgCountNum'); cn.textContent = data.msgsLeft; if (data.msgsLeft <= 3) cn.style.color = '#f87171'; else if (data.msgsLeft <= 6) cn.style.color = '#f59e0b'; } } else if (data?.reply === 'limit_reached') { STATE.memory.pop(); const mins = data.minsLeft || 0, h = Math.floor(mins / 60), m = mins % 60, ts = h > 0 ? `${h}h ${m}m` : `${m} min`; document.getElementById('resetTimer').textContent = ts; document.getElementById('resetTimerBtn').textContent = ts; document.getElementById('limitOverlay').classList.add('open'); } else { renderBotMessage('⚠️ **Connection error.** Please try again.'); } }
   catch (err) { typingRow.remove(); sendBtnEl.classList.remove('loading'); if (err.name !== 'AbortError') renderBotMessage('⚠️ **Connection error.** Please try again.'); }
 }
@@ -1495,7 +1502,31 @@ async function saveEdit(btn) {
 chatEl.addEventListener('click', e => { const block = e.target.closest('.pasted-block'); if (!block) return; const code = window._pastedCode?.[block.dataset.id] || ''; document.getElementById('codeModalPre').textContent = code; document.getElementById('codeModalOverlay').classList.add('open'); });
 
 let currentAbortController = null;
-function renderTyping(isImage = false) { const row = document.createElement('div'); row.className = 'msg-row bot'; row.id = 'typing-row'; const label = isImage ? 'Analyzing image…' : 'Thinking…'; row.innerHTML = botAvatarHtml(false) + `<div class="bubble"><div class="typing-indicator"><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><div class="typing-bar"></div><span class="typing-label">${label}</span></div></div>`; chatEl.appendChild(row); requestAnimationFrame(() => requestAnimationFrame(() => { row.querySelector('.bot-avatar-wrap')?.classList.add('thinking'); })); chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' }); return row; }
+function renderTyping(isImage=false, isSearch=false) {
+  const row=document.createElement('div'); row.className='msg-row bot'; row.id='typing-row';
+  let indicator;
+  if (isSearch) {
+    indicator=`<div class="search-indicator">
+      <div class="search-spinner"></div>
+      <span class="search-label">Searching the web…</span>
+    </div>`;
+  } else if (isImage) {
+    indicator=`<div class="typing-indicator">
+      <div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
+      <span class="typing-label">Analyzing image…</span>
+    </div>`;
+  } else {
+    indicator=`<div class="typing-indicator">
+      <div class="typing-dots"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>
+      <span class="typing-label">Thinking…</span>
+    </div>`;
+  }
+  row.innerHTML=botAvatarHtml(false)+`<div class="bubble">${indicator}</div>`;
+  chatEl.appendChild(row);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{row.querySelector('.bot-avatar-wrap')?.classList.add('thinking');}));
+  chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+  return row;
+}
 
 function addCopyButtons(el) {
   el.querySelectorAll('pre').forEach(pre => {
@@ -1624,7 +1655,8 @@ async function send() {
   currentAbortController=new AbortController();
 
   const isImageRequest=!!(file?.isImage||file?.fromContext);
-  const typingRow=renderTyping(isImageRequest);
+  const isSearchRequest = selectedPersona==='search' || /সার্চ|খুঁজ|খবর|আজকে|latest|news|today|current|who is|what happened|search|find|look up|price of|weather|score|result/i.test(finalText||'');
+  const typingRow=renderTyping(isImageRequest, isSearchRequest && !isImageRequest);
 
   const fd=new FormData();
   fd.append('messages',JSON.stringify(buildMessages(STATE.memory)));
