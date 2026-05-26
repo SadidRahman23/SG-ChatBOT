@@ -26,7 +26,7 @@
       background-size:60px 60px;}
 
     nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:64px;background:rgba(5,7,9,0.85);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);}
-    .nav-logo{font-size:18px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;}
+    .nav-logo{font-size:18px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none;display:flex;align-items:center;gap:8px;}
     .nav-links{display:flex;align-items:center;gap:24px;}
     .nav-links a{font-size:14px;color:var(--dim);text-decoration:none;transition:color .2s;}
     .nav-links a:hover{color:var(--text);}
@@ -38,7 +38,7 @@
     .page-title em{font-family:var(--serif);font-style:italic;font-weight:400;background:linear-gradient(135deg,var(--gold),#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
     .page-sub{font-size:17px;color:var(--dim);margin-bottom:60px;}
 
-    .plans{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;max-width:960px;margin:0 auto 70px;}
+    .plans{display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;max-width:980px;margin:0 auto 70px;}
     .plan-card{padding:32px;border-radius:20px;background:var(--surface);border:1px solid var(--border-2);text-align:left;position:relative;transition:transform .25s;}
     .plan-card:hover{transform:translateY(-4px);}
     .plan-card.student{border-color:rgba(168,85,247,.4);background:linear-gradient(135deg,rgba(168,85,247,.05),rgba(99,102,241,.03));}
@@ -47,7 +47,7 @@
     .plan-card.pro::before{content:'';position:absolute;inset:0;border-radius:20px;background:radial-gradient(ellipse at top,rgba(245,158,11,.08),transparent 60%);pointer-events:none;}
 
     .plan-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;margin-bottom:20px;}
-    .plan-badge.free{background:rgba(255,255,255,.05);border:1px solid var(--border-2);color:var(--dim);}
+    .plan-badge.free-badge{background:rgba(255,255,255,.05);border:1px solid var(--border-2);color:var(--dim);}
     .plan-badge.student-badge{background:rgba(168,85,247,.15);border:1px solid rgba(168,85,247,.3);color:var(--purple);}
     .plan-badge.pro-badge{background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);color:var(--gold);}
 
@@ -55,13 +55,19 @@
     .plan-price span{font-size:18px;font-weight:500;color:var(--dim);letter-spacing:0;}
     .plan-period{font-size:13px;color:var(--muted);margin-bottom:24px;}
     .plan-divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
-    .plan-features{display:flex;flex-direction:column;gap:10px;margin-bottom:28px;}
-    .feature-row{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--dim);}
-    .feature-row .check{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;}
+
+    .plan-features{display:flex;flex-direction:column;gap:9px;margin-bottom:28px;}
+    .feature-row{display:flex;align-items:flex-start;gap:10px;font-size:13.5px;color:var(--dim);}
+    .feature-row .check{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;margin-top:1px;}
     .feature-row .check.yes{background:rgba(0,212,170,.15);color:var(--accent2);}
     .feature-row .check.yes-p{background:rgba(168,85,247,.15);color:var(--purple);}
+    .feature-row .check.yes-g{background:rgba(245,158,11,.15);color:var(--gold);}
     .feature-row .check.no{background:rgba(255,255,255,.05);color:var(--muted);}
     .feature-row.active{color:var(--text);}
+    .feature-row.active strong{color:var(--text);}
+
+    .section-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px;padding-left:2px;}
+
     .plan-btn{width:100%;padding:13px;border-radius:12px;border:none;font-family:var(--head);font-size:14px;font-weight:700;cursor:pointer;transition:all .25s;}
     .plan-btn.free-btn{background:var(--surface-2);border:1px solid var(--border-2);color:var(--dim);}
     .plan-btn.free-btn:hover{background:var(--surface-3);color:var(--text);}
@@ -70,6 +76,7 @@
     .plan-btn.pro-btn{background:linear-gradient(135deg,var(--gold),#fb923c);color:#000;}
     .plan-btn.pro-btn:hover{filter:brightness(1.1);box-shadow:0 8px 30px rgba(245,158,11,.3);}
 
+    /* Modal */
     .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);backdrop-filter:blur(12px);display:none;align-items:center;justify-content:center;z-index:200;padding:16px;}
     .modal-overlay.open{display:flex;}
     .modal-card{background:var(--surface);border:1px solid var(--border-2);border-radius:24px;padding:32px 28px;width:100%;max-width:440px;animation:scaleIn .22s cubic-bezier(.34,1.56,.64,1);box-shadow:0 40px 80px rgba(0,0,0,.6);}
@@ -77,20 +84,17 @@
     .modal-title{font-size:20px;font-weight:800;}
     .modal-close{width:32px;height:32px;border-radius:8px;border:1px solid var(--border-2);background:transparent;color:var(--dim);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:all .2s;}
     .modal-close:hover{background:var(--surface-2);color:var(--text);}
-
     .plan-tabs{display:flex;background:var(--surface-2);border-radius:10px;padding:4px;gap:4px;margin-bottom:20px;}
     .plan-tab{flex:1;padding:9px;border-radius:7px;border:none;background:transparent;color:var(--dim);font-family:var(--head);font-size:12px;font-weight:600;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:2px;}
     .plan-tab .tab-price{font-size:15px;font-weight:800;color:var(--text);}
     .plan-tab .tab-save{font-size:10px;color:var(--accent2);font-weight:700;}
     .plan-tab.active{background:var(--surface-3);color:var(--text);}
     .plan-tab.active .tab-price{color:var(--gold);}
-
     .method-label{font-size:12px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;}
     .method-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;}
     .method-btn{padding:14px;border-radius:12px;border:2px solid var(--border-2);background:var(--surface-2);cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:6px;}
     .method-btn:hover{background:var(--surface-3);}
     .method-btn.selected{border-color:var(--gold);background:rgba(245,158,11,.07);}
-    .method-logo{font-size:22px;}
     .method-name{font-size:13px;font-weight:700;color:var(--text);}
     .method-num{font-size:11px;color:var(--dim);}
     .payment-instructions{background:rgba(79,142,255,.06);border:1px solid rgba(79,142,255,.15);border-radius:12px;padding:14px 16px;margin-bottom:18px;font-size:13px;color:var(--dim);line-height:1.7;}
@@ -107,11 +111,7 @@
     .modal-error{font-size:12.5px;color:#f87171;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:8px 12px;margin-bottom:12px;display:none;}
     .modal-error.show{display:block;}
 
-    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:300;white-space:nowrap;}
-    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-    .toast.success{border-color:rgba(0,212,170,.4);color:var(--accent2);}
-    .toast.error{border-color:rgba(248,113,113,.4);color:#f87171;}
-
+    /* FAQ */
     .faq{max-width:660px;margin:0 auto;text-align:left;}
     .faq-title{font-size:28px;font-weight:800;letter-spacing:-.5px;text-align:center;margin-bottom:32px;}
     .faq-item{border-bottom:1px solid var(--border);padding:18px 0;}
@@ -119,7 +119,19 @@
     .faq-q{font-size:15px;font-weight:700;margin-bottom:8px;}
     .faq-a{font-size:14px;color:var(--dim);line-height:1.7;}
 
+    .toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--surface-3);border:1px solid var(--border-2);color:var(--text);font-size:13px;padding:9px 18px;border-radius:99px;opacity:0;transition:all .3s;pointer-events:none;z-index:300;white-space:nowrap;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+    .toast.success{border-color:rgba(0,212,170,.4);color:var(--accent2);}
+    .toast.error{border-color:rgba(248,113,113,.4);color:#f87171;}
+
     @keyframes scaleIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+    footer{position:relative;z-index:1;padding:32px 40px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+    .footer-links{display:flex;gap:20px;}
+    .footer-links a{font-size:13px;color:var(--dim);text-decoration:none;}
+    .footer-links a:hover{color:var(--text);}
+    footer p{font-size:12px;color:var(--muted);}
+
     @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:420px;margin:0 auto 50px;}}
     @media(max-width:768px){
       nav{padding:0 16px;}.nav-links{display:none;}
@@ -130,17 +142,15 @@
       footer{flex-direction:column;text-align:center;padding:24px 16px;}
       .footer-links{flex-wrap:wrap;justify-content:center;gap:14px;}
     }
-    footer{position:relative;z-index:1;padding:32px 40px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
-    .footer-links{display:flex;gap:20px;}
-    .footer-links a{font-size:13px;color:var(--dim);text-decoration:none;}
-    .footer-links a:hover{color:var(--text);}
-    footer p{font-size:12px;color:var(--muted);}
   </style>
 </head>
 <body>
 
 <nav>
-  <a href="index.html" class="nav-logo"><img src="logo.svg" width="26" height="26" style="border-radius:7px;vertical-align:middle;margin-right:7px;">SG ChatBOT</a>
+  <a href="index.html" class="nav-logo">
+    <img src="logo.svg" width="26" height="26" style="border-radius:7px;">
+    SG ChatBOT
+  </a>
   <div class="nav-links">
     <a href="index.html">Home</a>
     <a href="about.html">About</a>
@@ -159,18 +169,32 @@
 
     <!-- FREE -->
     <div class="plan-card">
-      <div class="plan-badge free">Free</div>
+      <div class="plan-badge free-badge">Free</div>
       <div class="plan-price">&#x9F3;0 <span>/mo</span></div>
-      <div class="plan-period">Forever free</div>
+      <div class="plan-period">Forever free · No card needed</div>
       <hr class="plan-divider">
+      <div class="section-label">Messages</div>
       <div class="plan-features">
         <div class="feature-row active"><span class="check yes">&#x2713;</span> 25 messages / 4 hours</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI chat assistant</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> Image analysis</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> File upload</div>
-        <div class="feature-row"><span class="check no">&#x2715;</span> More messages</div>
-        <div class="feature-row"><span class="check no">&#x2715;</span> Priority responses</div>
-        <div class="feature-row"><span class="check no">&#x2715;</span> Badge</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Resets automatically</div>
+      </div>
+      <div class="section-label">AI Features</div>
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI chat (4 models)</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Image & file analysis</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Web search</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Voice chat</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Code sandbox</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI Personas</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Bangladesh mode (BCS/SSC/HSC)</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI Notepad</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Chat Templates</div>
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> Export chats</div>
+      </div>
+      <div class="section-label">Image Generation</div>
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes">&#x2713;</span> <strong>3 images</strong> / 24 hours</div>
+        <div class="feature-row"><span class="check no">&#x2715;</span> More images</div>
       </div>
       <button class="plan-btn free-btn" onclick="window.location.href='chat.html'">Continue Free</button>
     </div>
@@ -179,16 +203,23 @@
     <div class="plan-card student">
       <div class="plan-badge student-badge">&#x1F393; Student</div>
       <div class="plan-price">&#x9F3;49 <span>/mo</span></div>
-      <div class="plan-period">Best for students</div>
+      <div class="plan-period">Best for students · Save 50%</div>
       <hr class="plan-divider">
+      <div class="section-label">Messages</div>
       <div class="plan-features">
-        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> <strong>100 messages</strong> / 4 hours</div>
-        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> AI chat assistant</div>
-        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Image analysis</div>
-        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> File upload</div>
-        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Priority responses</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> <strong>68 messages</strong> / 4 hours</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Resets automatically</div>
+      </div>
+      <div class="section-label">AI Features</div>
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Everything in Free</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Priority AI responses</div>
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> Real-time streaming</div>
         <div class="feature-row active"><span class="check yes-p">&#x2713;</span> &#x1F393; Student badge</div>
-        <div class="feature-row"><span class="check no">&#x2715;</span> Unlimited messages</div>
+      </div>
+      <div class="section-label">Image Generation</div>
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes-p">&#x2713;</span> <strong>8 images</strong> / 24 hours</div>
       </div>
       <button class="plan-btn student-btn" id="studentBtn">Get Student Plan &rarr;</button>
     </div>
@@ -197,16 +228,25 @@
     <div class="plan-card pro">
       <div class="plan-badge pro-badge">&#x26A1; Pro</div>
       <div class="plan-price" id="priceDisplay">&#x9F3;99 <span>/mo</span></div>
-      <div class="plan-period" id="periodDisplay">Billed monthly &middot; Save with yearly</div>
+      <div class="plan-period" id="periodDisplay">Billed monthly · Save with yearly</div>
       <hr class="plan-divider">
+      <div class="section-label">Messages</div>
       <div class="plan-features">
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> <strong>Unlimited</strong> messages</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> AI chat assistant</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> Image analysis</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> File upload</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> Priority responses</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> &#x26A1; Pro badge</div>
-        <div class="feature-row active"><span class="check yes">&#x2713;</span> Early access to new features</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> <strong>Unlimited</strong> messages</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> No rate limits, ever</div>
+      </div>
+      <div class="section-label">AI Features</div>
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> Everything in Student</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> Fastest AI responses</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> All 4 AI models</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> &#x26A1; Pro badge</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> Early access to new features</div>
+      </div>
+      <div class="section-label">Image Generation</div>
+      <div class="plan-features">
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> <strong>Unlimited</strong> image generation</div>
+        <div class="feature-row active"><span class="check yes-g">&#x2713;</span> All sizes & styles</div>
       </div>
       <button class="plan-btn pro-btn" id="upgradeBtn">Upgrade to Pro &rarr;</button>
     </div>
@@ -218,15 +258,15 @@
     <div class="faq-title">Frequently asked questions</div>
     <div class="faq-item">
       <div class="faq-q">How do I pay?</div>
-      <div class="faq-a">Send the amount via bKash or Nagad to our number, then submit your Transaction ID. We'll verify and activate within 24 hours.</div>
+      <div class="faq-a">Send the amount via bKash or Nagad to <strong>01913650591</strong>, then submit your Transaction ID. We'll verify and activate within 24 hours.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">What is the difference between Student and Pro?</div>
-      <div class="faq-a">Student plan gives 100 messages per 4-hour window at half the price. Pro gives completely unlimited messages with no restrictions.</div>
+      <div class="faq-a">Student gives 68 messages per 4-hour window and 8 image generations per day at half the price. Pro gives completely unlimited messages and unlimited image generation with no restrictions.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">What is the Free message limit?</div>
-      <div class="faq-a">Free users get 25 messages per 4-hour window. The counter resets automatically.</div>
+      <div class="faq-a">Free users get 25 messages per 4-hour window and 3 AI image generations per 24 hours. Both counters reset automatically.</div>
     </div>
     <div class="faq-item">
       <div class="faq-q">How long until my plan is activated?</div>
@@ -238,7 +278,7 @@
     </div>
     <div class="faq-item">
       <div class="faq-q">What happens when my plan expires?</div>
-      <div class="faq-a">Your account reverts to Free plan. Your data and chat history are always safe.</div>
+      <div class="faq-a">Your account reverts to Free plan. Your chat history and data are always safe.</div>
     </div>
   </div>
 </div>
@@ -274,22 +314,18 @@
       <div class="method-label">Select Payment Method</div>
       <div class="method-grid">
         <button class="method-btn selected" id="btnBkash" onclick="selectMethod('bkash')">
-          <span class="method-logo">&#x1F4B3;</span>
+          <svg width="22" height="22" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#E2136E"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="11" font-weight="bold" font-family="sans-serif">bKash</text></svg>
           <span class="method-name">bKash</span>
-          <span class="method-num">Not Available </span>
+          <span class="method-num">01913650591</span>
         </button>
         <button class="method-btn" id="btnNagad" onclick="selectMethod('nagad')">
-          <span class="method-logo">&#x1F4B3;</span>
+          <svg width="22" height="22" viewBox="0 0 40 40" fill="none"><rect width="40" height="40" rx="10" fill="#F26522"/><text x="50%" y="56%" dominant-baseline="middle" text-anchor="middle" fill="white" font-size="10" font-weight="bold" font-family="sans-serif">Nagad</text></svg>
           <span class="method-name">Nagad</span>
           <span class="method-num">01913650591</span>
         </button>
       </div>
 
-      <div class="payment-instructions" id="paymentInstructions">
-        Send to bKash number: <strong>Not Available </strong><br>
-        Amount: <span class="amount" id="amountDisplay">&#x9F3;99</span>
-        Select <strong>Send Money</strong>, enter the amount, and copy the Transaction ID.
-      </div>
+      <div class="payment-instructions" id="paymentInstructions"></div>
 
       <div class="modal-error" id="modalError"></div>
 
@@ -312,16 +348,12 @@
     <a href="privacy.html">Privacy</a>
     <a href="chat.html">Open App</a>
   </div>
-  <p>&copy; 2025 SG ChatBOT &middot; Built by Mohammed Sadid Rahman</p>
+  <p>&copy; 2025 SG ChatBOT &middot; Built by Mohammed Sadid Rahman &middot; StrongGuy AI</p>
 </footer>
 
 <script>
   const API = 'https://sg-chatbot-z8hp.onrender.com';
-
-  const PAYMENT_NUMBERS = {
-    bkash: '01913650591',
-    nagad: '01913650591',
-  };
+  const PHONE = '01913650591';
 
   let selectedMethod  = 'bkash';
   let selectedPlan    = 'monthly';
@@ -344,13 +376,15 @@
   }
 
   function updateInstructions() {
-    const num  = PAYMENT_NUMBERS[selectedMethod];
-    const name = selectedMethod === 'bkash' ? 'bKash' : 'Nagad';
-    const amount = currentPlanType === 'student' ? '&#x9F3;49' : (selectedPlan === 'monthly' ? '&#x9F3;99' : '&#x9F3;799');
+    const name   = selectedMethod === 'bkash' ? 'bKash' : 'Nagad';
+    const amount = currentPlanType === 'student'
+      ? '&#x9F3;49'
+      : (selectedPlan === 'monthly' ? '&#x9F3;99' : '&#x9F3;799');
+
     document.getElementById('paymentInstructions').innerHTML = `
-      Send to ${name} number: <strong>${num}</strong><br>
+      Send to <strong>${name}</strong> number: <strong>${PHONE}</strong><br>
       Amount: <span class="amount">${amount}</span>
-      Select <strong>Send Money</strong>, enter the amount, and copy the Transaction ID.`;
+      Select <strong>Send Money</strong>, enter the amount, then copy the Transaction ID.`;
   }
 
   function openModal(planType) {
@@ -368,17 +402,21 @@
     const tabs  = document.getElementById('proTabs');
 
     if (planType === 'student') {
-      title.textContent  = 'Get Student Plan &#x1F393;';
+      title.innerHTML    = 'Get Student Plan &#x1F393;';
       btn.className      = 'submit-btn student-submit';
       tabs.style.display = 'none';
     } else {
-      title.textContent  = 'Upgrade to Pro &#x26A1;';
+      title.innerHTML    = 'Upgrade to Pro &#x26A1;';
       btn.className      = 'submit-btn';
       tabs.style.display = 'flex';
       selectPlan('monthly');
     }
 
+    selectedMethod = 'bkash';
+    document.getElementById('btnBkash').classList.add('selected');
+    document.getElementById('btnNagad').classList.remove('selected');
     updateInstructions();
+
     document.getElementById('paymentModal').classList.add('open');
     document.getElementById('trxInput').value = '';
     document.getElementById('modalError').classList.remove('show');
@@ -408,7 +446,7 @@
     btn.disabled = true; btn.textContent = 'Submitting...';
 
     try {
-      const res  = await fetch(`${API}/payment/submit`, {
+      const res = await fetch(`${API}/payment/submit`, {
         method:  'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('sg_token')}` },
         body: JSON.stringify({ method: selectedMethod, transactionId: trxId, plan: selectedPlan, planType: currentPlanType }),
@@ -421,7 +459,8 @@
       errEl.textContent = 'Network error. Please try again.';
       errEl.classList.add('show');
     } finally {
-      btn.disabled = false; btn.textContent = 'Submit Payment';
+      btn.disabled = false;
+      btn.textContent = currentPlanType === 'student' ? 'Get Student Plan →' : 'Submit Payment →';
     }
   }
 
@@ -433,6 +472,7 @@
     toastTimer = setTimeout(() => t.className = 'toast', 3000);
   }
 
+  // Check if already pro
   (async () => {
     const token = localStorage.getItem('sg_token');
     if (!token) return;
@@ -440,14 +480,17 @@
       const res  = await fetch(`${API}/status`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (data.plan === 'pro') {
-        document.getElementById('upgradeBtn').textContent = 'Already Pro';
-        document.getElementById('upgradeBtn').style.background = 'rgba(0,212,170,.15)';
-        document.getElementById('upgradeBtn').style.color = 'var(--accent2)';
-        document.getElementById('upgradeBtn').onclick = null;
-        document.getElementById('studentBtn').textContent = 'You have Pro';
-        document.getElementById('studentBtn').style.background = 'rgba(0,212,170,.15)';
-        document.getElementById('studentBtn').style.color = 'var(--accent2)';
-        document.getElementById('studentBtn').onclick = null;
+        const upBtn = document.getElementById('upgradeBtn');
+        const stBtn = document.getElementById('studentBtn');
+        upBtn.textContent = 'Already on Pro';
+        upBtn.style.background = 'rgba(0,212,170,.15)';
+        upBtn.style.color = 'var(--accent2)';
+        upBtn.style.border = '1px solid rgba(0,212,170,.3)';
+        upBtn.onclick = null;
+        stBtn.textContent = 'You have Pro';
+        stBtn.style.background = 'rgba(0,212,170,.15)';
+        stBtn.style.color = 'var(--accent2)';
+        stBtn.onclick = null;
       }
     } catch {}
   })();
