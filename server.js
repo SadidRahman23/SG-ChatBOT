@@ -683,8 +683,14 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const GOOGLE_MODELS={fast:"gemini-2.0-flash",smart:"gemini-2.0-flash",coding:"gemini-2.0-flash",deep:"gemini-2.5-flash-preview-04-17"};
     const MISTRAL_MODELS={fast:"mistral-small-latest",smart:"mistral-small-latest",coding:"codestral-latest",deep:"mistral-large-latest"};
     const OR_MODELS={fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
-    const VISION_PRIMARY="openrouter/free";
-    const VISION_FB=["meta-llama/llama-4-maverick:free","meta-llama/llama-4-scout:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","mistralai/pixtral-12b:free"];
+    const VISION_MODELS=[
+      "meta-llama/llama-4-maverick:free",
+      "meta-llama/llama-4-scout:free",
+      "google/gemini-2.5-flash:free",
+      "qwen/qwen3-vl-32b-instruct:free",
+      "mistralai/pixtral-12b:free",
+      "google/gemini-2.0-flash-exp:free",
+    ];
     const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-r1:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free","nvidia/llama-3.1-nemotron-70b-instruct:free"];
 
     // Try all Groq keys, skip 429 rate-limited ones
@@ -715,12 +721,29 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
       ].filter(Boolean);
       if (!keys.length) return null;
 
-      // Convert messages to Google format
       const systemMsg=trimmed.find(m=>m.role==="system");
-      const chatMsgs=trimmed.filter(m=>m.role!=="system").map(m=>({
-        role: m.role==="assistant"?"model":"user",
-        parts:[{text: typeof m.content==="string"?m.content:JSON.stringify(m.content)}]
-      }));
+      const chatMsgs=trimmed.filter(m=>m.role!=="system").map(m=>{
+        // Handle image content parts
+        if (Array.isArray(m.content)) {
+          const parts = m.content.map(p => {
+            if (p.type==="text") return {text: p.text};
+            if (p.type==="image_url") {
+              const url = p.image_url?.url||"";
+              if (url.startsWith("data:")) {
+                const [header, data] = url.split(",");
+                const mimeType = header.replace("data:","").replace(";base64","");
+                return {inline_data:{mime_type:mimeType, data}};
+              }
+            }
+            return null;
+          }).filter(Boolean);
+          return {role: m.role==="assistant"?"model":"user", parts};
+        }
+        return {
+          role: m.role==="assistant"?"model":"user",
+          parts:[{text: typeof m.content==="string"?m.content:JSON.stringify(m.content)}]
+        };
+      });
 
       for (const key of keys) {
         try {
@@ -738,7 +761,6 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
           const data=await res.json();
           const text=data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (!text) continue;
-          // Return in OpenAI-compatible format
           return {ok:true,_googleData:{choices:[{message:{content:text}}]}};
         } catch(e){console.log(`Google AI error: ${e.message}`);}
       }
@@ -844,9 +866,20 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     let response; let responseData=null;
 
     if (hasImage) {
-      // Image: OpenRouter only (Groq/Mistral don't support vision well)
-      response=await callOR(VISION_PRIMARY);
-      if (!response?.ok) { for(const fb of VISION_FB){response=await callOR(fb);if(response?.ok)break;await new Promise(r=>setTimeout(r,600));} }
+      // Try Google AI Studio first (best vision quality)
+      const googleVisionRes = await callGoogle(GOOGLE_MODELS[modelKey]);
+      if (googleVisionRes?.ok) {
+        response = googleVisionRes;
+        responseData = googleVisionRes._googleData;
+        console.log("✅ Vision: Google AI Studio");
+      } else {
+        // Fallback to OpenRouter vision models
+        for (const vm of VISION_MODELS) {
+          response = await callOR(vm);
+          if (response?.ok) { console.log(`✅ Vision: ${vm}`); break; }
+          await new Promise(r=>setTimeout(r,500));
+        }
+      }
     } else {
       // Text: Groq → Google → Mistral → OpenRouter
 
