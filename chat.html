@@ -1666,6 +1666,33 @@ async function send() {
   if(file&&!file.fromContext){fd.append('file',file.file);fd.append('fileType',file.isImage?'image':'document');}
   if(file?.isImage&&finalText) fd.append('imageText',finalText);
 
+  // ── Image → non-streaming, Text → streaming ──
+  if (isImageRequest) {
+    try {
+      const res = await fetch(`${API}/chat`, {
+        method:'POST', headers:{Authorization:`Bearer ${STATE.token}`},
+        body:fd, signal:currentAbortController.signal,
+      });
+      if(res.status===401){signOut();showToast('Session expired.','error');openModal();typingRow.remove();sendBtnEl.classList.remove('loading');STATE.memory.pop();return;}
+      if(res.status===429){
+        const data=await res.json();typingRow.remove();sendBtnEl.classList.remove('loading');STATE.memory.pop();
+        if(data.reply==='limit_reached'){const mins=data.minsLeft||0,h=Math.floor(mins/60),m=mins%60,ts=h>0?`${h}h ${m}m`:`${m} min`;document.getElementById('resetTimer').textContent=ts;document.getElementById('resetTimerBtn').textContent=ts;document.getElementById('limitOverlay').classList.add('open');}
+        return;
+      }
+      const data = await res.json();
+      typingRow.remove(); sendBtnEl.classList.remove('loading'); currentAbortController=null;
+      if(!data||data.reply==='limit_reached'){STATE.memory.pop();renderBotMessage('⚠️ **Connection error.** Please try again.');return;}
+      if(data.conversationId){STATE.conversationId=data.conversationId;loadConversations();}
+      renderBotMessage(data.reply||'No response.');
+      if(data.msgsLeft!=null){const cn=document.getElementById('msgCountNum');cn.textContent=data.msgsLeft;if(data.msgsLeft<=3)cn.style.color='#f87171';else if(data.msgsLeft<=6)cn.style.color='#f59e0b';checkWarnLimit(data.msgsLeft);}
+    } catch(err) {
+      typingRow?.remove();sendBtnEl.classList.remove('loading');
+      if(err.name!=='AbortError'){STATE.memory.pop();renderBotMessage('⚠️ **Connection error.** Please try again.');}
+      else{STATE.memory.pop();showToast('Generation stopped','');}
+    } finally { sendBtnEl.classList.remove('loading'); currentAbortController=null; }
+    return;
+  }
+
   try {
     const res=await fetch(`${API}/chat/stream`,{
       method:'POST',headers:{Authorization:`Bearer ${STATE.token}`},
@@ -1827,9 +1854,19 @@ function openImageGen() {
 }
 function closeImageGen() { document.getElementById('imageGenOverlay').classList.remove('open'); }
 
-// ── Image Generation Limit (3/day for free users) ──
-const IMAGE_LIMIT = 3;
-const IMAGE_WINDOW = 24 * 60 * 60 * 1000; // 24 hours
+// ── Image Generation Limit ──
+const IMAGE_LIMITS = { free: 3, student: 8, pro: Infinity };
+const IMAGE_WINDOW = 24 * 60 * 60 * 1000;
+
+function getImageLimit() {
+  const proBadge = document.getElementById('proBadge');
+  const isPro = proBadge && proBadge.style.display !== 'none';
+  if (isPro) return Infinity;
+  // Check student badge
+  const userRole = document.getElementById('userRoleEl')?.textContent || '';
+  if (userRole.includes('Student')) return IMAGE_LIMITS.student;
+  return IMAGE_LIMITS.free;
+}
 
 function getImageUsage() {
   try {
@@ -1855,18 +1892,21 @@ function getImageTimeLeft() {
 }
 
 function isProUser() {
-  return document.getElementById('proBadge').style.display !== 'none';
+  const proBadge = document.getElementById('proBadge');
+  return proBadge && proBadge.style.display !== 'none';
 }
 
 function updateImageGenUI() {
+  const limit = getImageLimit();
   const usage = getImageUsage();
-  const remaining = Math.max(0, IMAGE_LIMIT - usage.count);
+  const remaining = limit === Infinity ? Infinity : Math.max(0, limit - usage.count);
   const isPro = isProUser();
   const submitBtn = document.getElementById('imageGenSubmit');
   const errEl = document.getElementById('imageGenError');
+  const counter = document.getElementById('imageGenCounter');
 
   if (!isPro && remaining === 0) {
-    errEl.innerHTML = `Daily limit reached (${IMAGE_LIMIT}/day). Resets in <strong>${getImageTimeLeft()}</strong>.<br><a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade to Pro for unlimited images →</a>`;
+    errEl.innerHTML = `Daily limit reached (${limit}/day). Resets in <strong>${getImageTimeLeft()}</strong>.<br><a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade for more images →</a>`;
     errEl.style.display = 'block';
     submitBtn.disabled = true;
     submitBtn.style.opacity = '0.5';
@@ -1876,10 +1916,14 @@ function updateImageGenUI() {
     submitBtn.disabled = false;
     submitBtn.style.opacity = '1';
     submitBtn.style.cursor = 'pointer';
-    // Show counter for free users
-    if (!isPro) {
-      const counter = document.getElementById('imageGenCounter');
-      if (counter) counter.textContent = `${remaining} of ${IMAGE_LIMIT} remaining today`;
+    if (counter) {
+      if (isPro) {
+        counter.textContent = 'Unlimited';
+        counter.style.color = 'var(--accent2)';
+      } else {
+        counter.textContent = `${remaining} of ${limit} remaining today`;
+        counter.style.color = remaining <= 1 ? '#f87171' : 'var(--muted)';
+      }
     }
   }
 }
@@ -1904,10 +1948,11 @@ document.getElementById('imageGenSubmit').addEventListener('click', async () => 
 
   // ── Check limit ──
   const isPro = isProUser();
-  if (!isPro) {
+  const limit = getImageLimit();
+  if (!isPro && limit !== Infinity) {
     const usage = getImageUsage();
-    if (usage.count >= IMAGE_LIMIT) {
-      errEl.innerHTML = `Daily limit reached (${IMAGE_LIMIT}/day). Resets in <strong>${getImageTimeLeft()}</strong>.<br><a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade to Pro for unlimited →</a>`;
+    if (usage.count >= limit) {
+      errEl.innerHTML = `Daily limit reached (${limit}/day). Resets in <strong>${getImageTimeLeft()}</strong>.<br><a href="pricing.html" style="color:var(--accent);font-weight:700;">Upgrade for more images →</a>`;
       errEl.style.display = 'block';
       return;
     }
