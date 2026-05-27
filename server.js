@@ -55,11 +55,38 @@ const transporter = nodemailer.createTransport({
   auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
 });
 
+// ── Email via Resend API (works on Render free plan) ──
 async function sendEmail(to, subject, html) {
   try {
-    await transporter.sendMail({ from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`, to, subject, html });
+    // Try Resend first (works on Render)
+    if (process.env.RESEND_API_KEY) {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: "SG ChatBOT <noreply@resend.dev>",
+          to: [to],
+          subject,
+          html,
+        }),
+      });
+      if (res.ok) { console.log(`✅ Email sent via Resend to ${to}`); return true; }
+      const err = await res.json();
+      console.error("Resend error:", err);
+    }
+    // Fallback: Nodemailer Gmail (may not work on Render free)
+    await transporter.sendMail({
+      from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`,
+      to, subject, html,
+    });
     return true;
-  } catch (err) { console.error("Email error:", err.message); return false; }
+  } catch (err) {
+    console.error("Email error:", err.message);
+    return false;
+  }
 }
 
 async function sendSecurityAlert(type, details) {
@@ -354,9 +381,9 @@ app.post("/forgot-password", resetLimiter, async (req,res) => {
     const user=await User.findOne({email});
     if (!user) return res.json({message:"If this email exists, a reset code has been sent."});
     const code=crypto.randomInt(100000,999999).toString();
-    user.resetToken=await bcrypt.hash(code,8); user.resetTokenExp=new Date(Date.now()+15*60*1000);
+    user.resetToken=await bcrypt.hash(code,8); user.resetTokenExp=new Date(Date.now()+2*60*1000);
     await user.save();
-    await sendEmail(email,"🔑 SG ChatBOT — Password Reset Code",`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)"><h2 style="color:#4f8eff">SG ChatBOT</h2><p>Your reset code:</p><div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#4f8eff;background:rgba(79,142,255,0.1);padding:20px;border-radius:12px;text-align:center;margin:16px 0">${code}</div><p style="color:#8a9bb5;font-size:13px">Expires in 15 minutes.</p></div>`);
+    await sendEmail(email,"🔑 SG ChatBOT — Password Reset Code",`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)"><h2 style="color:#4f8eff">SG ChatBOT</h2><p>Your reset code:</p><div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#4f8eff;background:rgba(79,142,255,0.1);padding:20px;border-radius:12px;text-align:center;margin:16px 0">${code}</div><p style="color:#8a9bb5;font-size:13px">Expires in 2 minutes.</p></div>`);
     res.json({message:"If this email exists, a reset code has been sent."});
   } catch { res.status(500).json({message:"Error"}); }
 });
@@ -693,7 +720,7 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const GROQ_MODELS={fast:"llama-3.3-70b-versatile",smart:"llama-3.3-70b-versatile",coding:"llama-3.3-70b-versatile",deep:"deepseek-r1-distill-llama-70b"};
     const GOOGLE_MODELS={fast:"gemini-2.0-flash",smart:"gemini-2.0-flash",coding:"gemini-2.0-flash",deep:"gemini-2.5-flash-preview-04-17"};
     const MISTRAL_MODELS={fast:"mistral-small-latest",smart:"mistral-small-latest",coding:"codestral-latest",deep:"mistral-large-latest"};
-    const OR_MODELS={fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
+    const OR_MODELS={fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"google/gemini-2.5-flash:free"};
     const VISION_MODELS=[
       "meta-llama/llama-4-maverick:free",
       "meta-llama/llama-4-scout:free",
@@ -702,7 +729,7 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
       "mistralai/pixtral-12b:free",
       "google/gemini-2.0-flash-exp:free",
     ];
-    const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","deepseek/deepseek-r1:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free","nvidia/llama-3.1-nemotron-70b-instruct:free"];
+    const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","google/gemini-2.5-flash:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free","nvidia/llama-3.1-nemotron-70b-instruct:free"];
 
     // Try all Groq keys, skip 429 rate-limited ones
     async function callGroqRotating(model) {
@@ -1041,7 +1068,7 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     const hasImage = trimmed.some(m=>Array.isArray(m.content)&&m.content.some(p=>p.type==="image_url"));
     const modelKey = ["fast","smart","coding","deep"].includes(req.body.modelKey)?req.body.modelKey:"fast";
     const GROQ_MODELS = {fast:"llama-3.3-70b-versatile",smart:"llama-3.3-70b-versatile",coding:"llama-3.3-70b-versatile",deep:"deepseek-r1-distill-llama-70b"};
-    const OR_MODELS = {fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"deepseek/deepseek-r1:free"};
+    const OR_MODELS = {fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"google/gemini-2.5-flash:free"};
 
     // ── Web Search (Tavily) ──
     const lastMsgS = trimmed.filter(m=>m.role==="user").slice(-1)[0];
