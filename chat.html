@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 
   <style>
     :root {
@@ -1255,6 +1256,7 @@ const STATE = {
   pendingFile: null, historyAdded: false, lastWasVoice: false,
   conversationId: null, displayName: '', settings: {},
   sidebarOpen: true, allConversations: [],
+  lastImage: null, // remember last uploaded image for follow-up questions
 };
 
 // ══ DOM REFS ══
@@ -1531,10 +1533,56 @@ function renderTyping(isImage=false, isSearch=false) {
 function addCopyButtons(el) {
   el.querySelectorAll('pre').forEach(pre => {
     if (pre.querySelector('.copy-btn')) return; pre.style.position = 'relative';
-    const copyBtn = document.createElement('button'); copyBtn.className = 'copy-btn'; copyBtn.textContent = 'Copy'; copyBtn.addEventListener('click', () => { navigator.clipboard.writeText(pre.querySelector('code')?.textContent || pre.textContent); copyBtn.textContent = 'Copied!'; setTimeout(() => copyBtn.textContent = 'Copy', 2000); });
-    const codeEl = pre.querySelector('code'), codeText = codeEl?.textContent || pre.textContent, lang = (codeEl?.className || '').replace('language-', '').toLowerCase() || detectLang(codeText), isRunnable = ['js', 'javascript', 'html', 'htm', 'css'].includes(lang) || /<!DOCTYPE|<html/.test(codeText);
-    if (isRunnable || codeText.length > 20) { const runBtn = document.createElement('button'); runBtn.className = 'run-btn'; runBtn.innerHTML = '▶ Run'; runBtn.title = 'Open in Code Sandbox'; const finalLang = isRunnable ? (['html', 'htm'].includes(lang) || /<!DOCTYPE|<html/.test(codeText) ? 'html' : 'js') : lang; runBtn.addEventListener('click', () => openSandbox(codeText, finalLang)); pre.appendChild(runBtn); }
-    const lines = (codeEl?.textContent || '').split('\n').length; if (lines > 15) { pre.style.maxHeight = '300px'; pre.style.overflow = 'hidden'; const expBtn = document.createElement('button'); expBtn.className = 'copy-btn'; expBtn.style.right = '70px'; expBtn.textContent = '⤢ Expand'; expBtn.addEventListener('click', () => { if (pre.style.maxHeight === '300px') { pre.style.maxHeight = 'none'; pre.style.overflow = 'auto'; expBtn.textContent = '⤡ Collapse'; } else { pre.style.maxHeight = '300px'; pre.style.overflow = 'hidden'; expBtn.textContent = '⤢ Expand'; } }); pre.appendChild(expBtn); }
+
+    const codeEl = pre.querySelector('code');
+    const codeText = codeEl?.textContent || pre.textContent;
+    const lang = (codeEl?.className || '').replace('language-', '').toLowerCase() || detectLang(codeText);
+
+    // ── Copy button ──
+    const copyBtn = document.createElement('button'); copyBtn.className = 'copy-btn'; copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', () => { navigator.clipboard.writeText(codeText); copyBtn.textContent = 'Copied!'; setTimeout(() => copyBtn.textContent = 'Copy', 2000); });
+
+    // ── Run button ──
+    const isRunnable = ['js','javascript','html','htm','css'].includes(lang) || /<!DOCTYPE|<html/.test(codeText);
+    if (isRunnable || codeText.length > 20) {
+      const runBtn = document.createElement('button'); runBtn.className = 'run-btn'; runBtn.innerHTML = '▶ Run';
+      const finalLang = isRunnable ? (['html','htm'].includes(lang) || /<!DOCTYPE|<html/.test(codeText) ? 'html' : 'js') : lang;
+      runBtn.addEventListener('click', () => openSandbox(codeText, finalLang));
+      pre.appendChild(runBtn);
+    }
+
+    // ── Download button ──
+    const extMap = {js:'js',javascript:'js',python:'py',html:'html',css:'css',cpp:'cpp',c:'c',java:'java',ts:'ts',typescript:'ts',php:'php',go:'go',rust:'rs',bash:'sh',shell:'sh',sql:'sql',json:'json',xml:'xml',yaml:'yml',markdown:'md'};
+    const ext = extMap[lang] || 'txt';
+    const dlBtn = document.createElement('button'); dlBtn.className = 'copy-btn'; dlBtn.style.right = '116px'; dlBtn.textContent = '⬇ Save';
+    dlBtn.addEventListener('click', () => {
+      const blob = new Blob([codeText], {type:'text/plain'});
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = `code.${ext}`; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    });
+
+    // ── Explain button ──
+    const explainBtn = document.createElement('button'); explainBtn.className = 'copy-btn'; explainBtn.style.right = '180px'; explainBtn.textContent = '💡 Explain';
+    explainBtn.addEventListener('click', async () => {
+      if (!STATE.token) { showToast('Please sign in', 'error'); openModal(); return; }
+      explainBtn.textContent = '⏳'; explainBtn.disabled = true;
+      inputEl.value = `Explain this ${lang || 'code'} step by step:\n\`\`\`${lang}\n${codeText.slice(0,2000)}\n\`\`\``;
+      send();
+      explainBtn.textContent = '💡 Explain'; explainBtn.disabled = false;
+    });
+
+    // ── Expand button for long code ──
+    const lines = codeText.split('\n').length;
+    if (lines > 15) {
+      pre.style.maxHeight = '300px'; pre.style.overflow = 'hidden';
+      const expBtn = document.createElement('button'); expBtn.className = 'copy-btn'; expBtn.style.right = '70px'; expBtn.textContent = '⤢ Expand';
+      expBtn.addEventListener('click', () => { if (pre.style.maxHeight === '300px') { pre.style.maxHeight = 'none'; pre.style.overflow = 'auto'; expBtn.textContent = '⤡ Collapse'; } else { pre.style.maxHeight = '300px'; pre.style.overflow = 'hidden'; expBtn.textContent = '⤢ Expand'; } });
+      pre.appendChild(expBtn);
+    }
+
+    pre.appendChild(dlBtn);
+    pre.appendChild(explainBtn);
     pre.appendChild(copyBtn);
   });
 }
@@ -1576,6 +1624,7 @@ function renderBotMessage(text) {
     try { const fd = new FormData(); fd.append('messages', JSON.stringify(buildMessages(STATE.memory))); fd.append('modelKey', selectedModel); fd.append('personaKey', selectedPersona); const res = await fetch(`${API}/chat`, { method: 'POST', headers: { Authorization: `Bearer ${STATE.token}` }, body: fd }); const data = await res.json(); typingRow.remove(); renderBotMessage(data.reply || 'No response.'); } catch { typingRow.remove(); renderBotMessage('⚠️ **Connection error.** Please try again.'); }
   });
   actionsWrap.appendChild(actions); chatEl.appendChild(row); chatEl.appendChild(actionsWrap); addCopyButtons(bubble); STATE.memory.push({ role: 'assistant', content: text }); renderMath(bubble);
+  addZipButton(actionsWrap, text);
   bubble.innerHTML = '';
   const processed = preprocessLatex(text), plain = (new DOMParser().parseFromString(marked.parse(processed), 'text/html')).body.textContent || '', hasCodeBlock = text.includes('```') || text.includes('~~~');
   if (plain.length > 800 || hasCodeBlock) { bubble.innerHTML = marked.parse(processed); addCopyButtons(bubble); renderMath(bubble); chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' }); if (STATE.lastWasVoice) { speakText(text); STATE.lastWasVoice = false; } setTimeout(() => renderFollowUps(generateFollowUps(text)), 300); }
@@ -1645,8 +1694,29 @@ async function send() {
   if (finalText&&checkTriggers(finalText)) return;
 
   let userContent;
-  if (file&&!file.fromContext){const parts=[];if(file.isImage){parts.push({type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}});parts.push({type:'text',text:finalText||'Analyze this image.'});}else{parts.push({type:'text',text:finalText?`[Attached: ${file.file.name}]\n\n${finalText}`:`[Attached: ${file.file.name}]`});}userContent=parts.length===1?parts[0].text:parts;}
-  else if(file?.fromContext){userContent=[{type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}},{type:'text',text:finalText||'Analyze this image.'}];}
+  if (file&&!file.fromContext){
+    const parts=[];
+    if(file.isImage){
+      parts.push({type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}});
+      parts.push({type:'text',text:finalText||'Analyze this image.'});
+      // Save image to memory for follow-up questions
+      STATE.lastImage = {mimeType: file.mimeType, base64: file.base64};
+    } else {
+      parts.push({type:'text',text:finalText?`[Attached: ${file.file.name}]\n\n${finalText}`:`[Attached: ${file.file.name}]`});
+    }
+    userContent=parts.length===1?parts[0].text:parts;
+  }
+  else if(file?.fromContext){
+    userContent=[{type:'image_url',image_url:{url:`data:${file.mimeType};base64,${file.base64}`}},{type:'text',text:finalText||'Analyze this image.'}];
+    STATE.lastImage = {mimeType: file.mimeType, base64: file.base64};
+  }
+  else if(!file && STATE.lastImage && finalText) {
+    // User asking follow-up about last image — include image again
+    userContent=[
+      {type:'image_url',image_url:{url:`data:${STATE.lastImage.mimeType};base64,${STATE.lastImage.base64}`}},
+      {type:'text',text:finalText}
+    ];
+  }
   else{userContent=finalText;}
   STATE.memory.push({role:'user',content:userContent});
 
@@ -1766,6 +1836,7 @@ async function send() {
               if(lastUser?.role==='user'){STATE.memory.pop();inputEl.value=typeof lastUser.content==='string'?lastUser.content:'';send();}
             });
             actionsWrap.appendChild(actions);
+            addZipButton(actionsWrap, fullText);
 
             if(chunk.sources && chunk.sources.length > 0) {
               const sourcesHtml = chunk.sources.map((s,i) =>
@@ -1799,7 +1870,9 @@ async function send() {
 }
 
 function clearChat() {
-  STATE.memory = []; STATE.historyAdded = false; STATE.conversationId = null; clearPendingFile(); clearReply(); warnShown = false;
+  STATE.memory = []; STATE.historyAdded = false; STATE.conversationId = null;
+  STATE.lastImage = null;
+  clearPendingFile(); clearReply(); warnShown = false;
   if (speechSynth) { speechSynth.cancel(); if (currentSpeakBtn) { currentSpeakBtn.classList.remove('speaking'); currentSpeakBtn = null; } }
   const name = getUserFirstName(), greeting = STATE.token && name ? `${getGreeting()}, ${name}! 👋` : 'How can I help you?', subtext = STATE.token ? 'What can I help you with today?' : 'Ask anything — powered by SG AI';
   chatEl.innerHTML = `<div class="welcome" id="welcome"><div class="welcome-icon">✦</div><h1>${greeting}</h1><p>${subtext}</p><div class="suggestion-grid"><button class="suggestion-card" data-prompt="Explain quantum computing in simple terms"><strong>Explain a concept</strong>Quantum computing, simplified</button><button class="suggestion-card" data-prompt="Write a Python function to sort a list of dictionaries by a key"><strong>Write some code</strong>Sort a list in Python</button><button class="suggestion-card" data-prompt="What are the best productivity habits for developers?"><strong>Give me advice</strong>Developer productivity tips</button><button class="suggestion-card" data-prompt="Summarize the key differences between REST and GraphQL"><strong>Compare ideas</strong>REST vs. GraphQL</button></div><div class="daily-challenge" id="dailyChallenge"><div class="challenge-header"><span>🏆</span><span>Daily Challenge</span><span class="challenge-badge" id="challengeBadge">Day 1</span></div><div class="challenge-text" id="challengeText">Loading today's challenge…</div><button class="challenge-btn" id="challengeAccept">Accept Challenge →</button></div></div>`;
@@ -2064,6 +2137,52 @@ document.querySelectorAll('.model-option').forEach(opt => {
     document.querySelectorAll('.mobile-pill[data-model]').forEach(p => p.classList.toggle('active', p.dataset.model === opt.dataset.model));
   });
 });
+// ══ ZIP FILE GENERATION ══
+async function generateZipFromMessage(text) {
+  if (typeof JSZip === 'undefined') { showToast('JSZip not loaded', 'error'); return; }
+  const files = [];
+  const codeBlockRegex = /```(\w+)?\s*(?:(?:\/\/|#|<!--|\/\*)\s*)?([^\n`]+\.\w{1,5})?\n([\s\S]*?)```/g;
+  let match;
+  const fileCounter = {};
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    const lang = (match[1]||'').toLowerCase();
+    let filename = match[2]?.trim().replace(/\*\/|-->$/,'').trim();
+    const code = match[3];
+    if (!filename || !filename.includes('.')) {
+      const extMap = {javascript:'js',js:'js',html:'html',css:'css',python:'py',py:'py',json:'json',typescript:'ts',ts:'ts',bash:'sh',shell:'sh'};
+      const ext = extMap[lang]||lang||'txt';
+      fileCounter[ext] = (fileCounter[ext]||0)+1;
+      if (fileCounter[ext]===1) {
+        filename = lang==='html'?'index.html':lang==='css'?'style.css':(lang==='js'||lang==='javascript')?'script.js':`main.${ext}`;
+      } else { filename = `file${fileCounter[ext]}.${ext}`; }
+    }
+    if (!files.find(f=>f.name===filename)) files.push({name:filename, content:code});
+  }
+  if (!files.length) { showToast('No code files found to zip', 'error'); return; }
+  const zip = new JSZip();
+  files.forEach(f => zip.file(f.name, f.content));
+  zip.file('README.md', `# Project\nGenerated by SG ChatBOT — StrongGuy AI\n\nFiles:\n${files.map(f=>`- ${f.name}`).join('\n')}\n\nOpen index.html in browser to run.`);
+  const blob = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='sg-project.zip';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast(`Downloaded ${files.length} files as ZIP ✓`, 'success');
+}
+
+// ── ZIP button on bot messages ──
+function addZipButton(actionsWrap, fullText) {
+  const hasMultipleCodeBlocks = (fullText.match(/```/g)||[]).length >= 4;
+  if (!hasMultipleCodeBlocks) return;
+  const zipBtn = document.createElement('button');
+  zipBtn.className = 'msg-action-btn';
+  zipBtn.title = 'Download all files as ZIP';
+  zipBtn.style.cssText = 'gap:4px;padding:0 10px;width:auto;font-size:11px;font-weight:700;color:var(--accent2);border-color:rgba(0,212,170,.3);background:rgba(0,212,170,.07);';
+  zipBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download ZIP`;
+  zipBtn.addEventListener('click', () => generateZipFromMessage(fullText));
+  const actions = actionsWrap.querySelector('.msg-actions');
+  if (actions) actions.appendChild(zipBtn);
+}
+
 updateAuthUI();
 bindSuggestions();
 initDailyChallenge();
