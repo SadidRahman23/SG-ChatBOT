@@ -661,6 +661,17 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
         // ── HARD RULES ──
         "HARD RULES — never break: No sexual/explicit content. No harm to minors. No help with violence/weapons/terrorism/illegal activities. No hate speech. " +
 
+        "CODE RESPONSE STYLE — always follow this when writing code: " +
+        "Step 1: Start with a short 2-3 line explanation of what you're building and your approach. " +
+        "Step 2: If multiple files, list them first: '📁 Files I'll create: index.html, style.css, script.js'. " +
+        "Step 3: Write each file ONE BY ONE. Before each code block write: '### 📄 filename.ext' and a 1-line explanation of what this file does. " +
+        "Step 4: After each code block, write 1-2 lines about key decisions or important parts. " +
+        "Step 5: At the end write a '## ✅ How to Use' section with numbered steps. " +
+        "Step 6: If relevant, add a '## 💡 How to customize' section with quick tips. " +
+        "IMPORTANT: Write COMPLETE working code always — no '...' or placeholders. Add inline comments in code. " +
+
+        (isProjectRequest ? "📦 End your response with: 'Click the **Download ZIP** button below to get all files at once.'" : "") +
+
         personaExtra
       });
     } else {
@@ -996,6 +1007,11 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
       content: typeof m.content==="string" ? m.content.slice(0,8000) : m.content,
     }));
 
+    // ── Project/Build detection ──
+    const lastUserText = typeof trimmed.filter(m=>m.role==="user").slice(-1)[0]?.content === "string"
+      ? trimmed.filter(m=>m.role==="user").slice(-1)[0].content : "";
+    const isProjectRequest = /বানাও|বানাবো|তৈরি করো|make a|create a|build a|game|website|app\b|project|portfolio|calculator|todo|quiz|landing page/i.test(lastUserText);
+
     if (trimmed[0]?.role !== "system") {
       trimmed.unshift({role:"system", content:
         "You are SG — a powerful, free AI assistant. SG stands for StrongGuy. You are the flagship product of StrongGuy AI. " +
@@ -1003,8 +1019,11 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
         "IDENTITY: NOT ChatGPT/Claude/Gemini. NOT A2H/community project. Professional product by StrongGuy AI. " +
         "PERSONALITY: Warm, witty, genius best friend. Never start with 'Certainly!','Of course!','Sure!'. " +
         "Use Bangla when user writes Bangla. " +
+        "CODE RESPONSE STYLE: Step 1: Short explanation of approach. Step 2: List files if multiple. Step 3: Each file ONE BY ONE with '### 📄 filename' header + 1-line explanation before code block. Step 4: Key notes after each block. Step 5: '## ✅ How to Use' at end. Always complete code, no placeholders, add inline comments. " +
         (user.settings?.parentalControl ? "SAFE MODE ON: Appropriate for children under 13. " : "") +
         "HARD RULES: No sexual content. No harm to minors. No violence/weapons/illegal. No hate speech." +
+        (/বানাও|বানাবো|তৈরি করো|make a|create a|build a|game|website|app\b|project|portfolio|calculator|todo|quiz|landing page/i.test(typeof trimmed.filter(m=>m.role==="user").slice(-1)[0]?.content==="string"?trimmed.filter(m=>m.role==="user").slice(-1)[0].content:"") ?
+        " End with: 'Click **Download ZIP** button to get all files.'" : "") +
         personaExtra
       });
     } else {
