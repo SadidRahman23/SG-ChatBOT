@@ -58,30 +58,38 @@ const transporter = nodemailer.createTransport({
 // ── Email via Resend API (works on Render free plan) ──
 async function sendEmail(to, subject, html) {
   try {
-    // Try Resend first (works on Render)
-    if (process.env.RESEND_API_KEY) {
-      const res = await fetch("https://api.resend.com/emails", {
+    // Brevo (Sendinblue) API — free, no custom domain needed
+    if (process.env.BREVO_API_KEY) {
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
+          "api-key": process.env.BREVO_API_KEY,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "SG ChatBOT <noreply@resend.dev>",
-          to: [to],
+          sender: { name: "SG ChatBOT", email: process.env.EMAIL_USER || "noreply@sgchatbot.com" },
+          to: [{ email: to }],
           subject,
-          html,
+          htmlContent: html,
         }),
       });
-      if (res.ok) { console.log(`✅ Email sent via Resend to ${to}`); return true; }
+      if (res.ok) { console.log(`✅ Email sent via Brevo to ${to}`); return true; }
       const err = await res.json();
-      console.error("Resend error:", err);
+      console.error("Brevo error:", JSON.stringify(err));
     }
-    // Fallback: Nodemailer Gmail (may not work on Render free)
-    await transporter.sendMail({
-      from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`,
-      to, subject, html,
-    });
+
+    // Fallback: Resend
+    if (process.env.RESEND_API_KEY) {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ from: "SG ChatBOT <onboarding@resend.dev>", to: [to], subject, html }),
+      });
+      if (res.ok) { console.log(`✅ Email sent via Resend to ${to}`); return true; }
+    }
+
+    // Final fallback: Nodemailer
+    await transporter.sendMail({ from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`, to, subject, html });
     return true;
   } catch (err) {
     console.error("Email error:", err.message);
@@ -383,7 +391,52 @@ app.post("/forgot-password", resetLimiter, async (req,res) => {
     const code=crypto.randomInt(100000,999999).toString();
     user.resetToken=await bcrypt.hash(code,8); user.resetTokenExp=new Date(Date.now()+2*60*1000);
     await user.save();
-    await sendEmail(email,"🔑 SG ChatBOT — Password Reset Code",`<div style="font-family:sans-serif;max-width:480px;margin:0 auto;background:#0b0f17;color:#e4ecf7;padding:32px;border-radius:16px;border:1px solid rgba(255,255,255,0.1)"><h2 style="color:#4f8eff">SG ChatBOT</h2><p>Your reset code:</p><div style="font-size:36px;font-weight:800;letter-spacing:8px;color:#4f8eff;background:rgba(79,142,255,0.1);padding:20px;border-radius:12px;text-align:center;margin:16px 0">${code}</div><p style="color:#8a9bb5;font-size:13px">Expires in 2 minutes.</p></div>`);
+    const emailHtml = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f5;padding:40px 0;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);max-width:480px;width:100%;">
+        <tr>
+          <td style="background:linear-gradient(135deg,#0b0f17,#1a2336);padding:32px 40px;text-align:center;">
+            <p style="font-size:22px;font-weight:800;color:#ffffff;margin:0;letter-spacing:-0.5px;">✦ SG ChatBOT</p>
+            <p style="color:#8a9bb5;font-size:13px;margin:6px 0 0;">by StrongGuy AI</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px 40px 32px;">
+            <h1 style="font-size:22px;font-weight:700;color:#0f172a;margin:0 0 8px;">Password reset code</h1>
+            <p style="font-size:15px;color:#64748b;line-height:1.6;margin:0 0 32px;">
+              We received a request to reset the password for your SG ChatBOT account associated with <strong style="color:#0f172a;">${email}</strong>.
+            </p>
+            <div style="background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:28px;text-align:center;margin-bottom:28px;">
+              <p style="font-size:13px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 12px;">Your verification code</p>
+              <div style="font-size:42px;font-weight:800;letter-spacing:12px;color:#0f172a;font-family:monospace;">${code}</div>
+              <p style="font-size:12px;color:#94a3b8;margin:12px 0 0;">Expires in <strong>2 minutes</strong></p>
+            </div>
+            <div style="background:#fef9ec;border:1px solid #fde68a;border-radius:10px;padding:14px 16px;margin-bottom:28px;">
+              <p style="font-size:13px;color:#92400e;margin:0;line-height:1.5;">
+                If you did not request this, you can safely ignore this email. Your password will not be changed.
+              </p>
+            </div>
+            <p style="font-size:14px;color:#64748b;line-height:1.6;margin:0;">This code can only be used once and expires in 2 minutes.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:24px 40px;text-align:center;">
+            <p style="font-size:12px;color:#94a3b8;margin:0;line-height:1.8;">
+              SG ChatBOT &middot; StrongGuy AI &middot; Built by Mohammed Sadid Rahman<br>
+              <a href="https://sg-chatbot-a2h.pages.dev" style="color:#4f8eff;text-decoration:none;">sg-chatbot-a2h.pages.dev</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+    await sendEmail(email, "Your SG ChatBOT verification code", emailHtml);
     res.json({message:"If this email exists, a reset code has been sent."});
   } catch { res.status(500).json({message:"Error"}); }
 });
@@ -1241,6 +1294,49 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     console.error("Stream error:",err);
     clearInterval(keepalive);
     try { res.write(`data: ${JSON.stringify({error:"Server error."})}\n\n`); res.end(); } catch {}
+  }
+});
+
+// ═══ TEXT TO SPEECH (ElevenLabs) ═══
+const ttsLimiter = rateLimit({ windowMs:60*1000, max:20, message:{message:"TTS limit reached."} });
+
+app.post("/tts", ttsLimiter, auth, async (req,res) => {
+  try {
+    const { text, voiceId } = req.body;
+    if (!text) return res.status(400).json({message:"Text required."});
+    if (!process.env.ELEVENLABS_API_KEY) return res.status(500).json({message:"TTS not configured."});
+
+    const voice = voiceId || "21m00Tcm4TlvDq8ikWAM"; // Rachel — natural female voice
+    const cleanText = text.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').trim().slice(0, 1000);
+
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}`, {
+      method: "POST",
+      headers: {
+        "xi-api-key": process.env.ELEVENLABS_API_KEY,
+        "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text: cleanText,
+        model_id: "eleven_turbo_v2_5",
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    if (!response.ok) {
+      const err = await response.text();
+      console.error("ElevenLabs error:", err.slice(0,200));
+      return res.status(500).json({message:"TTS failed."});
+    }
+
+    const audioBuffer = await response.arrayBuffer();
+    res.setHeader("Content-Type","audio/mpeg");
+    res.setHeader("Content-Length", audioBuffer.byteLength);
+    res.send(Buffer.from(audioBuffer));
+  } catch(err) {
+    console.error("TTS error:", err.message);
+    res.status(500).json({message:"TTS server error."});
   }
 });
 
