@@ -1588,8 +1588,48 @@ function addCopyButtons(el) {
 }
 function renderMath(el) { if (!window.renderMathInElement) return; renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }, { left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }], throwOnError: false, ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }); }
 
-// ══ VOICE SPEAK ══
-function speakReply(text, btn) { if (!speechSynth) return; if (currentSpeakBtn === btn && speechSynth.speaking) { speechSynth.cancel(); btn.classList.remove('speaking'); currentSpeakBtn = null; return; } speechSynth.cancel(); if (currentSpeakBtn) { currentSpeakBtn.classList.remove('speaking'); } const clean = text.replace(/[*_`#>\[\]]/g, '').replace(/\n+/g, ' ').trim(), utt = new SpeechSynthesisUtterance(clean); const voices = speechSynth.getVoices(), preferred = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Daniel'))) || voices.find(v => v.lang.startsWith('en')) || voices[0]; if (preferred) utt.voice = preferred; utt.rate = 1.0; utt.pitch = 1.05; utt.lang = 'en-US'; btn.classList.add('speaking'); currentSpeakBtn = btn; utt.onend = () => { btn.classList.remove('speaking'); if (currentSpeakBtn === btn) currentSpeakBtn = null; }; utt.onerror = () => { btn.classList.remove('speaking'); if (currentSpeakBtn === btn) currentSpeakBtn = null; }; if (speechSynth.getVoices().length > 0) { speechSynth.speak(utt); } else { speechSynthesis.onvoiceschanged = () => speechSynth.speak(utt); } }
+// ══ ELEVENLABS TTS ══
+let currentAudio = null;
+
+async function speakWithElevenLabs(text, onEnd) {
+  if (!STATE.token) { onEnd?.(); return false; }
+  try {
+    const res = await fetch(`${API}/tts`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${STATE.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text.slice(0, 1000) }),
+    });
+    if (!res.ok) return false;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); }
+    currentAudio = new Audio(url);
+    currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd?.(); };
+    currentAudio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd?.(); };
+    await currentAudio.play();
+    return true;
+  } catch(e) { console.log('ElevenLabs TTS error:', e.message); return false; }
+}
+
+function stopElevenLabs() {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+}
+function speakReply(text, btn) {
+  if (currentAudio && !currentAudio.paused) { stopElevenLabs(); btn.classList.remove('speaking'); currentSpeakBtn = null; return; }
+  if (speechSynth?.speaking) { speechSynth.cancel(); }
+  if (currentSpeakBtn) { currentSpeakBtn.classList.remove('speaking'); }
+  btn.classList.add('speaking'); currentSpeakBtn = btn;
+  speakWithElevenLabs(text, () => { btn.classList.remove('speaking'); if (currentSpeakBtn === btn) currentSpeakBtn = null; }).then(ok => {
+    if (!ok && speechSynth) {
+      const clean = text.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').trim();
+      const utt = new SpeechSynthesisUtterance(clean);
+      const voices = speechSynth.getVoices(), preferred = voices.find(v=>v.lang.startsWith('en')&&(v.name.includes('Google')||v.name.includes('Daniel')))||voices.find(v=>v.lang.startsWith('en'))||voices[0];
+      if (preferred) utt.voice = preferred; utt.rate = 1.0; utt.pitch = 1.05; utt.lang = 'en-US';
+      utt.onend = () => { btn.classList.remove('speaking'); if (currentSpeakBtn === btn) currentSpeakBtn = null; };
+      if (speechSynth.getVoices().length > 0) { speechSynth.speak(utt); } else { speechSynthesis.onvoiceschanged = () => speechSynth.speak(utt); }
+    }
+  });
+}
 
 // ══ FOLLOW-UPS ══
 function generateFollowUps(replyText) { const text = replyText.toLowerCase(), suggestions = []; if (text.includes('code') || text.includes('function') || text.includes('```')) { suggestions.push('Can you explain this code?', 'How can I optimize this?', 'Show me an example'); } else if (text.includes('step') || text.includes('first') || text.includes('then')) { suggestions.push('Can you simplify this?', 'What are common mistakes?', 'Give me more detail on step 1'); } else if (text.includes('differ') || text.includes('vs') || text.includes('compare')) { suggestions.push('Which one should I choose?', 'What are the use cases?', 'Are there alternatives?'); } else { suggestions.push('Tell me more', 'Give me an example', 'How does this work in practice?'); } return suggestions.slice(0, 3); }
@@ -1643,12 +1683,19 @@ function buildMessages(memory) {
 
 // ══ VOICE MESSAGE ══
 function startVoiceMessage() { if (!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) { showToast('Voice not supported in this browser', 'error'); return; } if (isRecording) { recognition?.stop(); return; } const SR = window.SpeechRecognition || window.webkitSpeechRecognition; recognition = new SR(); recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'en-US'; recognition.onresult = e => { inputEl.value = e.results[0][0].transcript; isRecording = false; STATE.lastWasVoice = true; send(); }; recognition.onerror = () => { isRecording = false; showToast('Voice not recognized.', 'error'); }; recognition.onend = () => { isRecording = false; }; recognition.start(); isRecording = true; showToast('🎤 Listening… speak now', ''); }
-function speakText(text) { if (!speechSynth) return; speechSynth.cancel(); const clean = text.replace(/[*_`#>\[\]]/g, '').replace(/\n+/g, ' ').slice(0, 500), utt = new SpeechSynthesisUtterance(clean); utt.rate = 1.05; utt.pitch = 1; utt.lang = 'en-US'; speechSynth.speak(utt); }
+function speakText(text) {
+  speakWithElevenLabs(text).then(ok => {
+    if (!ok && speechSynth) {
+      const clean = text.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').slice(0,500);
+      const utt = new SpeechSynthesisUtterance(clean); utt.rate = 1.05; utt.pitch = 1; utt.lang = 'en-US'; speechSynth.speak(utt);
+    }
+  });
+}
 
 // ══ VOICE CONVERSATION ══
 const voiceConvOverlay = document.getElementById('voiceConvOverlay'), voiceConvOrb = document.getElementById('voiceConvOrb'), voiceConvStatus = document.getElementById('voiceConvStatus'), voiceConvTranscript = document.getElementById('voiceConvTranscript'), voiceConvStart = document.getElementById('voiceConvStart');
 function openVoiceConv() { voiceConvOverlay.classList.add('open'); voiceConvStatus.textContent = 'Tap to start talking'; voiceConvStatus.className = 'voice-conv-status'; voiceConvOrb.className = 'voice-conv-orb'; voiceConvTranscript.classList.remove('show'); voiceConvStart.textContent = 'Start Talking'; voiceConvStart.classList.remove('active'); convActive = false; convListening = false; }
-function closeVoiceConv() { voiceConvOverlay.classList.remove('open'); convRecognition?.abort(); speechSynth?.cancel(); convActive = false; convListening = false; }
+function closeVoiceConv() { voiceConvOverlay.classList.remove('open'); convRecognition?.abort(); speechSynth?.cancel(); stopElevenLabs(); convActive = false; convListening = false; }
 document.getElementById('voiceConvClose').addEventListener('click', closeVoiceConv);
 voiceConvOrb.addEventListener('click', toggleVoiceConv); voiceConvStart.addEventListener('click', toggleVoiceConv);
 function toggleVoiceConv() { if (convListening) { convRecognition?.stop(); } else { startVoiceConvListen(); } }
@@ -1660,7 +1707,29 @@ function startVoiceConvListen() {
   convRecognition.onend = async () => {
     convListening = false; const userText = voiceConvTranscript.textContent.trim(); if (!userText) { voiceConvStatus.textContent = 'Tap to start talking'; voiceConvStatus.className = 'voice-conv-status'; voiceConvOrb.className = 'voice-conv-orb'; voiceConvStart.textContent = 'Start Talking'; voiceConvStart.classList.remove('active'); return; }
     STATE.memory.push({ role: 'user', content: userText }); renderUserMessage(userText, null); voiceConvStatus.textContent = 'SG is thinking…'; voiceConvStatus.className = 'voice-conv-status'; voiceConvOrb.className = 'voice-conv-orb';
-    try { const fd = new FormData(); fd.append('messages', JSON.stringify(buildMessages(STATE.memory))); fd.append('personaKey', selectedPersona); const res = await fetch(`${API}/chat`, { method: 'POST', headers: { Authorization: `Bearer ${STATE.token}` }, body: fd }); const data = await res.json(); const reply = data.reply || 'Sorry, I could not respond.'; STATE.memory.push({ role: 'assistant', content: reply }); voiceConvStatus.textContent = 'SG is speaking…'; voiceConvStatus.className = 'voice-conv-status speaking'; voiceConvOrb.className = 'voice-conv-orb speaking'; voiceConvStart.textContent = 'Start Talking'; voiceConvStart.classList.remove('active'); voiceConvTranscript.textContent = reply.slice(0, 120) + (reply.length > 120 ? '…' : ''); const row = document.createElement('div'); row.className = 'msg-row bot'; const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.innerHTML = marked.parse(reply); row.innerHTML = botAvatarHtml(false); row.appendChild(bubble); chatEl.appendChild(row); addCopyButtons(bubble); chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' }); const clean = reply.replace(/[*_`#>\[\]]/g, '').replace(/\n+/g, ' ').slice(0, 600); speechSynth.cancel(); function doSpeak() { const utt = new SpeechSynthesisUtterance(clean); const voices = speechSynth.getVoices(); const preferred = voices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) || voices.find(v => v.lang.startsWith('en')) || voices[0]; if (preferred) utt.voice = preferred; utt.rate = 1.0; utt.pitch = 1.1; utt.volume = 1; utt.lang = 'en-US'; utt.onend = () => { voiceConvStatus.textContent = 'Tap to start talking'; voiceConvStatus.className = 'voice-conv-status'; voiceConvOrb.className = 'voice-conv-orb'; voiceConvTranscript.classList.remove('show'); if (convActive) setTimeout(startVoiceConvListen, 800); }; utt.onerror = e => { console.error('Speech error:', e); }; speechSynth.speak(utt); } if (speechSynth.getVoices().length > 0) { doSpeak(); } else { speechSynthesis.onvoiceschanged = () => { doSpeak(); }; } } catch { voiceConvStatus.textContent = 'Connection error. Try again.'; voiceConvOrb.className = 'voice-conv-orb'; }
+    try { const fd = new FormData(); fd.append('messages', JSON.stringify(buildMessages(STATE.memory))); fd.append('personaKey', selectedPersona); const res = await fetch(`${API}/chat`, { method: 'POST', headers: { Authorization: `Bearer ${STATE.token}` }, body: fd }); const data = await res.json(); const reply = data.reply || 'Sorry, I could not respond.'; STATE.memory.push({ role: 'assistant', content: reply }); voiceConvStatus.textContent = 'SG is speaking…'; voiceConvStatus.className = 'voice-conv-status speaking'; voiceConvOrb.className = 'voice-conv-orb speaking'; voiceConvStart.textContent = 'Start Talking'; voiceConvStart.classList.remove('active'); voiceConvTranscript.textContent = reply.slice(0, 120) + (reply.length > 120 ? '…' : ''); const row = document.createElement('div'); row.className = 'msg-row bot'; const bubble = document.createElement('div'); bubble.className = 'bubble'; bubble.innerHTML = marked.parse(reply); row.innerHTML = botAvatarHtml(false); row.appendChild(bubble); chatEl.appendChild(row); addCopyButtons(bubble); chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: 'smooth' }); // ElevenLabs TTS for voice conversation
+      const onSpeakEnd = () => {
+        voiceConvStatus.textContent = 'Tap to start talking';
+        voiceConvStatus.className = 'voice-conv-status';
+        voiceConvOrb.className = 'voice-conv-orb';
+        voiceConvTranscript.classList.remove('show');
+        if (convActive) setTimeout(startVoiceConvListen, 800);
+      };
+      const elOk = await speakWithElevenLabs(reply, onSpeakEnd);
+      if (!elOk) {
+        // Fallback to Web Speech
+        const clean = reply.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').slice(0,600);
+        speechSynth.cancel();
+        function doSpeak() {
+          const utt = new SpeechSynthesisUtterance(clean);
+          const voices = speechSynth.getVoices();
+          const preferred = voices.find(v=>v.lang.startsWith('en')&&v.name.includes('Google'))||voices.find(v=>v.lang.startsWith('en'))||voices[0];
+          if (preferred) utt.voice = preferred; utt.rate = 1.0; utt.pitch = 1.1; utt.volume = 1; utt.lang = 'en-US';
+          utt.onend = onSpeakEnd; utt.onerror = e => console.error('Speech error:',e);
+          speechSynth.speak(utt);
+        }
+        if (speechSynth.getVoices().length > 0) { doSpeak(); } else { speechSynthesis.onvoiceschanged = doSpeak; }
+      } } catch { voiceConvStatus.textContent = 'Connection error. Try again.'; voiceConvOrb.className = 'voice-conv-orb'; }
   };
   convRecognition.onerror = () => { convListening = false; voiceConvStatus.textContent = 'Could not hear you. Try again.'; voiceConvOrb.className = 'voice-conv-orb'; voiceConvStart.textContent = 'Start Talking'; voiceConvStart.classList.remove('active'); };
   convRecognition.start();
