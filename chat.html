@@ -1588,22 +1588,40 @@ function addCopyButtons(el) {
 }
 function renderMath(el) { if (!window.renderMathInElement) return; renderMathInElement(el, { delimiters: [{ left: '$$', right: '$$', display: true }, { left: '$', right: '$', display: false }, { left: '\\[', right: '\\]', display: true }, { left: '\\(', right: '\\)', display: false }], throwOnError: false, ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }); }
 
-// ══ ELEVENLABS TTS ══
+// ══ ELEVENLABS TTS — Direct from browser ══
+const ELEVENLABS_VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel
 let currentAudio = null;
+let elevenLabsKey = null; // Will be fetched from server once
+
+async function getElevenLabsKey() {
+  if (elevenLabsKey) return elevenLabsKey;
+  try {
+    const res = await fetch(`${API}/tts-key`, { headers: { Authorization: `Bearer ${STATE.token}` } });
+    if (res.ok) { const d = await res.json(); elevenLabsKey = d.key; return elevenLabsKey; }
+  } catch {}
+  return null;
+}
 
 async function speakWithElevenLabs(text, onEnd) {
   if (!STATE.token) { onEnd?.(); return false; }
   try {
-    const res = await fetch(`${API}/tts`, {
+    const key = await getElevenLabsKey();
+    if (!key) return false;
+    const cleanText = text.replace(/[*_`#>\[\]]/g,'').replace(/\n+/g,' ').trim().slice(0,1000);
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${STATE.token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: text.slice(0, 1000) }),
+      headers: { 'xi-api-key': key, 'Content-Type': 'application/json', 'Accept': 'audio/mpeg' },
+      body: JSON.stringify({
+        text: cleanText,
+        model_id: 'eleven_turbo_v2_5',
+        voice_settings: { stability: 0.5, similarity_boost: 0.75, style: 0.0, use_speaker_boost: true },
+      }),
     });
-    if (!res.ok) return false;
+    if (!res.ok) { console.log('ElevenLabs error:', res.status); return false; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
-    if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); }
-    currentAudio = new Audio(url);
+    if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio._url||''); }
+    currentAudio = new Audio(url); currentAudio._url = url;
     currentAudio.onended = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd?.(); };
     currentAudio.onerror = () => { URL.revokeObjectURL(url); currentAudio = null; onEnd?.(); };
     await currentAudio.play();
@@ -1612,7 +1630,7 @@ async function speakWithElevenLabs(text, onEnd) {
 }
 
 function stopElevenLabs() {
-  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (currentAudio) { currentAudio.pause(); if (currentAudio._url) URL.revokeObjectURL(currentAudio._url); currentAudio = null; }
 }
 function speakReply(text, btn) {
   if (currentAudio && !currentAudio.paused) { stopElevenLabs(); btn.classList.remove('speaking'); currentSpeakBtn = null; return; }
