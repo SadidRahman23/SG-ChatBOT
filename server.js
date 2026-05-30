@@ -693,6 +693,11 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const personaExtra = PERSONA_PROMPTS[personaKey] ? ' ' + PERSONA_PROMPTS[personaKey] : '';
 
     const trimmed=messages.slice(-MAX_HISTORY).map(m=>({role:["user","assistant","system"].includes(m.role)?m.role:"user",content:typeof m.content==="string"?m.content.slice(0,8000):m.content}));
+
+    // ── Project detection — must be before system prompt ──
+    const lastUserTextForProject = typeof trimmed.filter(m=>m.role==="user").slice(-1)[0]?.content==="string"
+      ? trimmed.filter(m=>m.role==="user").slice(-1)[0].content : "";
+    const isProjectRequest = /বানাও|বানাবো|তৈরি করো|make a|create a|build a|game|website|app\b|project|portfolio|calculator|todo|quiz|landing page/i.test(lastUserTextForProject);
     if (trimmed[0]?.role!=="system") {
       trimmed.unshift({role:"system",content:
         // ── CORE IDENTITY ──
@@ -893,8 +898,10 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const urlMatch=userTxt.match(/https?:\/\/[^\s]+/);
 
     // ── Detect search intent ──
-    const searchKeywords = /সার্চ|খুঁজ|খবর|আজকে|এখন|কবে|কোথায়|কে জিতেছে|latest|news|today|current|who is|what happened|search|find|look up|price of|weather|score|result/i;
-    const searchIntent = searchKeywords.test(userTxt) || req.body.personaKey === 'search';
+    const searchKeywords = /সার্চ করো|খুঁজে দাও|আজকের খবর|এখন কি হচ্ছে|কে জিতেছে|latest news|current news|what happened|breaking news|search for|look up|price of|weather in|todays news|news today|score of|live score|stock price/i;
+    const isGreeting = /^(hi|hello|hey|hola|salut|নমস্কার|হ্যালো|হেলো|আস্সালামু|salam|কেমন আছ|how are you|what's up|sup\b).{0,30}$/i;
+    const isTooShort = userTxt.trim().split(/\s+/).length < 4;
+    const searchIntent = !isGreeting.test(userTxt.trim()) && !isTooShort && (searchKeywords.test(userTxt) || req.body.personaKey === 'search');
 
     let webSources = [];
 
@@ -1086,12 +1093,6 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
       role: ["user","assistant","system"].includes(m.role)?m.role:"user",
       content: typeof m.content==="string" ? m.content.slice(0,8000) : m.content,
     }));
-
-    // ── Project/Build detection ──
-    const lastUserText = typeof trimmed.filter(m=>m.role==="user").slice(-1)[0]?.content === "string"
-      ? trimmed.filter(m=>m.role==="user").slice(-1)[0].content : "";
-    const isProjectRequest = /বানাও|বানাবো|তৈরি করো|make a|create a|build a|game|website|app\b|project|portfolio|calculator|todo|quiz|landing page/i.test(lastUserText);
-
     if (trimmed[0]?.role !== "system") {
       trimmed.unshift({role:"system", content:
         "You are SG — a powerful, free AI assistant. SG stands for StrongGuy. You are the flagship product of StrongGuy AI. " +
@@ -1127,8 +1128,10 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     const lastMsgS = trimmed.filter(m=>m.role==="user").slice(-1)[0];
     const userTxtS = typeof lastMsgS?.content==="string" ? lastMsgS.content : "";
     const urlMatchS = userTxtS.match(/https?:\/\/[^\s]+/);
-    const searchKW = /সার্চ|খুঁজ|খবর|আজকে|এখন|কবে|কোথায়|latest|news|today|current|who is|what happened|search|find|look up|price of|weather|score|result/i;
-    const doSearch = (searchKW.test(userTxtS) || req.body.personaKey==='search') && !urlMatchS && !hasImage;
+    const searchKW = /সার্চ করো|খুঁজে দাও|আজকের খবর|এখন কি হচ্ছে|কে জিতেছে|latest news|current news|what happened|breaking news|search for|look up|price of|weather in|todays news|news today|score of|live score|stock price/i;
+    const isGreetingS = /^(hi|hello|hey|hola|নমস্কার|হ্যালো|হেলো|আস্সালামু|salam|কেমন আছ|how are you|what's up|sup\b).{0,30}$/i;
+    const isTooShortS = userTxtS.trim().split(/\s+/).length < 4;
+    const doSearch = !isGreetingS.test(userTxtS.trim()) && !isTooShortS && (searchKW.test(userTxtS) || req.body.personaKey==='search') && !urlMatchS && !hasImage;
 
     let streamSources = [];
 
@@ -1259,14 +1262,54 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
 
     let success = false;
     if (!hasImage) {
+      // 1. Groq
       success = await tryGroqStream(GROQ_MODELS[modelKey]);
+
+      // 2. Google AI Studio (non-streaming → send as single chunk)
+      if (!success) {
+        try {
+          const gRes = await callGoogle(GOOGLE_MODELS[modelKey]);
+          if (gRes?.ok) {
+            const text = gRes._googleData?.choices?.[0]?.message?.content || "";
+            if (text) { fullReply = text; sendChunk(text); success = true; }
+          }
+        } catch {}
+      }
+
+      // 3. Mistral (non-streaming → send as single chunk)
+      if (!success) {
+        try {
+          const mRes = await callMistral(MISTRAL_MODELS[modelKey]);
+          if (mRes?.ok) {
+            const mData = await mRes.json();
+            const text = mData?.choices?.[0]?.message?.content || "";
+            if (text) { fullReply = text; sendChunk(text); success = true; }
+          }
+        } catch {}
+      }
+
+      // 4. OpenRouter streaming fallbacks
       if (!success) success = await tryORStream(OR_MODELS[modelKey]);
       if (!success) {
-        const fallbacks = ["meta-llama/llama-3.3-70b-instruct:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free"];
+        const fallbacks = [
+          "google/gemini-2.5-flash:free",
+          "meta-llama/llama-3.3-70b-instruct:free",
+          "mistralai/mistral-small-3.1-24b-instruct:free",
+          "qwen/qwen3-14b:free",
+          "qwen/qwen3-8b:free",
+          "google/gemma-3-27b-it:free",
+        ];
         for (const fb of fallbacks) { success = await tryORStream(fb); if (success) break; }
       }
     } else {
-      const visionModels = ["meta-llama/llama-4-maverick:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free"];
+      // Vision models
+      const visionModels = [
+        "meta-llama/llama-4-maverick:free",
+        "google/gemini-2.5-flash:free",
+        "qwen/qwen3-vl-32b-instruct:free",
+        "meta-llama/llama-4-scout:free",
+        "mistralai/pixtral-12b:free",
+      ];
       for (const vm of visionModels) { success = await tryORStream(vm); if (success) break; }
     }
 
@@ -1297,7 +1340,13 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
   }
 });
 
-// ═══ TEXT TO SPEECH (ElevenLabs) ═══
+// ═══ TTS KEY (serves ElevenLabs key to authenticated users) ═══
+app.get("/tts-key", auth, async (req,res) => {
+  if (!process.env.ELEVENLABS_API_KEY) return res.status(404).json({message:"TTS not configured."});
+  res.json({ key: process.env.ELEVENLABS_API_KEY });
+});
+
+// ═══ TEXT TO SPEECH (ElevenLabs) — kept as fallback ═══
 const ttsLimiter = rateLimit({ windowMs:60*1000, max:20, message:{message:"TTS limit reached."} });
 
 app.post("/tts", ttsLimiter, auth, async (req,res) => {
