@@ -1,7 +1,7 @@
 {
-  "name": "Zeno AI",
-  "short_name": "Zeno AI",
-  "description": "Smart AI assistant powered by Zeno AI",
+  "name": "Zynora AI",
+  "short_name": "Zynora AI",
+  "description": "Smart AI assistant powered by Zynora AI",
   "start_url": "/chat.html",
   "id": "/chat.html",
   "display": "standalone",
@@ -36,14 +36,14 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "form_factor": "wide",
-      "label": "Zeno AI — AI Assistant"
+      "label": "Zynora AI — AI Assistant"
     },
     {
       "src": "logo.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "form_factor": "narrow",
-      "label": "SG ChatBOT — AI Assistant"
+      "label": "Zynora — AI Assistant"
     }
   ]
 }
