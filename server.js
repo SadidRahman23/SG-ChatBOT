@@ -27,13 +27,10 @@ app.use((req, res, next) => {
 // ==========================================
 // 2. MONGODB CONNECTION & SCHEMAS
 // ==========================================
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
+// ✅ একদম ক্লিন এবং নতুন ভার্সনের জন্য সঠিক পদ্ধতি
+mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("Connected to MongoDB"))
   .catch(err => console.error("MongoDB connection error:", err));
-
 const UserSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
