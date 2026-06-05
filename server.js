@@ -368,7 +368,35 @@ async function callGoogle(model, systemMsg, chatMsgs) {
     try {
       const contents=chatMsgs.map(m=>{
         if (Array.isArray(m.content)) {
-          const parts=m.content.map(p=>{if(p.type==="text")return{text:p.text};if(p.type==="image_url"){const url=p.image_url?.url||"";if(url.startsWith("data:")){const[header,data]=url.split(",");const mimeType=header.replace("data:","").replace(";base64","");return{inline_data:{mime_type:mimeType,data}};}return null;}).filter(Boolean);
+          const parts = m.content
+  .map((p) => {
+    if (p.type === "text") {
+      return { text: p.text };
+    }
+
+    if (p.type === "image_url") {
+      const url = p.image_url?.url || "";
+
+      if (url.startsWith("data:")) {
+        const [header, data] = url.split(",");
+        const mimeType = header
+          .replace("data:", "")
+          .replace(";base64", "");
+
+        return {
+          inline_data: {
+            mime_type: mimeType,
+            data: data
+          }
+        };
+      }
+
+      return null;
+    }
+
+    return null;
+  })
+  .filter(Boolean);
           return{role:m.role==="assistant"?"model":"user",parts};
         }
         return{role:m.role==="assistant"?"model":"user",parts:[{text:typeof m.content==="string"?m.content:JSON.stringify(m.content)}]};
