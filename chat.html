@@ -825,6 +825,40 @@
     .m-pill.active { background: var(--accent); color: #fff; border-color: transparent; }
     .m-pill.p-bd.active { background: linear-gradient(135deg,#006a4e,#f42a41); border-color: transparent; }
     .m-pill.p-search.active { background: var(--green); color: #000; border-color: transparent; }
+    
+    /* ── AGENT & TOOLS UI ── */
+    .tool-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; margin: 4px 0;
+      border-radius: 99px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-2);
+      font-size: 11.5px; font-weight: 600; color: var(--text-2);
+      animation: fadeUp 0.2s var(--ease);
+    }
+    .tool-pill.running .tool-icon { animation: spin 1.5s linear infinite; }
+    .tool-pill.done { border-color: rgba(52,211,153,.3); color: var(--green); background: rgba(52,211,153,.05); }
+    .tool-pill.error { border-color: rgba(248,113,113,.3); color: var(--red); background: rgba(248,113,113,.05); }
+    .action-card { background: var(--surface-2); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: 14px 16px; margin: 10px 0; max-width: 400px; box-shadow: 0 8px 30px rgba(108,142,255,.08); animation: fadeUp 0.2s var(--ease); }
+    .action-header { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+    .action-desc { font-size: 12.5px; color: var(--text-2); margin-bottom: 12px; line-height: 1.5; }
+    .action-btns { display: flex; gap: 8px; }
+    .action-btn-approve { flex: 1; padding: 7px 0; border: none; border-radius: var(--r); background: var(--accent); color: #fff; font-weight: 600; cursor: pointer; transition: filter 0.15s; }
+    .action-btn-approve:hover { filter: brightness(1.15); }
+    .action-btn-deny { flex: 1; padding: 7px 0; border: 1px solid var(--red); border-radius: var(--r); background: transparent; color: var(--red); font-weight: 600; cursor: pointer; transition: background 0.15s; }
+    .action-btn-deny:hover { background: rgba(248,113,113,.1); }
+    
+    /* Integrations */
+    .integration-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .integration-card { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface-2); border: 1px solid var(--border-2); border-radius: var(--r); transition: all 0.2s; }
+    .integration-card:hover { border-color: var(--accent); }
+    .int-info { display: flex; align-items: center; gap: 12px; }
+    .int-icon { width: 32px; height: 32px; background: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .int-icon svg { width: 20px; height: 20px; }
+    .int-name { font-size: 14px; font-weight: 600; color: var(--text); }
+    .int-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .int-status { font-size: 11px; font-weight: 700; color: var(--muted); background: var(--surface-3); padding: 4px 8px; border-radius: 99px; }
+    .int-status.connected { color: var(--green); background: rgba(52,211,153,.1); }
 
     /* ── Input area ── */
     .input-area {
@@ -874,10 +908,18 @@
       border: 1px solid var(--border-2);
       border-radius: var(--r-lg);
       padding: 6px; min-width: 200px;
+      max-width: calc(100vw - 24px);
+      max-height: min(360px, 60vh);
+      overflow-y: auto;
+      scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
       box-shadow: 0 20px 60px rgba(0,0,0,.5);
       display: none; flex-direction: column; gap: 2px;
       animation: popUp 0.15s var(--ease); z-index: 50;
     }
+    .plus-menu::-webkit-scrollbar { width: 6px; }
+    .plus-menu::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+    .plus-menu { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
     .plus-menu.on { display: flex; }
     .plus-item {
       display: flex; align-items: center; gap: 11px;
@@ -919,6 +961,131 @@
     .send-btn.loading .stop-sq { display: block; }
     .send-btn.loading .send-icon { display: none; }
     .input-hint { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 7px; }
+
+    /* AI Model selector (left of Send button) — item 2 */
+    .ai-model-wrap { position: relative; flex-shrink: 0; }
+    .ai-model-pill {
+      width: 34px; height: 34px;
+      border-radius: 9px;
+      border: 1px solid var(--border-2);
+      background: var(--surface-2);
+      color: var(--text-2);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .ai-model-pill svg { width: 16px; height: 16px; }
+    .ai-model-pill:hover, .ai-model-pill.on { background: var(--surface-3); border-color: var(--accent); color: var(--accent); }
+    .ai-model-dropdown {
+      position: absolute; bottom: calc(100% + 10px); right: 0;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      padding: 6px; min-width: 220px;
+      max-width: calc(100vw - 24px);
+      max-height: min(360px, 60vh);
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.5);
+      display: none; flex-direction: column; gap: 2px;
+      animation: popUp 0.15s var(--ease); z-index: 50;
+    }
+    .ai-model-dropdown.on { display: flex; }
+    .ai-model-dropdown-title { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 7px 10px 5px; }
+    .ai-model-opt { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--r); opacity: .55; cursor: default; }
+    .ai-model-opt-icon {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: var(--surface-3); border: 1px solid var(--border-2);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--accent); flex-shrink: 0; font-size: 13px;
+    }
+    .ai-model-opt-text { flex: 1; min-width: 0; }
+    .ai-model-opt-name { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+    .ai-model-opt-desc { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+    .soon-badge { font-size: 8.5px; font-weight: 800; padding: 3px 7px; border-radius: 99px; background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border-2); flex-shrink: 0; white-space: nowrap; text-transform: uppercase; letter-spacing: .03em; }
+
+    /* Thinking Level selector — item 5 (single pill + dropdown, mirrors .model-pill) */
+    .think-wrap { position: relative; }
+    .think-pill {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 12px;
+      border-radius: 99px;
+      border: 1px solid var(--border-2);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 12.5px; font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .think-pill:hover { border-color: var(--accent); color: var(--text); }
+    .think-pill svg { width: 10px; height: 10px; }
+    .think-pill.is-powerful { border-color: rgba(139,92,246,.4); color: #b9a6ff; }
+    .think-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      padding: 6px;
+      min-width: 230px;
+      max-width: calc(100vw - 24px);
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      display: none; flex-direction: column; gap: 2px;
+      animation: popUp 0.15s var(--ease);
+      z-index: 50;
+    }
+    .think-dropdown.open { display: flex; }
+    .think-dropdown-title { font-size: 10.5px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 7px 11px 5px; }
+    .think-dd-opt { display: flex; align-items: center; gap: 11px; padding: 10px 11px; border-radius: var(--r); cursor: pointer; transition: background 0.15s; }
+    .think-dd-opt:hover { background: var(--surface-2); }
+    .think-dd-opt.active { background: var(--surface-3); }
+    .think-dd-opt-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: var(--surface-3); border: 1px solid var(--border-2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+    }
+    .think-dd-opt.active .think-dd-opt-icon { border-color: rgba(108,142,255,.3); background: var(--accent-dim); }
+    .think-dd-opt[data-think="powerful"].active .think-dd-opt-icon { border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.12); }
+    .think-dd-opt-name { font-size: 13px; font-weight: 700; }
+    .think-dd-opt-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+    /* Role selector — item 3 (mirrors .model-pill / .model-dropdown) */
+    .role-wrap { position: relative; }
+    .role-pill {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 12px;
+      border-radius: 99px;
+      border: 1px solid var(--border-2);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 12.5px; font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+      user-select: none;
+    }
+    .role-pill:hover { border-color: var(--accent); color: var(--text); }
+    .role-pill svg { width: 10px; height: 10px; }
+    .role-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0;
+      background: var(--surface);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      padding: 6px;
+      min-width: 190px;
+      max-width: calc(100vw - 24px);
+      max-height: min(320px, 60vh);
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.55);
+      display: none; flex-direction: column; gap: 2px;
+      animation: popUp 0.15s var(--ease);
+      z-index: 50;
+    }
+    .role-dropdown.open { display: flex; }
+    .role-opt { padding: 9px 11px; border-radius: var(--r); cursor: pointer; transition: background 0.15s; font-size: 13px; font-weight: 600; }
+    .role-opt:hover { background: var(--surface-2); }
+    .role-opt.active { background: var(--accent-dim); color: var(--accent); }
 
     #fileInput { display: none; }
 
@@ -987,6 +1154,10 @@
     .limit-upgrade:hover { filter: brightness(1.08); }
     .limit-later { width: 100%; padding: 10px; border-radius: var(--r-lg); border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: var(--font); font-size: 13px; cursor: pointer; transition: all 0.15s; }
     .limit-later:hover { background: var(--surface-2); color: var(--text); }
+
+    /* Suspension overlay — item 4 (reuses .limit-card layout, red-themed) */
+    .suspend-card { border-color: rgba(248,113,113,.3) !important; }
+    .suspend-card .limit-sub strong { color: var(--red); }
 
     /* Reset modal */
     .reset-card { max-width: 380px; }
@@ -1188,6 +1359,8 @@
 
       /* hide persona bar & some desktop buttons */
       .persona-bar { display: none !important; }
+      .role-wrap { display: none !important; }
+      .think-wrap { display: none !important; }
       #shortcutsBtn, .export-btn { display: none !important; }
       #upgradeBtn { display: none !important; }
 
@@ -1292,6 +1465,10 @@
     <div class="history-list" id="histList"></div>
 
     <div class="sidebar-footer">
+      <button class="settings-link" style="width:100%; border:none; background:transparent; cursor:pointer;" id="integrationsBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        Integrations
+      </button>
       <a href="settings.html" class="settings-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
@@ -1367,6 +1544,42 @@
       </button>
     </div>
 
+    <!-- Role selector (item 3) -->
+    <div class="role-wrap" id="roleWrap">
+      <div class="role-pill" id="rolePill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 14l9-5-9-5-9 5 9 5z"/><path d="M12 14l6.16-3.42A12.07 12.07 0 0 1 19 13.5a12.07 12.07 0 0 1-7 6.5 12.07 12.07 0 0 1-7-6.5 12.07 12.07 0 0 1 .84-2.92L12 14z"/></svg>
+        <span id="roleLabel">General Assistant</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="role-dropdown" id="roleDrop">
+        <div class="role-opt active" data-role="">General Assistant</div>
+        <div class="role-opt" data-role="Software Engineer">Coder</div>
+        <div class="role-opt" data-role="Teacher">Teacher</div>
+        <div class="role-opt" data-role="Researcher">Researcher</div>
+        <div class="role-opt" data-role="Productivity Coach">Productivity Coach</div>
+      </div>
+    </div>
+
+    <!-- Thinking Level selector (item 5) -->
+    <div class="think-wrap" id="thinkWrap">
+      <div class="think-pill" id="thinkPill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.5 2A5.5 5.5 0 0 0 4 7.5c0 1.4.5 2.6 1.4 3.6L4 13.5V18a2 2 0 0 0 2 2h.5"/><path d="M14.5 2A5.5 5.5 0 0 1 20 7.5c0 1.4-.5 2.6-1.4 3.6l1.4 2.4V18a2 2 0 0 1-2 2h-.5"/><path d="M9 22h6"/><path d="M9 18h6"/></svg>
+        <span id="thinkLabel">Thinking: Default</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="think-dropdown" id="thinkDrop">
+        <div class="think-dropdown-title">Thinking Level</div>
+        <div class="think-dd-opt active" data-think="normal">
+          <div class="think-dd-opt-icon">💬</div>
+          <div><div class="think-dd-opt-name">Default</div><div class="think-dd-opt-desc">Normal response flow</div></div>
+        </div>
+        <div class="think-dd-opt" data-think="powerful">
+          <div class="think-dd-opt-icon">⚡</div>
+          <div><div class="think-dd-opt-name">Powerful</div><div class="think-dd-opt-desc">Deeper, multi-step reasoning</div></div>
+        </div>
+      </div>
+    </div>
+
     <div class="topbar-right">
       <span class="msg-counter" id="msgCounter"><span id="msgNum">25</span> left</span>
       <span class="badge-pro" id="proBadge">⚡ Pro</span>
@@ -1440,6 +1653,17 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       Search
     </button>
+    <div class="m-divider"></div>
+    <!-- role pills (item 3) -->
+    <button class="m-pill active" data-mrole="">General Assistant</button>
+    <button class="m-pill" data-mrole="Software Engineer">Coder</button>
+    <button class="m-pill" data-mrole="Teacher">Teacher</button>
+    <button class="m-pill" data-mrole="Researcher">Researcher</button>
+    <button class="m-pill" data-mrole="Productivity Coach">Productivity Coach</button>
+    <div class="m-divider"></div>
+    <!-- thinking level pills (item 5) -->
+    <button class="m-pill active" data-mthink="normal">🧠 Default Thinking</button>
+    <button class="m-pill" data-mthink="powerful">⚡ Powerful Thinking</button>
   </div>
 
   <!-- Input area -->
@@ -1480,6 +1704,29 @@
         </div>
       </div>
       <textarea id="input" placeholder="Message SG…" rows="1"></textarea>
+      <div class="ai-model-wrap">
+        <button class="ai-model-pill" id="aiModelPill" type="button" title="More AI models">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 5.8L19.6 10l-5.7 1.2L12 17l-1.9-5.8L4.4 10l5.7-1.2L12 3z"/></svg>
+        </button>
+        <div class="ai-model-dropdown" id="aiModelDrop">
+          <div class="ai-model-dropdown-title">More models</div>
+          <div class="ai-model-opt" data-aimodel="claude-sonnet-4.6">
+            <div class="ai-model-opt-icon">✦</div>
+            <div class="ai-model-opt-text"><div class="ai-model-opt-name">Claude Sonnet 4.6</div><div class="ai-model-opt-desc">Anthropic</div></div>
+            <span class="soon-badge">Coming Soon</span>
+          </div>
+          <div class="ai-model-opt" data-aimodel="gpt-4o-mini">
+            <div class="ai-model-opt-icon">✦</div>
+            <div class="ai-model-opt-text"><div class="ai-model-opt-name">GPT-4o Mini</div><div class="ai-model-opt-desc">OpenAI</div></div>
+            <span class="soon-badge">Coming Soon</span>
+          </div>
+          <div class="ai-model-opt" data-aimodel="claude-opus-4.7">
+            <div class="ai-model-opt-icon">✦</div>
+            <div class="ai-model-opt-text"><div class="ai-model-opt-name">Claude Opus 4.7</div><div class="ai-model-opt-desc">Anthropic</div></div>
+            <span class="soon-badge">Coming Soon</span>
+          </div>
+        </div>
+      </div>
       <button class="send-btn" id="sendBtn">
         <svg class="send-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
         <div class="stop-sq"></div>
@@ -1586,6 +1833,16 @@
   </div>
 </div>
 
+<!-- ══ SUSPEND OVERLAY (item 4) ══ -->
+<div class="overlay" id="suspendOverlay">
+  <div class="limit-card suspend-card">
+    <div class="limit-icon">🚫</div>
+    <div class="limit-title" id="suspendTitle">Account Suspended</div>
+    <div class="limit-sub" id="suspendSub">Your account has been temporarily restricted for violating platform rules.</div>
+    <button class="limit-later" id="suspendClose">Close</button>
+  </div>
+</div>
+
 <!-- ══ SHORTCUTS ══ -->
 <div class="overlay" id="shortcutsOverlay">
   <div class="shortcuts-card">
@@ -1686,6 +1943,60 @@
   </div>
 </div>
 
+<!-- ══ INTEGRATIONS MODAL ══ -->
+<div class="overlay" id="integrationsOverlay">
+  <div class="modal-card" style="max-width:440px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+      <div>
+        <div class="modal-title">🔌 Connected Apps</div>
+        <div class="modal-sub" style="margin-top:2px;">Link your accounts to let SG AI perform actions on your behalf.</div>
+      </div>
+      <button class="close-btn" id="integrationsClose" style="background:transparent;border:none;color:var(--text-2);cursor:pointer;font-size:18px;">✕</button>
+    </div>
+    
+    <div class="integration-list" id="integrationList">
+      <div class="integration-card">
+        <div class="int-info">
+          <div class="int-icon"><svg viewBox="0 0 24 24" fill="#000"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg></div>
+          <div>
+            <div class="int-name">GitHub</div>
+            <div class="int-desc">Manage repositories, issues, and PRs</div>
+          </div>
+        </div>
+        <div>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:11px;font-weight:600;" onclick="toast('GitHub OAuth not yet configured in backend','err')">Connect</button>
+        </div>
+      </div>
+      
+      <div class="integration-card">
+        <div class="int-info">
+          <div class="int-icon"><svg viewBox="0 0 24 24" fill="#000"><path d="M4.459 4.208c.746-.536 1.865-.67 3.32-.67h6.666c1.173 0 1.944.052 2.508.384.444.262.815.688 1.042 1.258.179.444.237.943.237 2.128v9.384c0 1.185-.058 1.684-.237 2.128-.227.57-.598.996-1.042 1.258-.564.332-1.335.384-2.508.384H7.78c-1.455 0-2.574-.134-3.32-.67-.552-.395-.892-.931-1.082-1.636-.14-.52-.164-1.127-.164-2.288V6.626c0-1.161.024-1.768.164-2.288.19-.705.53-1.241 1.082-1.636zM13.298 7H7.78v8.666H13.3V7zm1.666 0v8.666h1.472V7h-1.472z" fill="#000"/></svg></div>
+          <div>
+            <div class="int-name">Notion</div>
+            <div class="int-desc">Read and create pages, manage databases</div>
+          </div>
+        </div>
+        <div>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:11px;font-weight:600;" onclick="toast('Notion OAuth not yet configured in backend','err')">Connect</button>
+        </div>
+      </div>
+      
+      <div class="integration-card" style="opacity:0.6;pointer-events:none;">
+        <div class="int-info">
+          <div class="int-icon"><svg viewBox="0 0 24 24" fill="#4285F4"><path d="M21.35 11.1H12v2.8h5.36c-.23 1.2-1.4 3.53-5.36 3.53-3.23 0-5.86-2.69-5.86-6 0-3.31 2.63-6 5.86-6 1.48 0 2.64.63 3.25 1.2l2.2-2.13C16.03 3.1 14.17 2.2 12 2.2 6.48 2.2 2 6.68 2 12s4.48 9.8 10 9.8c5.77 0 9.61-4.06 9.61-9.78 0-.71-.08-1.33-.26-1.92z"/></svg></div>
+          <div>
+            <div class="int-name">Google Drive</div>
+            <div class="int-desc">Read and write docs (Coming Soon)</div>
+          </div>
+        </div>
+        <div>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:11px;font-weight:600;">Soon</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ IMG MODAL ══ -->
 <div class="img-modal" id="imgModal" onclick="this.classList.remove('on')">
   <img id="imgModalImg" alt="full image">
@@ -1713,6 +2024,11 @@ const PERSONA_LABELS = { default:'Default', dev:'Dev', teacher:'Teacher', friend
 
 const MODELS = { fast:'Fast', smart:'Smart', coding:'Coding', deep:'Deep Thinking' };
 
+// Display labels for the Role selector. The data-role values sent to the backend must exactly
+// match keys in server.js's ROLE_PROMPTS — "Coder" is intentionally labeled differently from the
+// backend's existing "Software Engineer" key so we don't need to touch that dictionary.
+const ROLE_LABELS = { '':'General Assistant', 'Software Engineer':'Coder', 'Teacher':'Teacher', 'Researcher':'Researcher', 'Productivity Coach':'Productivity Coach' };
+
 const TRIGGERS = {
   name:    ['what is your name','who are you','tumi ke','apni ke','apnar nam','tomar nam','sg ki','sg mane'],
   owner:   ['who made you','who built you','who created you','ke baniyeche','tomar creator','strongguy','sadid rahman'],
@@ -1734,6 +2050,8 @@ const S = {
   email: localStorage.getItem('sg_email'),
   model: 'fast',
   persona: 'default',
+  role: '',
+  thinkingLevel: 'normal',
   memory: [],
   convId: null,
   pendingFile: null,
@@ -1808,6 +2126,9 @@ document.querySelectorAll('.model-opt').forEach(opt => {
     modelDrop.classList.remove('open');
     // Sync mobile
     document.querySelectorAll('[data-mmodel]').forEach(p => p.classList.toggle('active', p.dataset.mmodel===S.model));
+    // Deep Thinking tier implies powerful reasoning by default (back-compat); the dedicated
+    // Thinking Level toggle below can still be flipped independently for any tier.
+    if (S.model==='deep') setThinkingLevel('powerful');
     toast(`${MODELS[S.model]} mode`, 'ok');
   });
 });
@@ -1820,6 +2141,7 @@ document.querySelectorAll('[data-mmodel]').forEach(p => {
     document.querySelectorAll('[data-mmodel]').forEach(x => x.classList.toggle('active', x.dataset.mmodel===S.model));
     document.querySelectorAll('.model-opt').forEach(o => o.classList.toggle('active', o.dataset.model===S.model));
     modelLabel.textContent = MODELS[S.model];
+    if (S.model==='deep') setThinkingLevel('powerful');
     toast(`${MODELS[S.model]} mode`, 'ok');
   });
 });
@@ -1836,6 +2158,90 @@ document.querySelectorAll('.persona-pill').forEach(btn => {
 document.querySelectorAll('[data-mpersona]').forEach(btn => {
   btn.addEventListener('click', () => { setPersona(btn.dataset.mpersona); toast(`${PERSONA_LABELS[btn.dataset.mpersona]} mode`, 'ok'); });
 });
+
+// ══ ROLE (item 3) ══
+function setRole(key) {
+  S.role = key;
+  const label = ROLE_LABELS[key] || key || 'General Assistant';
+  const roleLabelEl = document.getElementById('roleLabel');
+  if (roleLabelEl) roleLabelEl.textContent = label;
+  document.querySelectorAll('.role-opt').forEach(o => o.classList.toggle('active', o.dataset.role===key));
+  document.querySelectorAll('[data-mrole]').forEach(o => o.classList.toggle('active', o.dataset.mrole===key));
+}
+function persistRole(key) {
+  // Best-effort: saves the chosen role as the account default for next time. Silently ignored
+  // if logged out or the request fails — the in-session role still applies via roleKey either way.
+  if (!S.token) return;
+  fetch(`${API}/settings`, { method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${S.token}`}, body: JSON.stringify({ role:key }) }).catch(()=>{});
+}
+const rolePill = document.getElementById('rolePill');
+const roleDrop = document.getElementById('roleDrop');
+if (rolePill && roleDrop) {
+  rolePill.addEventListener('click', e => { e.stopPropagation(); roleDrop.classList.toggle('open'); });
+  document.addEventListener('click', () => roleDrop.classList.remove('open'));
+  document.querySelectorAll('.role-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      setRole(opt.dataset.role);
+      persistRole(opt.dataset.role);
+      roleDrop.classList.remove('open');
+      toast(`${ROLE_LABELS[opt.dataset.role] || opt.dataset.role} role`, 'ok');
+    });
+  });
+}
+document.querySelectorAll('[data-mrole]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setRole(btn.dataset.mrole);
+    persistRole(btn.dataset.mrole);
+    toast(`${ROLE_LABELS[btn.dataset.mrole] || btn.dataset.mrole} role`, 'ok');
+  });
+});
+
+// ══ THINKING LEVEL (item 5) ══
+const THINK_LABELS = { normal:'Thinking: Default', powerful:'Thinking: Powerful' };
+function setThinkingLevel(level) {
+  S.thinkingLevel = level;
+  const thinkLabelEl = document.getElementById('thinkLabel');
+  if (thinkLabelEl) thinkLabelEl.textContent = THINK_LABELS[level] || THINK_LABELS.normal;
+  const thinkPillEl = document.getElementById('thinkPill');
+  if (thinkPillEl) thinkPillEl.classList.toggle('is-powerful', level==='powerful');
+  document.querySelectorAll('.think-dd-opt').forEach(o => o.classList.toggle('active', o.dataset.think===level));
+  document.querySelectorAll('[data-mthink]').forEach(b => b.classList.toggle('active', b.dataset.mthink===level));
+}
+const thinkPill = document.getElementById('thinkPill');
+const thinkDrop = document.getElementById('thinkDrop');
+if (thinkPill && thinkDrop) {
+  thinkPill.addEventListener('click', e => { e.stopPropagation(); thinkDrop.classList.toggle('open'); });
+  document.addEventListener('click', () => thinkDrop.classList.remove('open'));
+  document.querySelectorAll('.think-dd-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      setThinkingLevel(opt.dataset.think);
+      thinkDrop.classList.remove('open');
+      toast(opt.dataset.think==='powerful' ? '⚡ Powerful thinking on' : 'Default thinking', 'ok');
+    });
+  });
+}
+document.querySelectorAll('[data-mthink]').forEach(btn => {
+  btn.addEventListener('click', () => { setThinkingLevel(btn.dataset.mthink); toast(btn.dataset.mthink==='powerful' ? '⚡ Powerful thinking on' : 'Default thinking', 'ok'); });
+});
+
+// ══ AI MODEL — Coming Soon selector (item 2) ══
+// Purely a preview/teaser for upcoming frontier models — fully isolated from S.model and the
+// existing fast/smart/coding/deep routing logic, so it can never interfere with active behavior.
+const aiModelPill = document.getElementById('aiModelPill');
+const aiModelDrop = document.getElementById('aiModelDrop');
+if (aiModelPill && aiModelDrop) {
+  aiModelPill.addEventListener('click', e => { e.stopPropagation(); aiModelDrop.classList.toggle('on'); aiModelPill.classList.toggle('on'); });
+  document.addEventListener('click', () => { aiModelDrop.classList.remove('on'); aiModelPill.classList.remove('on'); });
+  document.querySelectorAll('.ai-model-opt').forEach(opt => {
+    opt.addEventListener('click', e => {
+      e.stopPropagation();
+      const name = opt.querySelector('.ai-model-opt-name')?.textContent || 'This model';
+      toast(`${name} is coming soon ✨`);
+    });
+  });
+}
 
 // ══ AUTH UI ══
 function getGreeting() { const h=new Date().getHours(); return h<12?'Good morning':h<17?'Good afternoon':'Good evening'; }
@@ -1870,11 +2276,14 @@ async function fetchStatus() {
     document.getElementById('msgCounter').style.display = isPro ? 'none' : 'inline-flex';
     document.getElementById('msgNum').textContent = d.msgsLeft ?? 25;
     if (isPro) document.getElementById('userRoleEl').textContent = '⚡ Pro Member';
+    // Item 4: proactively show the suspension/block banner if currently restricted
+    if (d.isBlocked || d.suspendedUntil) showSuspendOverlay(d.blockedReason||d.suspensionReason, d.suspendedUntil, !!d.isBlocked);
   } catch {}
   try {
     const r = await fetch(`${API}/settings`, { headers:{Authorization:`Bearer ${S.token}`} });
     const d = await r.json();
     S.displayName = d.displayName||''; S.settings = d.settings||{};
+    setRole(d.role||''); // item 3: sync the role selector with the account's saved default
     updateWelcomeMsg();
     // Apply theme
     if (d.settings?.theme==='light') applyLight();
@@ -2016,6 +2425,13 @@ document.getElementById('confirmResetBtn').addEventListener('click', async()=>{
   finally{btn.disabled=false;btn.textContent='Reset Password';}
 });
 
+// ══ INTEGRATIONS MODAL ══
+function openIntegrations() { document.getElementById('integrationsOverlay').classList.add('on'); }
+function closeIntegrations() { document.getElementById('integrationsOverlay').classList.remove('on'); }
+document.getElementById('integrationsBtn').addEventListener('click', openIntegrations);
+document.getElementById('integrationsClose').addEventListener('click', closeIntegrations);
+document.getElementById('integrationsOverlay').addEventListener('click', e => { if (e.target === document.getElementById('integrationsOverlay')) closeIntegrations(); });
+
 // ══ SHORTCUTS ══
 function openShortcuts() { document.getElementById('shortcutsOverlay').classList.add('on'); }
 function closeShortcuts() { document.getElementById('shortcutsOverlay').classList.remove('on'); }
@@ -2037,6 +2453,7 @@ document.addEventListener('keydown', e => {
     document.getElementById('notepadOverlay').classList.remove('on');
     document.getElementById('templatesOverlay').classList.remove('on');
     document.getElementById('imgGenOverlay').classList.remove('on');
+    document.getElementById('integrationsOverlay').classList.remove('on');
     closeAuth();
   }
 });
@@ -2300,7 +2717,7 @@ function startVoiceListen(){
     S.memory.push({role:'user',content:txt}); renderUserMsg(txt,null);
     document.getElementById('voiceStatus').textContent='SG is thinking…'; document.getElementById('voiceOrb').className='voice-orb';
     try{
-      const fd=new FormData(); fd.append('messages',JSON.stringify(buildMsgs(S.memory))); fd.append('personaKey',S.persona); fd.append('modelKey',S.model); fd.append('thinkingLevel',S.model==='deep'?'powerful':'normal'); fd.append('roleKey',S.settings?.role||'');
+      const fd=new FormData(); fd.append('messages',JSON.stringify(buildMsgs(S.memory))); fd.append('personaKey',S.persona); fd.append('modelKey',S.model); fd.append('thinkingLevel',S.thinkingLevel||'normal'); fd.append('roleKey',S.role||'');
       const r=await fetch(`${API}/chat`,{method:'POST',headers:{Authorization:`Bearer ${S.token}`},body:fd}); const d=await r.json();
       const reply=d.reply||'Sorry, I could not respond.'; S.memory.push({role:'assistant',content:reply});
       document.getElementById('voiceStatus').textContent='SG is speaking…'; document.getElementById('voiceStatus').className='voice-status speak'; document.getElementById('voiceOrb').className='voice-orb speak';
@@ -2459,7 +2876,6 @@ async function doChat(text, file, isNew){
 
   const isImg=!!(file?.isImage);
   const isSearch=S.persona==='search'||/সার্চ|latest news|current|breaking|search for|price of|weather|score|news today/i.test(text||'');
-  const isPowerful=S.model==='deep';
 
   sendBtnEl.classList.add('loading'); abortCtrl=new AbortController();
   const typingRow=renderTyping(isImg, isSearch&&!isImg);
@@ -2468,10 +2884,10 @@ async function doChat(text, file, isNew){
   fd.append('messages', JSON.stringify(buildMsgs(S.memory)));
   fd.append('modelKey', S.model);
   fd.append('personaKey', S.persona);
-  // ✅ FIX 1: thinkingLevel
-  fd.append('thinkingLevel', isPowerful?'powerful':'normal');
-  // ✅ FIX 2: roleKey
-  fd.append('roleKey', S.settings?.role||'');
+  // Thinking Level (item 5) — independent toggle now, no longer tied only to the "deep" model tier
+  fd.append('thinkingLevel', S.thinkingLevel||'normal');
+  // Role focus (item 3)
+  fd.append('roleKey', S.role||'');
   if(S.convId) fd.append('conversationId', S.convId);
   if(file&&file.isImage){ fd.append('file',file.file); fd.append('imageText',text||'Analyze this image.'); }
   else if(file&&!file.isImage){ fd.append('file',file.file); }
@@ -2482,6 +2898,7 @@ async function doChat(text, file, isNew){
       const r=await fetch(`${API}/chat`,{method:'POST',headers:{Authorization:`Bearer ${S.token}`},body:fd,signal:abortCtrl.signal});
       typingRow.remove(); sendBtnEl.classList.remove('loading'); abortCtrl=null;
       if(r.status===401){signOut();toast('Session expired','err');openAuth();S.memory.pop();return;}
+      if(r.status===403){const d=await r.json().catch(()=>({}));showSuspendOverlay(d.reason||d.message,d.suspendedUntil,!!d.permanent);S.memory.pop();return;}
       const d=await r.json();
       if(d.reply==='limit_reached'){handleLimit(d);S.memory.pop();return;}
       if(d.conversationId){S.convId=d.conversationId;loadConversations();}
@@ -2495,6 +2912,7 @@ async function doChat(text, file, isNew){
     const r=await fetch(`${API}/chat/stream`,{method:'POST',headers:{Authorization:`Bearer ${S.token}`},body:fd,signal:abortCtrl.signal});
     if(r.status===401){typingRow.remove();sendBtnEl.classList.remove('loading');signOut();toast('Session expired','err');openAuth();S.memory.pop();return;}
     if(r.status===429){typingRow.remove();sendBtnEl.classList.remove('loading');const d=await r.json();if(d.reply==='limit_reached'){handleLimit(d);}S.memory.pop();return;}
+    if(r.status===403){typingRow.remove();sendBtnEl.classList.remove('loading');const d=await r.json().catch(()=>({}));showSuspendOverlay(d.reason||d.message,d.suspendedUntil,!!d.permanent);S.memory.pop();return;}
     if(!r.ok){typingRow.remove();sendBtnEl.classList.remove('loading');S.memory.pop();renderBotFull('⚠️ **Connection error.** Please try again.');return;}
 
     typingRow.remove();
@@ -2537,6 +2955,22 @@ function updateMsgCounter(d){ if(d.msgsLeft!=null){ document.getElementById('msg
 
 document.getElementById('limitLater').addEventListener('click',()=>document.getElementById('limitOverlay').classList.remove('on'));
 document.getElementById('limitOverlay').addEventListener('click',e=>{ if(e.target===document.getElementById('limitOverlay')) document.getElementById('limitOverlay').classList.remove('on'); });
+
+// ══ SUSPENSION UI (item 4) ══
+function showSuspendOverlay(reason, suspendedUntil, permanent){
+  document.getElementById('suspendTitle').textContent = permanent ? 'Account Blocked' : 'Account Temporarily Suspended';
+  let sub = permanent
+    ? `Your account has been blocked: ${reason||'Policy violation'}. Contact support if you believe this is a mistake.`
+    : `Your account is temporarily suspended: ${reason||'Policy violation'}.`;
+  if (!permanent && suspendedUntil) {
+    const until = new Date(suspendedUntil);
+    sub += ` Access resumes on ${until.toLocaleDateString()} at ${until.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}.`;
+  }
+  document.getElementById('suspendSub').textContent = sub;
+  document.getElementById('suspendOverlay').classList.add('on');
+}
+document.getElementById('suspendClose').addEventListener('click',()=>document.getElementById('suspendOverlay').classList.remove('on'));
+document.getElementById('suspendOverlay').addEventListener('click',e=>{ if(e.target===document.getElementById('suspendOverlay')) document.getElementById('suspendOverlay').classList.remove('on'); });
 
 // ── Input send ──
 document.getElementById('sendBtn').addEventListener('click',()=>{ if(abortCtrl){abortCtrl.abort();abortCtrl=null;return;} send(); });
