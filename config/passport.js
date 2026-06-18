@@ -82,27 +82,38 @@ export default function configurePassport(User) {
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
       callbackURL: `${process.env.APP_URL}/auth/github/callback`,
       scope: ["user:email"],
+      state: false, // disable state/CSRF check — avoids session dependency between redirect and callback
     }, async (accessToken, refreshToken, profile, done) => {
       try {
-        // GitHub's profile object doesn't reliably include a *verified* email, so we fetch the
-        // user's verified emails explicitly rather than trusting whatever passport-github2 attaches.
-        let email = null;
-        try {
-          const r = await fetch("https://api.github.com/user/emails", {
-            headers: { Authorization: `token ${accessToken}`, "User-Agent": "SG-ChatBOT-OAuth" },
-          });
-          if (r.ok) {
-            const emails = await r.json();
-            const best = emails.find(e => e.primary && e.verified) || emails.find(e => e.verified);
-            if (best) email = best.email.toLowerCase();
-          }
-        } catch { /* fall through to profile.emails below */ }
-        if (!email) email = profile.emails?.[0]?.value?.toLowerCase() || null;
-        if (!email) return done(null, false, { message: "GitHub account has no verified email." });
-
+        const email = profile.emails?.[0]?.value?.toLowerCase();
+        if (!email) {
+          // Try fetching verified email from GitHub API directly
+          try {
+            const r = await fetch("https://api.github.com/user/emails", {
+              headers: { Authorization: `token ${accessToken}`, "User-Agent": "SG-ChatBOT-OAuth" },
+            });
+            if (r.ok) {
+              const emails = await r.json();
+              const best = emails.find(e => e.primary && e.verified) || emails.find(e => e.verified);
+              if (best) {
+                const user = await findOrLinkUser(User, {
+                  providerIdField: "githubId",
+                  providerId: String(profile.id),
+                  email: best.email.toLowerCase(),
+                  avatarUrl: profile.photos?.[0]?.value,
+                });
+                if (!user) return done(null, false, { message: "Could not create account." });
+                user.lastLoginAt = new Date();
+                await user.save();
+                return done(null, user);
+              }
+            }
+          } catch (e) { console.error("GitHub email fetch error:", e.message); }
+          return done(null, false, { message: "GitHub account has no verified email." });
+        }
         const user = await findOrLinkUser(User, {
           providerIdField: "githubId",
-          providerId: profile.id,
+          providerId: String(profile.id),
           email,
           avatarUrl: profile.photos?.[0]?.value,
         });
@@ -110,7 +121,10 @@ export default function configurePassport(User) {
         user.lastLoginAt = new Date();
         await user.save();
         return done(null, user);
-      } catch (err) { return done(err); }
+      } catch (err) {
+        console.error("GitHub strategy error:", err.message);
+        return done(err);
+      }
     }));
   } else {
     console.warn("⚠️  GITHUB_CLIENT_ID/SECRET not set — GitHub OAuth login is disabled.");
