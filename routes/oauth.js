@@ -26,19 +26,24 @@ export default function createOAuthRouter() {
   const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
   const githubEnabled = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
 
+  // Initial redirect — must NOT have session:false so passport-oauth2 can store its CSRF `state`
+  // in the session. Without this, the callback has nothing to verify against and throws
+  // "Failed to obtain access token".
   router.get("/auth/google", (req, res, next) => {
     if (!googleEnabled) return res.status(503).json({ message: "Google login is not configured on this server." });
-    passport.authenticate("google", { scope: ["profile", "email"], session: false })(req, res, next);
+    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
   });
 
+  // Callback — session:false here so no persistent user session is created; we mint a JWT instead.
   router.get("/auth/google/callback", (req, res, next) => {
     if (!googleEnabled) return res.status(503).json({ message: "Google login is not configured on this server." });
     passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_oauth_failed` })(req, res, next);
   }, issueTokenAndRedirect);
 
+  // Same pattern for GitHub
   router.get("/auth/github", (req, res, next) => {
     if (!githubEnabled) return res.status(503).json({ message: "GitHub login is not configured on this server." });
-    passport.authenticate("github", { scope: ["user:email"], session: false })(req, res, next);
+    passport.authenticate("github", { scope: ["user:email"] })(req, res, next);
   });
 
   router.get("/auth/github/callback", (req, res, next) => {
