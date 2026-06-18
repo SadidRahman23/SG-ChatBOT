@@ -43,12 +43,12 @@ export default function createOAuthRouter() {
   // Same pattern for GitHub
   router.get("/auth/github", (req, res, next) => {
     if (!githubEnabled) return res.status(503).json({ message: "GitHub login is not configured on this server." });
-    passport.authenticate("github", { scope: ["user:email"] })(req, res, next);
+    passport.authenticate("github")(req, res, next);
   });
 
   router.get("/auth/github/callback", (req, res, next) => {
     if (!githubEnabled) return res.status(503).json({ message: "GitHub login is not configured on this server." });
-    passport.authenticate("github", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=github_oauth_failed` })(req, res, next);
+    passport.authenticate("github", { session: false, failureRedirect: `${FRONTEND_URL}/oauth-callback?error=github_oauth_failed` })(req, res, next);
   }, issueTokenAndRedirect);
 
   return router;
