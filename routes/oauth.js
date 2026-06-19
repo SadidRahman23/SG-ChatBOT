@@ -80,6 +80,7 @@ export default function createOAuthRouter({ User }) {
       }
 
       const accessToken = tokenData.access_token;
+      console.log("GitHub: fetching profile and emails...");
 
       // 2. Get GitHub user profile
       const [profileRes, emailsRes] = await Promise.all([
@@ -89,22 +90,28 @@ export default function createOAuthRouter({ User }) {
 
       const profile = await profileRes.json();
       const emails  = await emailsRes.json();
+      console.log("GitHub profile id:", profile.id, "login:", profile.login);
+      console.log("GitHub emails:", JSON.stringify(emails));
 
       const primaryEmail = Array.isArray(emails)
         ? (emails.find(e => e.primary && e.verified) || emails.find(e => e.verified))?.email?.toLowerCase()
         : null;
       const email = primaryEmail || profile.email?.toLowerCase() || null;
+      console.log("GitHub resolved email:", email);
 
       if (!email) return fail("No verified email on GitHub account");
 
       // 3. Find or create user
+      console.log("GitHub: finding/creating user for email:", email);
       let user = await User.findOne({ githubId: String(profile.id) });
       if (!user) {
         user = await User.findOne({ email });
         if (user) {
+          console.log("GitHub: linking existing user", user._id);
           user.githubId = String(profile.id);
           if (!user.avatarUrl && profile.avatar_url) user.avatarUrl = profile.avatar_url;
         } else {
+          console.log("GitHub: creating new user");
           const bcrypt = (await import("bcryptjs")).default;
           const crypto2 = (await import("crypto")).default;
           user = new User({
@@ -114,13 +121,18 @@ export default function createOAuthRouter({ User }) {
             avatarUrl: profile.avatar_url || "",
           });
         }
+      } else {
+        console.log("GitHub: found existing user by githubId", user._id);
       }
       user.lastLoginAt = new Date();
       await user.save();
+      console.log("GitHub: user saved, id:", user._id);
 
       // 4. Mint JWT and redirect to frontend
       const token = issueJWT(user._id);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}`);
+      const redirectUrl = `${FRONTEND_URL}/oauth-callback?token=${token}`;
+      console.log("GitHub: redirecting to", redirectUrl.replace(token, "[TOKEN]"));
+      return res.redirect(redirectUrl);
 
     } catch (err) {
       return fail(err.message);
