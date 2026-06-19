@@ -12,11 +12,7 @@ import { fileURLToPath } from "url";
 import crypto         from "crypto";
 import nodemailer     from "nodemailer";
 import dns            from "dns";
-import session        from "express-session";
-import MongoStore     from "connect-mongo";
-import passport       from "passport";
 // --- Priority 2 modules ---
-import configurePassport          from "./config/passport.js";
 import createOAuthRouter          from "./routes/oauth.js";
 import createWorkflowRouter       from "./routes/workflows.js";
 import { registerModels, fireEvent } from "./services/workflowEngine.js";
@@ -143,23 +139,6 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "16kb" }));
 
-// --- Priority 2: OAuth support ---
-// express-session is ONLY needed so the Google/GitHub OAuth2 strategies can store their CSRF
-// `state` value across the redirect to the provider and back. It is never used to keep a user
-// logged in — passport.authenticate() is always called with { session:false } in routes/oauth.js,
-// and a JWT is issued immediately after a successful callback. Every other route in this file is
-// unaffected: nothing else reads/writes req.session, and saveUninitialized:false means no session
-// is ever created (or cookie sent) for requests that don't go through the OAuth flow.
-app.use(session({
-  secret: process.env.SESSION_SECRET || JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  proxy: true,
-  store: MongoStore.create({ mongoUrl: process.env.MONGO_URI, collectionName: "oauth_sessions" }),
-  cookie: { secure: process.env.NODE_ENV === "production", httpOnly: true, sameSite: "lax", maxAge: 10 * 60 * 1000 },
-}));
-app.use(passport.initialize());
-
 // Globally validate ObjectId-shaped route params
 const validateObjectIdParam = (req, res, next, id) => {
   if (id && !mongoose.Types.ObjectId.isValid(id)) {
@@ -224,10 +203,8 @@ const userSchema = new mongoose.Schema({
 }, { timestamps:true });
 const User = mongoose.model("User", userSchema);
 
-// --- Priority 2: OAuth routes ---
-// Mounted right after `User` is defined since both passport config and the OAuth routes need it.
-configurePassport(User);
-app.use(createOAuthRouter());
+// --- Priority 2: OAuth routes (manual implementation, no passport dependency) ---
+app.use(createOAuthRouter({ User }));
 
 const paymentSchema = new mongoose.Schema({
   userId:        { type:mongoose.Schema.Types.ObjectId, ref:"User", required:true },
