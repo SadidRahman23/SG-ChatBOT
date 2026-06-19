@@ -1,55 +1,215 @@
 // routes/oauth.js
-// Exposes exactly the four routes requested:
-//   GET /auth/google            GET /auth/google/callback
-//   GET /auth/github            GET /auth/github/callback
-//
-// On success, mints the SAME kind of JWT the existing /login route issues (same secret, same
-// expiry, same payload shape: { id }), so every existing authenticated route keeps working
-// unchanged for OAuth-logged-in users — they're indistinguishable from password-login users to
-// the rest of the app. The token is delivered to the frontend via a redirect (?token=...) since
-// this is a full-page browser navigation, not an API call the SPA can read a JSON body from.
+// Manual OAuth implementation — no passport dependency for the actual token exchange.
+// Passport had persistent "Failed to obtain access token" issues; direct fetch calls
+// to GitHub/Google token endpoints are simpler, easier to debug, and more reliable.
 import express from "express";
-import passport from "passport";
-import jwt from "jsonwebtoken";
+import fetch   from "node-fetch";
+import jwt     from "jsonwebtoken";
+import crypto  from "crypto";
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://sg-chatbot-a2h.pages.dev";
+const APP_URL      = process.env.APP_URL      || "https://sg-chatbot-z8hp.onrender.com";
 
-function issueTokenAndRedirect(req, res) {
-  if (!req.user) return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
-  const token = jwt.sign({ id: req.user._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
-  res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}`);
+// In-memory state store (CSRF protection). State entries expire after 10 minutes.
+// On Render free tier a single instance is always running, so this is safe;
+// if you later scale to multiple instances, replace with a Redis/MongoDB store.
+const stateStore = new Map();
+function newState() {
+  const s = crypto.randomBytes(18).toString("hex");
+  stateStore.set(s, Date.now());
+  return s;
+}
+function verifyState(s) {
+  const ts = stateStore.get(s);
+  stateStore.delete(s);
+  return ts && (Date.now() - ts) < 10 * 60 * 1000;
 }
 
-export default function createOAuthRouter() {
+function issueJWT(userId) {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
+}
+
+export default function createOAuthRouter({ User }) {
   const router = express.Router();
 
-  const googleEnabled = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
-  const githubEnabled = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
+  const githubOK = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
+  const googleOK = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 
-  // Initial redirect — must NOT have session:false so passport-oauth2 can store its CSRF `state`
-  // in the session. Without this, the callback has nothing to verify against and throws
-  // "Failed to obtain access token".
-  router.get("/auth/google", (req, res, next) => {
-    if (!googleEnabled) return res.status(503).json({ message: "Google login is not configured on this server." });
-    passport.authenticate("google", { scope: ["profile", "email"] })(req, res, next);
+  // ── GITHUB ──────────────────────────────────────────────────────────────────
+  router.get("/auth/github", (req, res) => {
+    if (!githubOK) return res.status(503).json({ message: "GitHub login is not configured." });
+    const state = newState();
+    const params = new URLSearchParams({
+      client_id:    process.env.GITHUB_CLIENT_ID,
+      redirect_uri: `${APP_URL}/auth/github/callback`,
+      scope:        "user:email",
+      state,
+    });
+    res.redirect(`https://github.com/login/oauth/authorize?${params}`);
   });
 
-  // Callback — session:false here so no persistent user session is created; we mint a JWT instead.
-  router.get("/auth/google/callback", (req, res, next) => {
-    if (!googleEnabled) return res.status(503).json({ message: "Google login is not configured on this server." });
-    passport.authenticate("google", { session: false, failureRedirect: `${FRONTEND_URL}/login?error=google_oauth_failed` })(req, res, next);
-  }, issueTokenAndRedirect);
+  router.get("/auth/github/callback", async (req, res) => {
+    const fail = (reason) => {
+      console.error("GitHub OAuth failed:", reason);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback?error=github_oauth_failed`);
+    };
 
-  // Same pattern for GitHub
-  router.get("/auth/github", (req, res, next) => {
-    if (!githubEnabled) return res.status(503).json({ message: "GitHub login is not configured on this server." });
-    passport.authenticate("github")(req, res, next);
+    const { code, state, error } = req.query;
+    if (error)            return fail(`GitHub error: ${error}`);
+    if (!code)            return fail("No code received");
+    if (!verifyState(state)) return fail("Invalid or expired state");
+
+    try {
+      // 1. Exchange code for access token
+      const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body:    JSON.stringify({
+          client_id:     process.env.GITHUB_CLIENT_ID,
+          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          code,
+          redirect_uri:  `${APP_URL}/auth/github/callback`,
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const tokenData = await tokenRes.json();
+      console.log("GitHub token response:", JSON.stringify(tokenData));  // logs actual GitHub error if any
+
+      if (tokenData.error || !tokenData.access_token) {
+        return fail(`Token error: ${tokenData.error} — ${tokenData.error_description || ""}`);
+      }
+
+      const accessToken = tokenData.access_token;
+
+      // 2. Get GitHub user profile
+      const [profileRes, emailsRes] = await Promise.all([
+        fetch("https://api.github.com/user",        { headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "SG-ChatBOT" }, signal: AbortSignal.timeout(8000) }),
+        fetch("https://api.github.com/user/emails", { headers: { Authorization: `Bearer ${accessToken}`, "User-Agent": "SG-ChatBOT" }, signal: AbortSignal.timeout(8000) }),
+      ]);
+
+      const profile = await profileRes.json();
+      const emails  = await emailsRes.json();
+
+      const primaryEmail = Array.isArray(emails)
+        ? (emails.find(e => e.primary && e.verified) || emails.find(e => e.verified))?.email?.toLowerCase()
+        : null;
+      const email = primaryEmail || profile.email?.toLowerCase() || null;
+
+      if (!email) return fail("No verified email on GitHub account");
+
+      // 3. Find or create user
+      let user = await User.findOne({ githubId: String(profile.id) });
+      if (!user) {
+        user = await User.findOne({ email });
+        if (user) {
+          user.githubId = String(profile.id);
+          if (!user.avatarUrl && profile.avatar_url) user.avatarUrl = profile.avatar_url;
+        } else {
+          const bcrypt = (await import("bcryptjs")).default;
+          const crypto2 = (await import("crypto")).default;
+          user = new User({
+            email,
+            password:  await bcrypt.hash(crypto2.randomBytes(24).toString("hex"), 12),
+            githubId:  String(profile.id),
+            avatarUrl: profile.avatar_url || "",
+          });
+        }
+      }
+      user.lastLoginAt = new Date();
+      await user.save();
+
+      // 4. Mint JWT and redirect to frontend
+      const token = issueJWT(user._id);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}`);
+
+    } catch (err) {
+      return fail(err.message);
+    }
   });
 
-  router.get("/auth/github/callback", (req, res, next) => {
-    if (!githubEnabled) return res.status(503).json({ message: "GitHub login is not configured on this server." });
-    passport.authenticate("github", { session: false, failureRedirect: `${FRONTEND_URL}/oauth-callback?error=github_oauth_failed` })(req, res, next);
-  }, issueTokenAndRedirect);
+  // ── GOOGLE ──────────────────────────────────────────────────────────────────
+  router.get("/auth/google", (req, res) => {
+    if (!googleOK) return res.status(503).json({ message: "Google login is not configured." });
+    const state = newState();
+    const params = new URLSearchParams({
+      client_id:     process.env.GOOGLE_CLIENT_ID,
+      redirect_uri:  `${APP_URL}/auth/google/callback`,
+      response_type: "code",
+      scope:         "openid email profile",
+      access_type:   "offline",
+      state,
+    });
+    res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
+  });
+
+  router.get("/auth/google/callback", async (req, res) => {
+    const fail = (reason) => {
+      console.error("Google OAuth failed:", reason);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback?error=google_oauth_failed`);
+    };
+
+    const { code, state, error } = req.query;
+    if (error)               return fail(`Google error: ${error}`);
+    if (!code)               return fail("No code received");
+    if (!verifyState(state)) return fail("Invalid or expired state");
+
+    try {
+      // 1. Exchange code for tokens
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method:  "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body:    new URLSearchParams({
+          code,
+          client_id:     process.env.GOOGLE_CLIENT_ID,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET,
+          redirect_uri:  `${APP_URL}/auth/google/callback`,
+          grant_type:    "authorization_code",
+        }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const tokenData = await tokenRes.json();
+      if (tokenData.error || !tokenData.access_token) {
+        return fail(`Token error: ${tokenData.error}`);
+      }
+
+      // 2. Get user info
+      const infoRes = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        signal: AbortSignal.timeout(8000),
+      });
+      const profile = await infoRes.json();
+      if (!profile.email) return fail("No email on Google account");
+
+      const email = profile.email.toLowerCase();
+
+      // 3. Find or create user
+      let user = await User.findOne({ googleId: String(profile.id) });
+      if (!user) {
+        user = await User.findOne({ email });
+        if (user) {
+          user.googleId = String(profile.id);
+          if (!user.avatarUrl && profile.picture) user.avatarUrl = profile.picture;
+        } else {
+          const bcrypt = (await import("bcryptjs")).default;
+          const crypto2 = (await import("crypto")).default;
+          user = new User({
+            email,
+            password:  await bcrypt.hash(crypto2.randomBytes(24).toString("hex"), 12),
+            googleId:  String(profile.id),
+            avatarUrl: profile.picture || "",
+          });
+        }
+      }
+      user.lastLoginAt = new Date();
+      await user.save();
+
+      const token = issueJWT(user._id);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}`);
+
+    } catch (err) {
+      return fail(err.message);
+    }
+  });
 
   return router;
 }
