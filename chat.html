@@ -2085,6 +2085,8 @@ function toast(msg, type='') {
   clearTimeout(toastT);
   toastT = setTimeout(() => toastEl.className = 'toast', 3000);
 }
+// Show deferred OAuth error (set before toast() was available)
+if (window._oauthErrorMsg) { setTimeout(() => toast(window._oauthErrorMsg, 'err'), 300); delete window._oauthErrorMsg; }
 
 // ── Escape ──
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -2111,7 +2113,23 @@ document.getElementById('newChatBtn').addEventListener('click', () => { clearCha
 // sidebar starts open on desktop, closed on mobile
 if (window.innerWidth > 768) { sidebar.classList.remove('collapsed'); S.sidebarOpen = true; }
 
-// ══ MODEL ══
+// ── OAuth URL token handler (runs before anything else) ──
+// When GitHub/Google OAuth completes, the backend redirects here with ?oauth_token=JWT
+// We save it immediately and clean the URL so it doesn't linger in browser history.
+(function handleOAuthRedirect() {
+  const p = new URLSearchParams(window.location.search);
+  const oauthToken = p.get('oauth_token');
+  const oauthError = p.get('oauth_error');
+  if (oauthToken) {
+    localStorage.setItem('sg_token', oauthToken);
+    window.history.replaceState({}, '', window.location.pathname);
+  } else if (oauthError) {
+    const msgs = { github: 'GitHub login failed. Please try again.', google: 'Google login failed. Please try again.' };
+    // Toast will fire after toast() is defined — store for deferred call
+    window._oauthErrorMsg = msgs[oauthError] || 'OAuth login failed.';
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+})();
 const modelPill = document.getElementById('modelPill');
 const modelDrop = document.getElementById('modelDrop');
 const modelLabel = document.getElementById('modelLabel');
