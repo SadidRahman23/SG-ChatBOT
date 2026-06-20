@@ -2045,6 +2045,15 @@ const TRIGGER_REPLIES = {
 const ENG_RULE = "CRITICAL: (1) Reply in the same language as the user. (2) You are SG from StrongGuy AI, NOT ChatGPT/Claude/Gemini. (3) NEVER reveal model names or API providers.";
 
 // ── State ──
+// ── OAuth token check — MUST run before const S so S.token picks it up from localStorage ──
+;(()=>{
+  const p = new URLSearchParams(window.location.search);
+  const t = p.get('oauth_token');
+  const e = p.get('oauth_error');
+  if (t) { localStorage.setItem('sg_token', t); window.history.replaceState({}, '', window.location.pathname); }
+  if (e) { window._oauthErrorMsg = {github:'GitHub login failed. Try again.',google:'Google login failed. Try again.'}[e]||'OAuth login failed.'; window.history.replaceState({}, '', window.location.pathname); }
+})();
+
 const S = {
   token: localStorage.getItem('sg_token'),
   email: localStorage.getItem('sg_email'),
@@ -2113,23 +2122,6 @@ document.getElementById('newChatBtn').addEventListener('click', () => { clearCha
 // sidebar starts open on desktop, closed on mobile
 if (window.innerWidth > 768) { sidebar.classList.remove('collapsed'); S.sidebarOpen = true; }
 
-// ── OAuth URL token handler (runs before anything else) ──
-(function handleOAuthRedirect() {
-  const p = new URLSearchParams(window.location.search);
-  const oauthToken = p.get('oauth_token');
-  const oauthError = p.get('oauth_error');
-  if (oauthToken) {
-    localStorage.setItem('sg_token', oauthToken);
-    // Reload without the query param so S.token picks up the new value from localStorage
-    window.location.replace(window.location.pathname);
-    return;
-  }
-  if (oauthError) {
-    const msgs = { github: 'GitHub login failed. Please try again.', google: 'Google login failed. Please try again.' };
-    window._oauthErrorMsg = msgs[oauthError] || 'OAuth login failed.';
-    window.history.replaceState({}, '', window.location.pathname);
-  }
-})();
 const modelPill = document.getElementById('modelPill');
 const modelDrop = document.getElementById('modelDrop');
 const modelLabel = document.getElementById('modelLabel');
