@@ -504,13 +504,15 @@
     /* user bubble */
     .msg-row.user .bubble {
       max-width: min(600px, 82%);
-      padding: 12px 16px;
+      min-width: 44px;
+      padding: 10px 16px;
       border-radius: 20px 20px 5px 20px;
       background: var(--accent);
       color: #fff;
       font-size: var(--msg-font);
       line-height: 1.75;
       word-break: break-word;
+      white-space: pre-wrap;
       position: relative;
       box-shadow: 0 4px 20px rgba(108,142,255,.25);
     }
@@ -1570,11 +1572,11 @@
       <div class="think-dropdown" id="thinkDrop">
         <div class="think-dropdown-title">Thinking Level</div>
         <div class="think-dd-opt active" data-think="normal">
-          <div class="think-dd-opt-icon">💬</div>
+          <div class="think-dd-opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
           <div><div class="think-dd-opt-name">Default</div><div class="think-dd-opt-desc">Normal response flow</div></div>
         </div>
         <div class="think-dd-opt" data-think="powerful">
-          <div class="think-dd-opt-icon">⚡</div>
+          <div class="think-dd-opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
           <div><div class="think-dd-opt-name">Powerful</div><div class="think-dd-opt-desc">Deeper, multi-step reasoning</div></div>
         </div>
       </div>
@@ -1662,8 +1664,8 @@
     <button class="m-pill" data-mrole="Productivity Coach">Productivity Coach</button>
     <div class="m-divider"></div>
     <!-- thinking level pills (item 5) -->
-    <button class="m-pill active" data-mthink="normal">🧠 Default Thinking</button>
-    <button class="m-pill" data-mthink="powerful">⚡ Powerful Thinking</button>
+    <button class="m-pill active" data-mthink="normal">Default Thinking</button>
+    <button class="m-pill" data-mthink="powerful">Powerful Thinking</button>
   </div>
 
   <!-- Input area -->
