@@ -10,7 +10,6 @@ import rateLimit      from "express-rate-limit";
 import multer         from "multer";
 import { fileURLToPath } from "url";
 import crypto         from "crypto";
-import nodemailer     from "nodemailer";
 import dns            from "dns";
 // --- Priority 2 modules ---
 import createOAuthRouter          from "./routes/oauth.js";
@@ -22,7 +21,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
-const REQUIRED_ENV = ["MONGO_URI","OPENROUTER_KEY","JWT_SECRET","ADMIN_SECRET","EMAIL_USER","EMAIL_PASS","ENCRYPTION_KEY"];
+const REQUIRED_ENV = ["MONGO_URI","OPENROUTER_KEY","JWT_SECRET","ADMIN_SECRET","ENCRYPTION_KEY"];
 for (const key of REQUIRED_ENV) {
   if (!process.env[key]) throw new Error(`Missing env: ${key}`);
 }
@@ -82,31 +81,28 @@ const GROQ_KEYS = [
   process.env.GROQ_API_KEY,
 ].filter(Boolean);
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
-});
-
+// Email — Brevo HTTP API only (Render blocks outbound SMTP).
+// Set BREVO_API_KEY in Render environment. Get it from app.brevo.com → SMTP & API → API Keys.
+// BREVO_SENDER_EMAIL must be a verified sender in your Brevo account.
 async function sendEmail(to, subject, html) {
   try {
-    if (process.env.BREVO_API_KEY) {
-      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "api-key": process.env.BREVO_API_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ sender: { name: "SG ChatBOT", email: process.env.EMAIL_USER || "noreply@sgchatbot.com" }, to: [{ email: to }], subject, htmlContent: html }),
-      });
-      if (res.ok) { console.log(`✅ Email sent via Brevo to ${to}`); return true; }
-    }
-    if (process.env.RESEND_API_KEY) {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ from: "SG ChatBOT <onboarding@resend.dev>", to: [to], subject, html }),
-      });
-      if (res.ok) { console.log(`✅ Email sent via Resend to ${to}`); return true; }
-    }
-    await transporter.sendMail({ from: `"SG ChatBOT" <${process.env.EMAIL_USER}>`, to, subject, html });
-    return true;
+    if (!process.env.BREVO_API_KEY) { console.error("Email error: BREVO_API_KEY not set"); return false; }
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER || "noreply@sgchatbot.com";
+    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "api-key": process.env.BREVO_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sender: { name: "SG ChatBOT", email: senderEmail },
+        to: [{ email: to }],
+        subject,
+        htmlContent: html,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) { console.log(`✅ Email sent via Brevo to ${to}`); return true; }
+    const err = await res.json().catch(()=>({}));
+    console.error("Brevo email error:", res.status, JSON.stringify(err));
+    return false;
   } catch (err) { console.error("Email error:", err.message); return false; }
 }
 
@@ -498,7 +494,7 @@ const SUSPICIOUS_UA = ["sqlmap","nikto","nmap","masscan","zgrab","acunetix","bur
 app.use(async (req,res,next) => {
   const ip=getClientIP(req); const ua=(req.headers["user-agent"]||"").toLowerCase(); const url=req.originalUrl;
   const suspUA=SUSPICIOUS_UA.some(s=>ua.includes(s)); const pathTraverse=url.includes("../")||url.includes("%2e%2e"); const sqlAttempt=/(\bunion\b\s+\bselect\b)|(\bdrop\b\s+\btable\b)|('|%27|--|;)\s*(\bor\b|\band\b|\bdrop\b|\bdelete\b|\binsert\b|\bunion\b)\b/i.test(url); const xssAttempt=/<script|javascript:|onerror=|onload=/i.test(url);
-  if (suspUA||pathTraverse||sqlAttempt||xssAttempt) { const type=suspUA?"suspicious_user_agent":pathTraverse?"path_traversal":sqlAttempt?"sql_injection":"xss_attempt"; await logSecurityEvent(type,"high",req,{url}); const key=`susp_${ip}`; const count=(ipAttempts.get(key)||0)+1; ipAttempts.set(key,count); if (count>=3) { await BlockedIP.findOneAndUpdate({ip},{ip,reason:`Auto-blocked: ${type}`,blockedBy:"system",attempts:count},{upsert:true,new:true}).catch(()=>{}); await logSecurityEvent("ip_auto_blocked","critical",req,{reason:type}); } return res.status(403).json({message:"Access denied."}); }
+  if (suspUA||pathTraverse||sqlAttempt||xssAttempt) { const type=suspUA?"suspicious_user_agent":pathTraverse?"path_traversal":sqlAttempt?"sql_injection":"xss_attempt"; await logSecurityEvent(type,"high",req,{url}); const key=`susp_${ip}`; const count=(ipAttempts.get(key)||0)+1; ipAttempts.set(key,count); if (count>=3) { await BlockedIP.findOneAndUpdate({ip},{ip,reason:`Auto-blocked: ${type}`,blockedBy:"system",attempts:count},{upsert:true,returnDocument:"after"}).catch(()=>{}); await logSecurityEvent("ip_auto_blocked","critical",req,{reason:type}); } return res.status(403).json({message:"Access denied."}); }
   next();
 });
 
@@ -985,7 +981,7 @@ app.put("/tasks/:id", auth, checkBlocked, apiLimiter, async (req,res) => {
       fireEvent(req.user.id, "task_completed", task).catch(()=>{});
       // Update daily analytics
       const today = todayStr();
-      await Analytics.findOneAndUpdate({userId:req.user.id,date:today},{$inc:{tasksCompleted:1}},{upsert:true,new:true});
+      await Analytics.findOneAndUpdate({userId:req.user.id,date:today},{$inc:{tasksCompleted:1}},{upsert:true,returnDocument:"after"});
     }
     await task.save();
     res.json(task);
@@ -1102,7 +1098,7 @@ app.post("/habits/:id/complete", auth, checkBlocked, apiLimiter, async (req,res)
     // Analytics
     if (!existing) {
       const today = todayStr();
-      await Analytics.findOneAndUpdate({userId:req.user.id,date:today},{$inc:{habitsCompleted:1}},{upsert:true,new:true});
+      await Analytics.findOneAndUpdate({userId:req.user.id,date:today},{$inc:{habitsCompleted:1}},{upsert:true,returnDocument:"after"});
     }
     await habit.save();
     res.json(habit);
@@ -1200,7 +1196,7 @@ app.get("/analytics/today", auth, checkBlocked, apiLimiter, async (req,res) => {
     const avgProgress = goalsActive > 0 ? (await Goal.aggregate([{$match:{userId:new mongoose.Types.ObjectId(req.user.id),status:"active"}},{$group:{_id:null,avg:{$avg:"$progress"}}}]))[0]?.avg||0 : 0;
     const data = { tasksCompleted:tasksDone, habitsCompleted, habitsTotal, goalsProgress:avgProgress, mood:habitsToday?.mood||null };
     const productivityScore = calculateProductivityScore(data);
-    await Analytics.findOneAndUpdate({userId:req.user.id,date:today},{...data,productivityScore,habitsTotal,messagesCount:(habitsToday?.messagesCount||0)},{upsert:true,new:true});
+    await Analytics.findOneAndUpdate({userId:req.user.id,date:today},{...data,productivityScore,habitsTotal,messagesCount:(habitsToday?.messagesCount||0)},{upsert:true,returnDocument:"after"});
     res.json({ date:today, tasksCompleted:tasksDone, tasksTotal, habitsCompleted, habitsTotal, goalsActive, goalsCompleted, avgGoalProgress:Math.round(avgProgress), productivityScore, mood:habitsToday?.mood||null });
   } catch { res.status(500).json({message:"Error"}); }
 });
@@ -1228,7 +1224,7 @@ app.post("/analytics/mood", auth, checkBlocked, apiLimiter, async (req,res) => {
     const { mood, date } = req.body;
     const d = date || todayStr();
     if (!mood || mood < 1 || mood > 5) return res.status(400).json({message:"Mood must be 1-5"});
-    await Analytics.findOneAndUpdate({userId:req.user.id,date:d},{mood:parseInt(mood)},{upsert:true,new:true});
+    await Analytics.findOneAndUpdate({userId:req.user.id,date:d},{mood:parseInt(mood)},{upsert:true,returnDocument:"after"});
     res.json({message:"Mood logged"});
   } catch { res.status(500).json({message:"Error"}); }
 });
@@ -1301,7 +1297,7 @@ app.post("/integrations/:service/connect", auth, checkBlocked, apiLimiter, async
     await Integration.findOneAndUpdate(
       { userId:req.user.id, service:req.params.service },
       { accessToken:encrypted, metadata:metadata||{}, active:true, lastSyncAt:null },
-      { upsert:true, new:true }
+      { upsert:true, returnDocument:"after" }
     );
     await AutomationLog.create({ userId:req.user.id, service:req.params.service, action:"connect", status:"success", details:{} });
     res.json({message:`${req.params.service} connected`});
@@ -1405,7 +1401,7 @@ app.get("/admin/security/logs", adminLimiter, adminAuth, async (req,res) => { tr
 app.patch("/admin/security/logs/:id/resolve", adminLimiter, adminAuth, async (req,res) => { try { await SecurityLog.findByIdAndUpdate(req.params.id,{resolved:true,resolvedAt:new Date()}); res.json({message:"Resolved"}); } catch { res.status(500).json({message:"Error"}); } });
 app.delete("/admin/security/logs/resolved", adminLimiter, adminAuth, async (req,res) => { try { await SecurityLog.deleteMany({resolved:true}); res.json({message:"Cleared"}); } catch { res.status(500).json({message:"Error"}); } });
 app.get("/admin/security/blocked-ips", adminLimiter, adminAuth, async (req,res) => { try { res.json(await BlockedIP.find().sort({createdAt:-1})); } catch { res.status(500).json({message:"Error"}); } });
-app.post("/admin/security/block-ip", adminLimiter, adminAuth, async (req,res) => { try { const {ip,reason,expiresInHours}=req.body; if (!ip) return res.status(400).json({message:"IP required"}); const expiresAt=expiresInHours?new Date(Date.now()+expiresInHours*3600000):null; await BlockedIP.findOneAndUpdate({ip},{ip,reason:sanitize(reason)||"Admin block",blockedBy:"admin",expiresAt},{upsert:true,new:true}); await logSecurityEvent("ip_manually_blocked","medium",req,{ip,reason}); res.json({message:`IP ${ip} blocked`}); } catch { res.status(500).json({message:"Error"}); } });
+app.post("/admin/security/block-ip", adminLimiter, adminAuth, async (req,res) => { try { const {ip,reason,expiresInHours}=req.body; if (!ip) return res.status(400).json({message:"IP required"}); const expiresAt=expiresInHours?new Date(Date.now()+expiresInHours*3600000):null; await BlockedIP.findOneAndUpdate({ip},{ip,reason:sanitize(reason)||"Admin block",blockedBy:"admin",expiresAt},{upsert:true,returnDocument:"after"}); await logSecurityEvent("ip_manually_blocked","medium",req,{ip,reason}); res.json({message:`IP ${ip} blocked`}); } catch { res.status(500).json({message:"Error"}); } });
 app.delete("/admin/security/blocked-ips/:ip", adminLimiter, adminAuth, async (req,res) => { try { await BlockedIP.deleteOne({ip:req.params.ip}); res.json({message:"IP unblocked"}); } catch { res.status(500).json({message:"Error"}); } });
 app.post("/admin/broadcast", adminLimiter, adminAuth, async (req,res) => {
   try {
@@ -1654,7 +1650,7 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     }
 
     // Update daily analytics
-    await Analytics.findOneAndUpdate({userId:user._id,date:todayStr()},{$inc:{messagesCount:1}},{upsert:true,new:true}).catch(()=>{});
+    await Analytics.findOneAndUpdate({userId:user._id,date:todayStr()},{$inc:{messagesCount:1}},{upsert:true,returnDocument:"after"}).catch(()=>{});
 
     res.json({reply,msgsLeft,minsLeft,plan:pro?"pro":"free",conversationId:savedId});
   } catch(err){console.error("❌ Chat error:",err);res.status(500).json({reply:"Server error. Please try again."});}
@@ -1781,6 +1777,9 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
         success = await tryGroqStream(POWERFUL_GROQ_MODEL);
         if (!success && !fullReply) success = await tryORStream(POWERFUL_OR_MODEL);
         if (!success && !fullReply) success = await tryGoogleAsChunk("gemini-2.5-flash-preview-04-17");
+        if (!success && !fullReply) success = await tryORStream("google/gemini-2.5-pro:free");
+        if (!success && !fullReply) success = await tryORStream("deepseek/deepseek-r1:free");
+        if (!success && !fullReply) success = await tryORStream("meta-llama/llama-3.3-70b-instruct:free");
       } else {
         success=await tryGroqStream(GROQ_MODELS[modelKey]);
         if (!success && !fullReply) success=await tryGoogleAsChunk(modelKey==="deep"?"gemini-2.5-flash-preview-04-17":"gemini-2.0-flash");
@@ -1810,7 +1809,7 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     if (allMsgs.filter(m=>m.role==="assistant").length % 5 === 0) {
       extractMemoriesFromChat(user._id, allMsgs).catch(()=>{});
     }
-    await Analytics.findOneAndUpdate({userId:user._id,date:todayStr()},{$inc:{messagesCount:1}},{upsert:true,new:true}).catch(()=>{});
+    await Analytics.findOneAndUpdate({userId:user._id,date:todayStr()},{$inc:{messagesCount:1}},{upsert:true,returnDocument:"after"}).catch(()=>{});
 
     sendDone({msgsLeft,minsLeft,plan:pro?"pro":"free",conversationId:savedId,sources:streamSources});
     res.end();
