@@ -14,6 +14,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
@@ -23,34 +25,40 @@
        DESIGN TOKENS
     ═══════════════════════════════ */
     :root {
-      --bg:           #0a0c12;
-      --surface:      #111318;
-      --surface-2:    #181c26;
-      --surface-3:    #1f2433;
-      --border:       rgba(255,255,255,0.055);
-      --border-2:     rgba(255,255,255,0.10);
-      --text:         #e8edf5;
-      --text-2:       #a0aec0;
-      --muted:        #4a5568;
-      --accent:       #6c8eff;
-      --accent-dim:   rgba(108,142,255,0.12);
-      --accent-glow:  rgba(108,142,255,0.18);
+      --bg:           #07080f;
+      --surface:      #0d0e1a;
+      --surface-2:    #121325;
+      --surface-3:    #181a30;
+      --surface-4:    #1e2040;
+      --border:       rgba(139,92,246,0.08);
+      --border-2:     rgba(139,92,246,0.15);
+      --border-3:     rgba(139,92,246,0.3);
+      --text:         #e8e8f8;
+      --text-2:       #8888b8;
+      --muted:        #3a3a60;
+      --accent:       #8b5cf6;
+      --accent-2:     #6366f1;
+      --accent-dim:   rgba(139,92,246,0.1);
+      --accent-glow:  rgba(139,92,246,0.18);
       --green:        #34d399;
       --red:          #f87171;
+      --gold:         #fbbf24;
       --font:         'Inter', system-ui, sans-serif;
-      --r:            12px;
-      --r-lg:         18px;
-      --r-xl:         24px;
-      --sidebar-w:    260px;
+      --r:            10px;
+      --r-lg:         16px;
+      --r-xl:         22px;
+      --sidebar-w:    268px;
       --topbar-h:     56px;
       --ease:         cubic-bezier(0.4,0,0.2,1);
       --chat-max:     800px;
-      /* Font sizes — bigger on mobile */
       --msg-font:     15px;
       --bot-font:     16px;
+      --shadow:       0 8px 32px rgba(0,0,0,0.5);
+      --shadow-lg:    0 20px 60px rgba(0,0,0,0.7);
     }
 
     *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    html { scroll-behavior: smooth; }
     html, body { height:100%; overflow:hidden; }
     body {
       font-family: var(--font);
@@ -59,15 +67,25 @@
       display: flex;
     }
 
-    /* subtle grid bg */
+    /* purple gradient mesh bg */
     body::before {
       content:'';
       position:fixed; inset:0; pointer-events:none; z-index:0;
-      background-image:
-        linear-gradient(rgba(108,142,255,0.025) 1px,transparent 1px),
-        linear-gradient(90deg,rgba(108,142,255,0.025) 1px,transparent 1px);
-      background-size: 60px 60px;
+      background:
+        radial-gradient(ellipse 70% 50% at 15% 0%, rgba(139,92,246,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 85% 100%, rgba(99,102,241,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 50% 50%, rgba(139,92,246,0.02) 0%, transparent 70%),
+        linear-gradient(rgba(139,92,246,0.015) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(139,92,246,0.015) 1px,transparent 1px);
+      background-size: 100% 100%, 100% 100%, 100% 100%, 56px 56px, 56px 56px;
     }
+
+    /* ═══ GLOBAL SCROLLBARS ═══ */
+    * { scrollbar-width: thin; scrollbar-color: var(--surface-4) transparent; }
+    *::-webkit-scrollbar { width: 5px; height: 5px; }
+    *::-webkit-scrollbar-track { background: transparent; }
+    *::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 99px; }
+    *::-webkit-scrollbar-thumb:hover { background: var(--surface-3); }
 
     /* ═══════════════════════════════
        SIDEBAR
@@ -134,7 +152,7 @@
       padding: 9px 12px;
       border-radius: var(--r);
       background: var(--accent-dim);
-      border: 1px solid rgba(108,142,255,0.2);
+      border: 1px solid rgba(139,92,246,0.2);
       color: var(--accent);
       font-family: var(--font);
       font-size: 13px; font-weight: 600;
@@ -142,7 +160,7 @@
       transition: all 0.2s;
       margin-bottom: 14px;
     }
-    .new-chat:hover { background: rgba(108,142,255,0.2); }
+    .new-chat:hover { background: rgba(139,92,246,0.2); }
     .new-chat svg { width: 14px; height: 14px; flex-shrink: 0; }
 
     .sidebar-search-wrap { position: relative; margin-bottom: 8px; }
@@ -193,7 +211,7 @@
     .hist-item.active { background: var(--surface-3); color: var(--text); }
     .hist-item svg { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.5; }
     .hist-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hist-title mark { background: rgba(108,142,255,0.25); color: var(--accent); border-radius: 3px; padding: 0 2px; }
+    .hist-title mark { background: rgba(139,92,246,0.25); color: var(--accent); border-radius: 3px; padding: 0 2px; }
     .hist-del {
       background: none; border: none;
       color: var(--muted); cursor: pointer;
@@ -233,7 +251,7 @@
     .avatar {
       width: 30px; height: 30px;
       border-radius: 50%;
-      background: linear-gradient(135deg, rgba(108,142,255,0.3), rgba(167,139,250,0.2));
+      background: linear-gradient(135deg, rgba(139,92,246,0.3), rgba(167,139,250,0.2));
       border: 1px solid var(--border-2);
       display: flex; align-items: center; justify-content: center;
       font-size: 12px; font-weight: 700; color: var(--accent);
@@ -346,7 +364,7 @@
       color: var(--text-2); flex-shrink: 0;
     }
     .model-opt-icon svg { width: 14px; height: 14px; }
-    .model-opt.active .model-opt-icon { color: var(--accent); border-color: rgba(108,142,255,.3); background: var(--accent-dim); }
+    .model-opt.active .model-opt-icon { color: var(--accent); border-color: rgba(139,92,246,.3); background: var(--accent-dim); }
     .model-opt-name { font-size: 13px; font-weight: 700; }
     .model-opt-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
@@ -453,12 +471,12 @@
     .welcome-orb {
       width: 72px; height: 72px;
       border-radius: 22px;
-      background: linear-gradient(135deg,rgba(108,142,255,.2),rgba(167,139,250,.15));
-      border: 1px solid rgba(108,142,255,.2);
+      background: linear-gradient(135deg,rgba(139,92,246,.2),rgba(167,139,250,.15));
+      border: 1px solid rgba(139,92,246,.2);
       display: flex; align-items: center; justify-content: center;
       font-size: 30px;
       margin-bottom: 8px;
-      box-shadow: 0 0 60px rgba(108,142,255,.12);
+      box-shadow: 0 0 60px rgba(139,92,246,.12);
     }
     .welcome h1 { font-size: clamp(22px,3.5vw,30px); font-weight: 800; letter-spacing: -0.6px; text-align: center; }
     .welcome p { font-size: 15px; color: var(--text-2); text-align: center; }
@@ -480,11 +498,11 @@
       transition: all 0.2s;
     }
     .suggestion-card:hover {
-      border-color: rgba(108,142,255,.35);
+      border-color: rgba(139,92,246,.35);
       background: var(--surface-2);
       color: var(--text);
       transform: translateY(-2px);
-      box-shadow: 0 6px 24px rgba(108,142,255,.1);
+      box-shadow: 0 6px 24px rgba(139,92,246,.1);
     }
     .suggestion-card strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 3px; }
 
@@ -507,14 +525,14 @@
       min-width: 44px;
       padding: 10px 16px;
       border-radius: 20px 20px 5px 20px;
-      background: var(--accent);
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
       color: #fff;
       font-size: var(--msg-font);
       line-height: 1.75;
       word-break: break-word;
       white-space: pre-wrap;
       position: relative;
-      box-shadow: 0 4px 20px rgba(108,142,255,.25);
+      box-shadow: 0 4px 20px rgba(139,92,246,.3);
     }
 
     /* bot bubble — full width, no background */
@@ -532,7 +550,7 @@
     .bot-av {
       width: 30px; height: 30px;
       border-radius: 9px;
-      background: linear-gradient(135deg,rgba(108,142,255,.25),rgba(167,139,250,.2));
+      background: linear-gradient(135deg,rgba(139,92,246,.25),rgba(167,139,250,.2));
       border: 1px solid var(--border-2);
       display: flex; align-items: center; justify-content: center;
       font-size: 13px; font-weight: 800; color: var(--accent);
@@ -556,7 +574,7 @@
     .bubble p { margin-bottom: 10px; }
     .bubble p:last-child { margin-bottom: 0; }
     .bubble code {
-      background: rgba(108,142,255,.13);
+      background: rgba(139,92,246,.13);
       color: var(--accent);
       padding: 2px 6px;
       border-radius: 5px;
@@ -841,7 +859,7 @@
     .tool-pill.running .tool-icon { animation: spin 1.5s linear infinite; }
     .tool-pill.done { border-color: rgba(52,211,153,.3); color: var(--green); background: rgba(52,211,153,.05); }
     .tool-pill.error { border-color: rgba(248,113,113,.3); color: var(--red); background: rgba(248,113,113,.05); }
-    .action-card { background: var(--surface-2); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: 14px 16px; margin: 10px 0; max-width: 400px; box-shadow: 0 8px 30px rgba(108,142,255,.08); animation: fadeUp 0.2s var(--ease); }
+    .action-card { background: var(--surface-2); border: 1px solid var(--accent); border-radius: var(--r-lg); padding: 14px 16px; margin: 10px 0; max-width: 400px; box-shadow: 0 8px 30px rgba(139,92,246,.08); animation: fadeUp 0.2s var(--ease); }
     .action-header { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
     .action-desc { font-size: 12.5px; color: var(--text-2); margin-bottom: 12px; line-height: 1.5; }
     .action-btns { display: flex; gap: 8px; }
@@ -950,10 +968,12 @@
     .send-btn {
       width: 36px; height: 36px;
       border-radius: 10px; border: none;
-      background: var(--accent); color: #fff;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      color: #fff;
       cursor: pointer; display: flex; align-items: center; justify-content: center;
       flex-shrink: 0;
       transition: filter 0.15s, transform 0.1s;
+      box-shadow: 0 4px 12px rgba(139,92,246,.35);
     }
     .send-btn svg.send-icon { width: 16px; height: 16px; display: block; }
     .send-btn .stop-sq { width: 10px; height: 10px; background: #fff; border-radius: 2px; display: none; }
@@ -1047,7 +1067,7 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 15px; flex-shrink: 0;
     }
-    .think-dd-opt.active .think-dd-opt-icon { border-color: rgba(108,142,255,.3); background: var(--accent-dim); }
+    .think-dd-opt.active .think-dd-opt-icon { border-color: rgba(139,92,246,.3); background: var(--accent-dim); }
     .think-dd-opt[data-think="powerful"].active .think-dd-opt-icon { border-color: rgba(139,92,246,.4); background: rgba(139,92,246,.12); }
     .think-dd-opt-name { font-size: 13px; font-weight: 700; }
     .think-dd-opt-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -1094,6 +1114,125 @@
     /* ═══════════════════════════════
        MODALS & OVERLAYS
     ═══════════════════════════════ */
+    /* ══ WORKFLOW DRAWER ══ */
+    .wf-drawer {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(420px, 100vw);
+      background: var(--surface);
+      border-left: 1px solid var(--border-2);
+      z-index: 120;
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.3s var(--ease);
+      box-shadow: -20px 0 60px rgba(0,0,0,.5);
+    }
+    .wf-drawer.open { transform: translateX(0); }
+    .wf-drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.6);
+      backdrop-filter: blur(4px);
+      z-index: 119; display: none;
+    }
+    .wf-drawer-backdrop.open { display: block; }
+    .wf-drawer-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .wf-drawer-title { font-size: 16px; font-weight: 800; flex: 1; }
+    .wf-drawer-close {
+      width: 32px; height: 32px;
+      border-radius: 8px; border: 1px solid var(--border-2);
+      background: var(--surface-2); cursor: pointer; color: var(--text-2);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+    }
+    .wf-drawer-close:hover { color: var(--text); border-color: var(--accent); }
+    .wf-drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .wf-suggest-wrap {
+      display: flex; gap: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      padding: 10px 12px;
+      transition: border-color 0.2s;
+    }
+    .wf-suggest-wrap:focus-within { border-color: var(--accent); }
+    .wf-suggest-input {
+      flex: 1; background: none; border: none; outline: none;
+      font-family: var(--font); font-size: 13.5px; color: var(--text);
+    }
+    .wf-suggest-input::placeholder { color: var(--muted); }
+    .wf-suggest-btn {
+      height: 32px; padding: 0 14px;
+      border-radius: 8px; border: none;
+      background: var(--accent); color: #fff;
+      font-family: var(--font); font-size: 12px; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      display: flex; align-items: center; gap: 5px;
+      transition: filter 0.15s;
+    }
+    .wf-suggest-btn:hover { filter: brightness(1.15); }
+    .wf-suggest-btn svg { width: 13px; height: 13px; }
+    .wf-section-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 4px 0; }
+    .wf-empty { text-align: center; padding: 32px 16px; color: var(--muted); font-size: 13px; }
+    .wf-empty svg { width: 36px; height: 36px; margin: 0 auto 10px; display: block; opacity: .4; }
+    .wf-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-lg);
+      padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .wf-card:hover { border-color: var(--border-3); }
+    .wf-card-top { display: flex; align-items: center; gap: 10px; }
+    .wf-card-name { font-size: 13.5px; font-weight: 700; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wf-card-desc { font-size: 12px; color: var(--text-2); }
+    .wf-card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .wf-badge {
+      font-size: 10.5px; font-weight: 700; padding: 3px 8px;
+      border-radius: 99px;
+    }
+    .wf-badge.event { background: rgba(139,92,246,.1); color: var(--accent); border: 1px solid rgba(139,92,246,.2); }
+    .wf-badge.schedule { background: rgba(251,191,36,.08); color: var(--gold); border: 1px solid rgba(251,191,36,.2); }
+    .wf-card-actions { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
+    .wf-btn {
+      height: 28px; padding: 0 10px;
+      border-radius: 7px; border: 1px solid var(--border-2);
+      background: var(--surface-3); color: var(--text-2);
+      font-family: var(--font); font-size: 11.5px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 5px;
+      transition: all 0.15s;
+    }
+    .wf-btn:hover { color: var(--text); border-color: var(--border-3); }
+    .wf-btn svg { width: 12px; height: 12px; }
+    .wf-btn.danger:hover { color: var(--red); border-color: rgba(248,113,113,.3); }
+    .wf-toggle {
+      position: relative; width: 34px; height: 20px; flex-shrink: 0; cursor: pointer;
+    }
+    .wf-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .wf-toggle-track {
+      position: absolute; inset: 0; border-radius: 99px;
+      background: var(--surface-4); transition: background 0.2s;
+    }
+    .wf-toggle input:checked ~ .wf-toggle-track { background: var(--accent); }
+    .wf-toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #fff; transition: transform 0.2s;
+    }
+    .wf-toggle input:checked ~ .wf-toggle-thumb { transform: translateX(14px); }
+    .wf-history-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 0;
+      border-bottom: 1px solid var(--border); font-size: 12px;
+    }
+    .wf-history-item:last-child { border-bottom: none; }
+    .wf-status-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .wf-status-dot.success { background: var(--green); }
+    .wf-status-dot.failed  { background: var(--red); }
+    .wf-status-dot.partial { background: var(--gold); }
+
     .overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,.75);
@@ -1216,7 +1355,7 @@
     .notepad-hdr { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
     #notepadArea { flex: 1; min-height: 240px; background: var(--surface-2); border: none; outline: none; color: var(--text); font-family: var(--font); font-size: 14px; line-height: 1.7; padding: 16px 20px; resize: none; }
     .notepad-ftr { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border); flex-shrink: 0; }
-    .notepad-summary { padding: 14px 20px; background: rgba(108,142,255,.05); border-top: 1px solid var(--border); font-size: 13.5px; line-height: 1.7; display: none; max-height: 180px; overflow-y: auto; }
+    .notepad-summary { padding: 14px 20px; background: rgba(139,92,246,.05); border-top: 1px solid var(--border); font-size: 13.5px; line-height: 1.7; display: none; max-height: 180px; overflow-y: auto; }
     .notepad-summary-label { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px; }
 
     /* templates */
@@ -1233,7 +1372,7 @@
     .tmpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px 20px; }
     .tmpl-item { padding: 14px 15px; border-radius: var(--r-lg); border: 1px solid var(--border-2); background: var(--surface-2); cursor: pointer; text-align: left; width: 100%; transition: all 0.2s; }
     .tmpl-item:hover { border-color: var(--accent); background: var(--surface-3); transform: translateY(-2px); }
-    .tmpl-icon { font-size: 22px; margin-bottom: 8px; }
+    .tmpl-icon { width:32px;height:32px;margin-bottom:8px;color:var(--accent); }
     .tmpl-name { font-size: 13.5px; font-weight: 700; margin-bottom: 3px; }
     .tmpl-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
 
@@ -1274,10 +1413,10 @@
     .voice-status.listen { color: var(--green); }
     .voice-status.speak  { color: var(--accent); }
     .voice-orb { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-    .orb-ring { position: absolute; border-radius: 50%; border: 2px solid rgba(108,142,255,.3); animation: orbRing 2s ease infinite; }
+    .orb-ring { position: absolute; border-radius: 50%; border: 2px solid rgba(139,92,246,.3); animation: orbRing 2s ease infinite; }
     .orb-ring:nth-child(2) { width: 120px; height: 120px; }
     .orb-ring:nth-child(3) { width: 150px; height: 150px; animation-delay: .5s; }
-    .orb-core { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg,var(--accent),#a78bfa); display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; box-shadow: 0 0 40px rgba(108,142,255,.4); transition: all .3s; }
+    .orb-core { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg,var(--accent),#a78bfa); display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; box-shadow: 0 0 40px rgba(139,92,246,.4); transition: all .3s; }
     .orb-core svg { width: 28px; height: 28px; color: #fff; }
     .voice-orb.listen .orb-core { background: linear-gradient(135deg,#ef4444,#f97316); box-shadow: 0 0 40px rgba(239,68,68,.4); animation: pulse 0.6s ease infinite; }
     .voice-orb.speak  .orb-core { animation: pulse 0.4s ease infinite; }
@@ -1333,7 +1472,7 @@
     @keyframes pulse    { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
     @keyframes dotPop   { 0%,100%{opacity:.25;transform:scale(.8)} 50%{opacity:1;transform:scale(1.1)} }
     @keyframes speakPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-    @keyframes sendPulse { 0%{box-shadow:0 0 0 0 rgba(108,142,255,.8)} 70%{box-shadow:0 0 0 10px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+    @keyframes sendPulse { 0%{box-shadow:0 0 0 0 rgba(139,92,246,.8)} 70%{box-shadow:0 0 0 10px transparent} 100%{box-shadow:0 0 0 0 transparent} }
     @keyframes orbRing  { 0%,100%{transform:scale(1);opacity:.3} 50%{transform:scale(1.1);opacity:.7} }
 
     /* ═══════════════════════════════
@@ -1471,6 +1610,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         Integrations
       </button>
+      <button class="settings-link" id="workflowsBtn" style="width:100%; border:none; background:transparent; cursor:pointer;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M12 12v3"/></svg>
+        Workflows
+      </button>
       <a href="settings.html" class="settings-link">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         Settings
@@ -1590,8 +1733,14 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
       </button>
       <button class="btn-ghost desktop-only" id="langToggle">বাং</button>
-      <button class="btn-ghost desktop-only" id="notepadBtn">📓 Notes</button>
-      <button class="btn-ghost desktop-only export-btn" id="exportBtn">⬇ Export</button>
+      <button class="btn-ghost desktop-only" id="notepadBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Notes
+      </button>
+      <button class="btn-ghost desktop-only export-btn" id="exportBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
       <button class="icon-btn desktop-only" id="shortcutsBtn" title="Shortcuts (Ctrl+/)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
       </button>
@@ -1703,6 +1852,16 @@
               <div class="plus-item-desc">AI image generation</div>
             </div>
           </button>
+          <button class="plus-item" id="videoGenBtn">
+            <div class="plus-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg></div>
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:6px">
+                <span class="plus-item-label">Generate Video</span>
+                <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:99px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff">AI</span>
+              </div>
+              <div class="plus-item-desc">Text to video (3/day free)</div>
+            </div>
+          </button>
         </div>
       </div>
       <textarea id="input" placeholder="Message SG…" rows="1"></textarea>
@@ -1775,7 +1934,7 @@
       </div>
     </div>
     <div class="sandbox-tabs">
-      <button class="sandbox-tab active" id="tabPrev">🌐 Preview</button>
+      <button class="sandbox-tab active" id="tabPrev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Preview</button>
       <button class="sandbox-tab" id="tabCons">⬛ Console</button>
     </div>
   </div>
@@ -1838,7 +1997,7 @@
 <!-- ══ SUSPEND OVERLAY (item 4) ══ -->
 <div class="overlay" id="suspendOverlay">
   <div class="limit-card suspend-card">
-    <div class="limit-icon">🚫</div>
+    <div class="limit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="32" height="32"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>
     <div class="limit-title" id="suspendTitle">Account Suspended</div>
     <div class="limit-sub" id="suspendSub">Your account has been temporarily restricted for violating platform rules.</div>
     <button class="limit-later" id="suspendClose">Close</button>
@@ -1863,7 +2022,7 @@
 <div class="overlay" id="notepadOverlay">
   <div class="notepad-card">
     <div class="notepad-hdr">
-      <span style="font-size:16px;font-weight:800">📓 AI Notepad</span>
+      <span style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> AI Notepad</span>
       <div style="display:flex;gap:8px;align-items:center">
         <button class="btn-ghost" id="summarizeBtn" style="font-size:12px;padding:5px 12px">✨ AI Summary</button>
         <button class="icon-btn" id="notepadClose">✕</button>
@@ -1875,7 +2034,7 @@
       <div id="summaryText"></div>
     </div>
     <div class="notepad-ftr">
-      <button class="btn-ghost" id="clearNotesBtn" style="font-size:12.5px;color:var(--red);border-color:rgba(248,113,113,.3)">🗑 Clear</button>
+      <button class="btn-ghost" id="clearNotesBtn" style="font-size:12.5px;color:var(--red);border-color:rgba(248,113,113,.3);display:flex;align-items:center;gap:5px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg> Clear</button>
       <button class="btn-primary" id="saveNotesBtn">Save Notes</button>
     </div>
   </div>
@@ -1885,7 +2044,7 @@
 <div class="overlay" id="templatesOverlay">
   <div class="tmpl-card">
     <div class="tmpl-hdr">
-      <span style="font-size:16px;font-weight:800">📋 Templates</span>
+      <span style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> Templates</span>
       <button class="icon-btn" id="templatesClose">✕</button>
     </div>
     <div class="tmpl-grid" id="tmplGrid"></div>
@@ -1896,7 +2055,7 @@
 <div class="overlay" id="imgGenOverlay">
   <div class="imggen-card">
     <div class="imggen-hdr">
-      <span style="font-size:16px;font-weight:800">🎨 Generate Image</span>
+      <span style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image</span>
       <div style="display:flex;align-items:center;gap:10px">
         <span class="imggen-counter" id="imgCounter"></span>
         <button class="icon-btn" id="imgGenClose">✕</button>
@@ -1939,7 +2098,69 @@
         </div>
       </div>
       <button class="btn-full" id="imgGenSubmit">
-        🎨 Generate Image
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VIDEO GEN OVERLAY ══ -->
+<div class="overlay" id="videoGenOverlay">
+  <div class="imggen-card" style="max-width:520px;">
+    <div class="imggen-hdr">
+      <span style="font-size:16px;font-weight:800;display:flex;align-items:center;gap:7px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="16" height="16"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Generate Video
+      </span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span class="imggen-counter" id="vidCounter"></span>
+        <button class="icon-btn" id="videoGenClose">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="imggen-body">
+      <div>
+        <div class="imggen-label">Describe your video</div>
+        <textarea class="imggen-ta" id="vidPrompt" placeholder="A drone flying over a misty mountain at sunrise…"></textarea>
+      </div>
+      <div class="imggen-row">
+        <div>
+          <div class="imggen-label">Aspect Ratio</div>
+          <select class="imggen-select" id="vidAspect">
+            <option value="16:9">16:9 (Landscape)</option>
+            <option value="9:16">9:16 (Portrait/Reel)</option>
+            <option value="1:1">1:1 (Square)</option>
+          </select>
+        </div>
+        <div>
+          <div class="imggen-label">Duration</div>
+          <select class="imggen-select" id="vidDuration">
+            <option value="3">3 sec (fast)</option>
+            <option value="5" selected>5 sec</option>
+            <option value="6">6 sec</option>
+            <option value="10" id="vidDur10" disabled>10 sec (Yearly plan)</option>
+          </select>
+        </div>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r);padding:10px 12px;line-height:1.6;">
+        <strong>Free:</strong> 3 videos/day &nbsp;·&nbsp; <strong>Student:</strong> 5/day &nbsp;·&nbsp; <strong>Monthly:</strong> 25/day &nbsp;·&nbsp; <strong>Yearly:</strong> 178/day + 10sec HD
+      </div>
+      <div class="imggen-err" id="vidErr" style="display:none;"></div>
+      <div id="vidProgress" style="display:none;text-align:center;padding:24px 0;color:var(--text-2);font-size:13px;">
+        <div style="width:32px;height:32px;border:3px solid var(--border-2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 12px;"></div>
+        Generating your video — this takes 30–90 seconds…
+      </div>
+      <div class="imggen-preview" id="vidPreview" style="display:none;">
+        <video id="vidResult" controls style="width:100%;border-radius:var(--r);max-height:300px;background:#000;"></video>
+        <div class="imggen-preview-btns">
+          <a class="btn-ghost" style="flex:1;font-size:12px;text-align:center;text-decoration:none;" id="vidDownload" download="sg-video.mp4">Download</a>
+          <button class="btn-primary" style="flex:1;font-size:12px;" id="vidToChat">Send to Chat</button>
+        </div>
+      </div>
+      <button class="btn-full" id="vidGenSubmit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Generate Video
       </button>
     </div>
   </div>
@@ -2012,6 +2233,20 @@
 ════════════════════════════════════════ -->
 <script>
 const API = 'https://sg-chatbot-z8hp.onrender.com';
+
+// ── Syntax highlighting via highlight.js ──
+if (typeof hljs !== 'undefined') {
+  marked.setOptions({
+    highlight: (code, lang) => {
+      if (lang && hljs.getLanguage(lang)) {
+        try { return hljs.highlight(code, { language: lang }).value; } catch {}
+      }
+      return hljs.highlightAuto(code).value;
+    },
+    breaks: true,
+    gfm: true,
+  });
+}
 
 const PERSONA_PROMPTS = {
   default: '',
@@ -2111,7 +2346,17 @@ if (window._oauthErrorMsg) { setTimeout(() => toast(window._oauthErrorMsg, 'err'
 // ── Escape ──
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function fmtBytes(b) { if (b<1024) return b+' B'; if (b<1048576) return (b/1024).toFixed(1)+' KB'; return (b/1048576).toFixed(1)+' MB'; }
-function docIcon(n) { return {pdf:'📄',doc:'📝',docx:'📝',txt:'📃',csv:'📊',xlsx:'📊',xls:'📊'}[n.split('.').pop().toLowerCase()]||'📎'; }
+function docIcon(n) {
+  const ext = n.split('.').pop().toLowerCase();
+  const icons = {
+    pdf: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
+    doc:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    csv:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>',
+    txt:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  };
+  icons.docx = icons.doc; icons.xlsx = icons.csv; icons.xls = icons.csv;
+  return icons[ext] || '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="18" height="18"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>';
+}
 
 // ── Offline ──
 function updateOnline() { document.getElementById('offlineBar').classList.toggle('on', !navigator.onLine); }
@@ -2370,7 +2615,7 @@ function renderHist(q='') {
     const item = document.createElement('div'); item.className='hist-item'; item.dataset.id=c._id;
     if (S.convId===c._id) item.classList.add('active');
     const th = q ? c.title.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),'<mark>$1</mark>') : esc(c.title);
-    item.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="hist-title">${th}</span><button class="hist-del" data-id="${c._id}">🗑</button>`;
+    item.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="hist-title">${th}</span><button class="hist-del" data-id="${c._id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></button>`;
     item.addEventListener('click', e => { if(e.target.closest('.hist-del')) return; loadConv(c._id); if(window.innerWidth<=768) closeSidebar(); });
     item.querySelector('.hist-del').addEventListener('click', async e => {
       e.stopPropagation();
@@ -2809,16 +3054,16 @@ document.getElementById('summarizeBtn').addEventListener('click',async()=>{
 
 // ══ TEMPLATES ══
 const TEMPLATES=[
-  {icon:'📄',name:'Professional Resume',desc:'Write a resume for your role',prompt:'Write a professional resume for a [Your Role] with [X years] of experience in [field]. Include summary, skills, work experience, and education.'},
-  {icon:'📧',name:'Formal Email',desc:'Draft a professional email',prompt:'Write a formal email to [recipient] about [topic]. Keep the tone professional and polite.'},
-  {icon:'📝',name:'Cover Letter',desc:'Job application letter',prompt:'Write a compelling cover letter for a [Job Title] position at [Company]. Highlight my skills in [key skills].'},
-  {icon:'💡',name:'Business Idea',desc:'Validate a startup idea',prompt:'Evaluate my startup idea: [describe idea]. Provide a SWOT analysis, target market, and 3 ways to validate it quickly.'},
-  {icon:'🐛',name:'Debug My Code',desc:'Find and fix bugs',prompt:'Debug this code and explain what is wrong and how to fix it:\n\n```\n[paste code here]\n```'},
-  {icon:'📚',name:'Study Plan',desc:'Create a learning roadmap',prompt:'Create a 30-day study plan to learn [topic] from beginner to intermediate. Include daily tasks, milestones, and free resources.'},
-  {icon:'🌐',name:'Translate Text',desc:'Translate to any language',prompt:'Translate the following to [language] while preserving the original tone:\n\n[paste text here]'},
-  {icon:'📊',name:'Data Analysis',desc:'Analyze and explain data',prompt:'Analyze this data and give key insights, trends, and actionable recommendations:\n\n[paste data here]'},
-  {icon:'🎯',name:'SMART Goals',desc:'Turn goals into action plans',prompt:'Help me create a SMART goal plan for: [your goal]. Break it into Specific, Measurable, Achievable, Relevant, and Time-bound steps.'},
-  {icon:'🤝',name:'Negotiation Script',desc:'Salary or deal negotiation',prompt:'Write a negotiation script for [situation]. I want to achieve [goal]. Keep it confident and persuasive.'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,name:'Professional Resume',desc:'Write a resume for your role',prompt:'Write a professional resume for a [Your Role] with [X years] of experience in [field]. Include summary, skills, work experience, and education.'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,name:'Formal Email',desc:'Draft a professional email',prompt:'Write a formal email to [recipient] about [topic]. Keep the tone professional and polite.'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>`,name:'Cover Letter',desc:'Job application letter',prompt:'Write a compelling cover letter for a [Job Title] position at [Company]. Highlight my skills in [key skills].'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,name:'Business Idea',desc:'Validate a startup idea',prompt:'Evaluate my startup idea: [describe idea]. Provide a SWOT analysis, target market, and 3 ways to validate it quickly.'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,name:'Debug My Code',desc:'Find and fix bugs',prompt:'Debug this code and explain what is wrong and how to fix it:\n\n```\n[paste code here]\n```'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,name:'Study Plan',desc:'Create a learning roadmap',prompt:'Create a 30-day study plan to learn [topic] from beginner to intermediate. Include daily tasks, milestones, and free resources.'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,name:'Translate Text',desc:'Translate to any language',prompt:'Translate the following to [language] while preserving the original tone:\n\n[paste text here]'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>`,name:'Data Analysis',desc:'Analyze and explain data',prompt:'Analyze this data and give key insights, trends, and actionable recommendations:\n\n[paste data here]'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,name:'SMART Goals',desc:'Turn goals into action plans',prompt:'Help me create a SMART goal plan for: [your goal]. Break it into Specific, Measurable, Achievable, Relevant, and Time-bound steps.'},
+  {icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="24" height="24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,name:'Negotiation Script',desc:'Salary or deal negotiation',prompt:'Write a negotiation script for [situation]. I want to achieve [goal]. Keep it confident and persuasive.'},
 ];
 function openTemplates(){ const g=document.getElementById('tmplGrid'); g.innerHTML=''; TEMPLATES.forEach(t=>{ const btn=document.createElement('button'); btn.className='tmpl-item'; btn.innerHTML=`<div class="tmpl-icon">${t.icon}</div><div class="tmpl-name">${t.name}</div><div class="tmpl-desc">${t.desc}</div>`; btn.addEventListener('click',()=>{ document.getElementById('templatesOverlay').classList.remove('on'); inputEl.value=t.prompt; inputEl.style.height='auto'; inputEl.style.height=Math.min(inputEl.scrollHeight,140)+'px'; inputEl.focus(); toast(`Template loaded: ${t.name}`,'ok'); }); g.appendChild(btn); }); document.getElementById('templatesOverlay').classList.add('on'); }
 document.getElementById('templatesClose').addEventListener('click',()=>document.getElementById('templatesOverlay').classList.remove('on'));
@@ -2831,6 +3076,83 @@ function saveImgUsage(u){ localStorage.setItem('sg_img',JSON.stringify(u)); }
 function imgRemaining(){ const isPro=document.getElementById('proBadge').style.display!=='none'; if(isPro)return Infinity; return Math.max(0,3-getImgUsage().c); }
 function openImgGen(){ document.getElementById('imgGenOverlay').classList.add('on'); document.getElementById('imgPreview').style.display='none'; document.getElementById('imgErr').style.display='none'; document.getElementById('imgPrompt').value=''; updateImgCounter(); }
 function closeImgGen(){ document.getElementById('imgGenOverlay').classList.remove('on'); }
+
+// ══ VIDEO GENERATION ══
+let lastVidUrl = '';
+async function updateVidCounter() {
+  if (!S.token) return;
+  try {
+    const r = await fetch(`${API}/video-status`, {headers:{Authorization:`Bearer ${S.token}`}});
+    const d = await r.json();
+    const el = document.getElementById('vidCounter');
+    if (el) el.textContent = `${d.videosLeft ?? '?'} left today`;
+    const dur10 = document.getElementById('vidDur10');
+    if (dur10) dur10.disabled = d.plan !== 'yearly';
+  } catch {}
+}
+function openVideoGen() {
+  plusMenu.classList.remove('on'); plusBtn.classList.remove('on');
+  if (!S.token) { toast('Sign in to generate videos','err'); openAuth(); return; }
+  document.getElementById('videoGenOverlay').classList.add('on');
+  document.getElementById('vidPreview').style.display='none';
+  document.getElementById('vidErr').style.display='none';
+  document.getElementById('vidProgress').style.display='none';
+  document.getElementById('vidPrompt').value='';
+  updateVidCounter();
+}
+function closeVideoGen() { document.getElementById('videoGenOverlay').classList.remove('on'); }
+document.getElementById('videoGenClose')?.addEventListener('click', closeVideoGen);
+document.getElementById('videoGenOverlay')?.addEventListener('click', e=>{ if(e.target===document.getElementById('videoGenOverlay')) closeVideoGen(); });
+document.getElementById('videoGenBtn')?.addEventListener('click', ()=>{plusMenu.classList.remove('on');plusBtn.classList.remove('on');openVideoGen();});
+
+document.getElementById('vidGenSubmit')?.addEventListener('click', async () => {
+  const prompt = document.getElementById('vidPrompt').value.trim();
+  if (!prompt) { toast('Enter a video description','err'); return; }
+  const btn = document.getElementById('vidGenSubmit');
+  const errEl = document.getElementById('vidErr');
+  const progEl = document.getElementById('vidProgress');
+  const prevEl = document.getElementById('vidPreview');
+  errEl.style.display='none'; prevEl.style.display='none';
+  progEl.style.display='block'; btn.disabled=true;
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Generating…';
+  try {
+    const aspect = document.getElementById('vidAspect').value;
+    const duration = document.getElementById('vidDuration').value;
+    const r = await fetch(`${API}/generate-video`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json', Authorization:`Bearer ${S.token}`},
+      body: JSON.stringify({ prompt, aspectRatio: aspect, duration: parseInt(duration) }),
+    });
+    const d = await r.json();
+    if (!r.ok || !d.video) {
+      errEl.textContent = d.message || 'Video generation failed. Please try again.';
+      errEl.style.display='block';
+    } else {
+      lastVidUrl = d.video;
+      const vid = document.getElementById('vidResult');
+      vid.src = d.video;
+      document.getElementById('vidDownload').href = d.video;
+      prevEl.style.display='block';
+      updateVidCounter();
+    }
+  } catch(e) {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.style.display='block';
+  }
+  progEl.style.display='none'; btn.disabled=false;
+  btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg> Generate Video';
+});
+
+document.getElementById('vidToChat')?.addEventListener('click', () => {
+  if (!lastVidUrl) return;
+  const row = botRow();
+  const bub = document.createElement('div'); bub.className='bubble';
+  bub.innerHTML=`<video controls style="max-width:100%;border-radius:10px;max-height:300px;" src="${lastVidUrl}"></video><div style="font-size:12px;color:var(--text-2);margin-top:6px;">Generated video</div>`;
+  row.appendChild(bub); chatEl.appendChild(row);
+  chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+  closeVideoGen();
+  toast('Video added to chat','ok');
+});
 function updateImgCounter(){ const r=imgRemaining(); const el=document.getElementById('imgCounter'); el.textContent=r===Infinity?'Unlimited':`${r} of 3 remaining today`; el.style.color=r<=1&&r!==Infinity?'var(--red)':'var(--muted)'; const btn=document.getElementById('imgGenSubmit'); btn.disabled=r===0; }
 document.getElementById('imgGenClose').addEventListener('click',closeImgGen);
 document.getElementById('imgGenOverlay').addEventListener('click',e=>{ if(e.target===document.getElementById('imgGenOverlay')) closeImgGen(); });
@@ -2855,7 +3177,7 @@ document.getElementById('imgGenSubmit').addEventListener('click',async()=>{
       row.appendChild(bub); chatEl.appendChild(row); chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
     };
   }catch(e){ errEl.textContent='Generation failed. Try again.'; errEl.style.display='block'; }
-  finally{ btn.disabled=false; btn.textContent='🎨 Generate Image'; }
+  finally{ btn.disabled=false; btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> Generate Image'; }
 });
 
 // ══ EXPORT ══
@@ -2879,7 +3201,7 @@ async function generateZip(text){
   const blob=await zip.generateAsync({type:'blob'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='sg-project.zip'; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   toast(`Downloaded ${files.length} files as ZIP ✓`,'ok');
 }
-function addZipBtn(wrap,text){ if((text.match(/```/g)||[]).length<4) return; const btn=document.createElement('button'); btn.className='action-btn'; btn.title='Download ZIP'; btn.style.cssText='width:auto;padding:0 10px;font-size:11px;font-weight:700;color:var(--green);border-color:rgba(52,211,153,.3);'; btn.textContent='⬇ ZIP'; btn.addEventListener('click',()=>generateZip(text)); const acts=wrap?.querySelector('.msg-actions'); if(acts) acts.appendChild(btn); }
+function addZipBtn(wrap,text){ if((text.match(/```/g)||[]).length<4) return; const btn=document.createElement('button'); btn.className='action-btn'; btn.title='Download ZIP'; btn.style.cssText='width:auto;padding:0 10px;font-size:11px;font-weight:700;color:var(--green);border-color:rgba(52,211,153,.3);'; btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ZIP'; btn.addEventListener('click',()=>generateZip(text)); const acts=wrap?.querySelector('.msg-actions'); if(acts) acts.appendChild(btn); }
 
 // ══ NOTIFICATIONS ══
 function updateNotifBtn(){ const btn=document.getElementById('notifBtn'); if(!('Notification'in window)||!S.token){btn.style.display='none';return;} btn.style.display=Notification.permission==='default'?'flex':'none'; }
@@ -2887,7 +3209,7 @@ document.getElementById('notifBtn').addEventListener('click',async()=>{ const p=
 
 // ══ LANGUAGE TOGGLE ══
 let lang='en';
-const LANG={'en':{btn:'বাং',placeholder:'Message SG…',clear:'Clear',notes:'📓 Notes',export:'⬇ Export',signIn:'Sign in',signOut:'Sign out'},'bn':{btn:'EN',placeholder:'SG-কে লিখুন…',clear:'মুছুন',notes:'📓 নোট',export:'⬇ এক্সপোর্ট',signIn:'প্রবেশ',signOut:'বের হোন'}};
+const LANG={'en':{btn:'বাং',placeholder:'Message SG…',clear:'Clear',notes:'Notes',export:'Export',signIn:'Sign in',signOut:'Sign out'},'bn':{btn:'EN',placeholder:'SG-কে লিখুন…',clear:'মুছুন',notes:'নোট',export:'এক্সপোর্ট',signIn:'প্রবেশ',signOut:'বের হোন'}};
 document.getElementById('langToggle').addEventListener('click',()=>{ lang=lang==='en'?'bn':'en'; const s=LANG[lang]; document.getElementById('langToggle').textContent=s.btn; inputEl.placeholder=s.placeholder; document.getElementById('clearBtn').textContent=s.clear; document.getElementById('topAuthBtn').textContent=S.token?s.signOut:s.signIn; toast(lang==='bn'?'বাংলা মোড ✓':'English mode ✓','ok'); });
 
 // ══ TRIGGER CHECK ══
@@ -3026,6 +3348,172 @@ inputEl.addEventListener('input',function(){ this.style.height='auto'; this.styl
 updateAuthUI();
 bindSuggestions();
 updateNotifBtn();
+
+// ══ WORKFLOW JS ══
+const API_BASE = 'https://sg-chatbot-z8hp.onrender.com';
+const wfDrawer   = document.getElementById('wfDrawer');
+const wfBackdrop = document.getElementById('wfBackdrop');
+
+function openWfDrawer() {
+  wfDrawer.classList.add('open');
+  wfBackdrop.classList.add('open');
+  loadWorkflows();
+}
+function closeWfDrawer() {
+  wfDrawer.classList.remove('open');
+  wfBackdrop.classList.remove('open');
+}
+document.getElementById('workflowsBtn')?.addEventListener('click', openWfDrawer);
+document.getElementById('wfDrawerClose')?.addEventListener('click', closeWfDrawer);
+wfBackdrop?.addEventListener('click', closeWfDrawer);
+
+async function wfFetch(path, method='GET', body=null) {
+  if (!S.token) { toast('Please sign in to use workflows','err'); return null; }
+  try {
+    const r = await fetch(`${API_BASE}${path}`, { method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${S.token}`}, body:body?JSON.stringify(body):null });
+    return await r.json();
+  } catch { toast('Network error','err'); return null; }
+}
+
+async function loadWorkflows() {
+  const list = document.getElementById('wfList');
+  list.innerHTML = `<div class="wf-empty" style="padding:20px"><div style="width:20px;height:20px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;margin:0 auto"></div></div>`;
+  const data = await wfFetch('/workflows');
+  if (!data || !Array.isArray(data) || !data.length) {
+    list.innerHTML = `<div class="wf-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" width="36" height="36"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M12 12v3"/></svg>No workflows yet.<br>Describe one above and let AI build it.</div>`;
+    return;
+  }
+  list.innerHTML = data.map(wf => {
+    const isSchedule = wf.trigger?.type === 'schedule';
+    const triggerLabel = isSchedule ? (wf.trigger.cron||'scheduled') : (wf.trigger.event||'event').replace(/_/g,' ');
+    const lastRun = wf.lastRunAt ? new Date(wf.lastRunAt).toLocaleDateString('en-GB') : 'Never';
+    return `<div class="wf-card" id="wfc-${wf._id}">
+      <div class="wf-card-top">
+        <div class="wf-card-name" title="${wf.name}">${wf.name}</div>
+        <div class="wf-card-actions">
+          <label class="wf-toggle" title="${wf.active?'Active — click to disable':'Disabled — click to enable'}">
+            <input type="checkbox" ${wf.active?'checked':''} onchange="toggleWf('${wf._id}',this.checked)">
+            <div class="wf-toggle-track"></div>
+            <div class="wf-toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+      ${wf.description?`<div class="wf-card-desc">${wf.description}</div>`:''}
+      <div class="wf-card-meta">
+        <span class="wf-badge ${isSchedule?'schedule':'event'}">${isSchedule?'Schedule':'Event'}: ${triggerLabel}</span>
+        <span style="font-size:11px;color:var(--muted)">${wf.actions?.length||0} action${(wf.actions?.length||0)!==1?'s':''}</span>
+        <span style="font-size:11px;color:var(--muted)">Last: ${lastRun}</span>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:2px;">
+        <button class="wf-btn" onclick="runWf('${wf._id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="12" height="12"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run
+        </button>
+        <button class="wf-btn" onclick="viewWfHistory('${wf._id}','${wf.name.replace(/'/g,'')}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> History
+        </button>
+        <button class="wf-btn danger" onclick="deleteWf('${wf._id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleWf(id, active) {
+  const r = await wfFetch(`/workflows/${id}`, 'PUT', { active });
+  if (r?._id) toast(active ? 'Workflow enabled' : 'Workflow disabled', 'ok');
+  else { toast('Error toggling workflow','err'); loadWorkflows(); }
+}
+async function runWf(id) {
+  toast('Running workflow…');
+  const r = await wfFetch(`/workflows/${id}/run`, 'POST');
+  if (r?.status) toast(`Workflow ${r.status}`, r.status==='success'?'ok':'err');
+  loadWorkflows();
+}
+async function deleteWf(id) {
+  if (!confirm('Delete this workflow?')) return;
+  await wfFetch(`/workflows/${id}`, 'DELETE');
+  toast('Workflow deleted'); loadWorkflows();
+}
+async function viewWfHistory(id, name) {
+  const data = await wfFetch(`/workflows/${id}/history`);
+  if (!data?.length) { toast('No run history yet'); return; }
+  const lines = data.slice(0,10).map(r => {
+    const t = new Date(r.createdAt).toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'});
+    return `<div class="wf-history-item"><div class="wf-status-dot ${r.status}"></div><span style="flex:1;font-size:12px">${t}</span><span style="font-size:11px;color:var(--muted);text-transform:capitalize">${r.triggeredBy}</span><span style="font-size:11px;color:${r.status==='success'?'var(--green)':r.status==='failed'?'var(--red)':'var(--gold)'}">${r.status}</span></div>`;
+  }).join('');
+  const wfList = document.getElementById('wfList');
+  const histDiv = document.createElement('div');
+  histDiv.style.cssText='background:var(--surface-2);border:1px solid var(--border-2);border-radius:var(--r-lg);padding:14px 16px;';
+  histDiv.innerHTML = `<div style="font-size:12px;font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">${name} — History <button class="wf-btn" onclick="this.closest('div').remove()">Close</button></div>${lines}`;
+  wfList.prepend(histDiv);
+}
+
+// AI Suggest
+let wfSuggestionData = null;
+document.getElementById('wfSuggestBtn')?.addEventListener('click', async () => {
+  const desc = document.getElementById('wfSuggestInput').value.trim();
+  if (!desc) { toast('Describe your workflow first','err'); return; }
+  const btn = document.getElementById('wfSuggestBtn');
+  btn.disabled = true; btn.textContent = 'Generating…';
+  const data = await wfFetch('/workflows/ai-suggest', 'POST', { description: desc });
+  btn.disabled = false;
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Generate`;
+  if (!data?.suggestion) { toast('Could not generate. Try rephrasing.','err'); return; }
+  wfSuggestionData = data.suggestion;
+  const preview = document.getElementById('wfSuggestPreview');
+  document.getElementById('wfSuggestName').textContent = data.suggestion.name;
+  document.getElementById('wfSuggestDesc').textContent = data.suggestion.description || (data.suggestion.trigger?.type==='schedule' ? `Runs: ${data.suggestion.trigger.cron}` : `Trigger: ${data.suggestion.trigger?.event}`);
+  preview.style.display = 'flex';
+});
+document.getElementById('wfSuggestSave')?.addEventListener('click', async () => {
+  if (!wfSuggestionData) return;
+  const r = await wfFetch('/workflows', 'POST', wfSuggestionData);
+  if (r?._id) { toast('Workflow saved!','ok'); document.getElementById('wfSuggestPreview').style.display='none'; document.getElementById('wfSuggestInput').value=''; wfSuggestionData=null; loadWorkflows(); }
+  else toast('Error saving workflow','err');
+});
+document.getElementById('wfSuggestDiscard')?.addEventListener('click', () => {
+  document.getElementById('wfSuggestPreview').style.display='none';
+  wfSuggestionData = null;
+});
 </script>
+
+<!-- ══ WORKFLOW DRAWER ══ -->
+<div class="wf-drawer-backdrop" id="wfBackdrop"></div>
+<div class="wf-drawer" id="wfDrawer">
+  <div class="wf-drawer-header">
+    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" width="18" height="18"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M12 12v3"/></svg>
+    <div class="wf-drawer-title">Workflows</div>
+    <button class="wf-drawer-close" id="wfDrawerClose">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="wf-drawer-body" id="wfDrawerBody">
+    <div class="wf-section-label">Create with AI</div>
+    <div class="wf-suggest-wrap">
+      <input class="wf-suggest-input" id="wfSuggestInput" placeholder='e.g. "Every day remind me to study at 9pm"'>
+      <button class="wf-suggest-btn" id="wfSuggestBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" width="13" height="13"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        Generate
+      </button>
+    </div>
+    <div id="wfSuggestPreview" style="display:none; background:var(--surface-2); border:1px solid var(--border-3); border-radius:var(--r-lg); padding:14px 16px; flex-direction:column; gap:10px;">
+      <div style="font-size:12px;font-weight:700;color:var(--accent)">AI Suggestion</div>
+      <div id="wfSuggestName" style="font-size:13.5px;font-weight:800;"></div>
+      <div id="wfSuggestDesc" style="font-size:12px;color:var(--text-2);"></div>
+      <div style="display:flex;gap:8px;">
+        <button class="wf-suggest-btn" id="wfSuggestSave" style="flex:1;justify-content:center;">Save Workflow</button>
+        <button class="wf-btn" id="wfSuggestDiscard">Discard</button>
+      </div>
+    </div>
+    <div class="wf-section-label" style="margin-top:4px;">Your Workflows</div>
+    <div id="wfList">
+      <div class="wf-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" width="36" height="36"><rect x="2" y="3" width="6" height="6" rx="1"/><rect x="16" y="3" width="6" height="6" rx="1"/><rect x="9" y="15" width="6" height="6" rx="1"/><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/><path d="M12 12v3"/></svg>
+        No workflows yet.<br>Describe one above and let AI build it.
+      </div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
