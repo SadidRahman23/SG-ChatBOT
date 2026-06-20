@@ -51,7 +51,7 @@ export default function createOAuthRouter({ User }) {
   router.get("/auth/github/callback", async (req, res) => {
     const fail = (reason) => {
       console.error("GitHub OAuth failed:", reason);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback?error=github_oauth_failed`);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback.html?error=github_oauth_failed`);
     };
 
     const { code, state, error } = req.query;
@@ -130,7 +130,7 @@ export default function createOAuthRouter({ User }) {
 
       // 4. Mint JWT and redirect to frontend
       const token = issueJWT(user._id);
-      const redirectUrl = `${FRONTEND_URL}/oauth-callback?token=${token}`;
+      const redirectUrl = `${FRONTEND_URL}/oauth-callback.html?token=${token}`;
       console.log("GitHub: redirecting to", redirectUrl.replace(token, "[TOKEN]"));
       return res.redirect(redirectUrl);
 
@@ -157,7 +157,7 @@ export default function createOAuthRouter({ User }) {
   router.get("/auth/google/callback", async (req, res) => {
     const fail = (reason) => {
       console.error("Google OAuth failed:", reason);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback?error=google_oauth_failed`);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback.html?error=google_oauth_failed`);
     };
 
     const { code, state, error } = req.query;
@@ -216,7 +216,7 @@ export default function createOAuthRouter({ User }) {
       await user.save();
 
       const token = issueJWT(user._id);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback?token=${token}`);
+      return res.redirect(`${FRONTEND_URL}/oauth-callback.html?token=${token}`);
 
     } catch (err) {
       return fail(err.message);
