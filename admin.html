@@ -242,6 +242,9 @@
     <button class="nav-item" data-page="users">
       <span class="nav-icon">👥</span><span>All Users</span>
     </button>
+    <button class="nav-item" data-page="violations">
+      <span class="nav-icon">⚠️</span><span>Violations</span>
+    </button>
     <button class="nav-item" data-page="broadcast">
       <span class="nav-icon">📢</span><span>Broadcast</span>
     </button>
@@ -375,11 +378,30 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Email</th><th>Plan</th><th>Status</th><th>Last Login</th><th>Joined</th><th>Total Msgs</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Email</th><th>Plan</th><th>OAuth</th><th>Violations</th><th>Status</th><th>Last Login</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody id="userBody"><tr><td colspan="7" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
         </table>
       </div>
       <div class="pagination" id="userPagination"></div>
+    </div>
+  </div>
+
+  <!-- ══ VIOLATIONS ══ -->
+  <div class="page" id="page-violations">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">⚠️ Violations &amp; Suspensions</div>
+        <div class="section-actions search-bar">
+          <input class="search-input" id="vioSearch" placeholder="Search email…">
+          <button class="btn btn-blue" id="vioSearchBtn">Search</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Email</th><th>Violations</th><th>Status</th><th>Suspended Until</th><th>Reason</th><th>Actions</th></tr></thead>
+          <tbody id="vioBody"><tr><td colspan="6" class="loading-row"><span class="spinner"></span>Loading…</td></tr></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -581,7 +603,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.add('active');
     document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
     document.getElementById(`page-${pg}`).classList.add('active');
-    const titles = {dashboard:'📊 Dashboard',payments:'💳 Payments',revenue:'💰 Revenue',users:'👥 Users',broadcast:'📢 Broadcast',security:'🚨 Security Logs','blocked-ips':'🚫 Blocked IPs',system:'🖥️ System Health'};
+    const titles = {dashboard:'📊 Dashboard',payments:'💳 Payments',revenue:'💰 Revenue',users:'👥 Users',violations:'⚠️ Violations',broadcast:'📢 Broadcast',security:'🚨 Security Logs','blocked-ips':'🚫 Blocked IPs',system:'🖥️ System Health'};
     document.getElementById('topbarTitle').textContent = titles[pg] || pg;
     currentPage = pg;
     loadPage(pg);
@@ -658,6 +680,7 @@ function loadPage(pg, force=false) {
   if (pg==='payments')    loadPayments(force);
   if (pg==='revenue')     loadRevenue(force);
   if (pg==='users')       loadUsers(force);
+  if (pg==='violations')  loadViolations();
   if (pg==='security')    loadSecurityLogs(force);
   if (pg==='blocked-ips') loadBlockedIPs(force);
   if (pg==='system')      loadSystemHealth(force);
@@ -728,26 +751,36 @@ async function loadUsers(force=false) {
   const search = document.getElementById('userSearch').value;
   const filter = document.getElementById('userFilter').value;
   const body = document.getElementById('userBody');
-  body.innerHTML = `<tr><td colspan="7" class="loading-row"><span class="spinner"></span>Loading…</td></tr>`;
+  body.innerHTML = `<tr><td colspan="8" class="loading-row"><span class="spinner"></span>Loading…</td></tr>`;
   try {
     const res = await fetch(`${API}/admin/users?page=${userPage}&limit=20&search=${encodeURIComponent(search)}&filter=${filter}`, {headers:{'x-admin-secret':SECRET}});
     const data = await res.json();
-    if (!data.users?.length) { body.innerHTML=`<tr><td colspan="7" class="empty"><div class="empty-icon">👤</div>No users found.</td></tr>`; return; }
+    if (!data.users?.length) { body.innerHTML=`<tr><td colspan="8" class="empty"><div class="empty-icon">👤</div>No users found.</td></tr>`; return; }
     body.innerHTML = data.users.map(u => {
-      const blocked = u.isBlocked;
-      const pro     = u.plan==='pro' && u.proExpiresAt && new Date()<new Date(u.proExpiresAt);
+      const blocked  = u.isBlocked;
+      const suspended= u.suspendedUntil && new Date(u.suspendedUntil) > new Date();
+      const pro      = u.plan==='pro' && u.proExpiresAt && new Date()<new Date(u.proExpiresAt);
       const lastLogin = u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-GB') : '—';
+      const oauthBadges = [(u.githubId?'<span style="font-size:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:5px;padding:2px 6px">GitHub</span>':''), (u.googleId?'<span style="font-size:10px;background:rgba(66,133,244,.12);border:1px solid rgba(66,133,244,.25);border-radius:5px;padding:2px 6px;color:#7eaafc">Google</span>':'')].filter(Boolean).join(' ') || '<span style="font-size:11px;color:var(--muted)">—</span>';
+      const vioColor = (u.violationCount||0)>=3?'color:#f87171':((u.violationCount||0)>=1?'color:#fb923c':'color:var(--muted)');
+      let statusBadge;
+      if (blocked) statusBadge = `<span class="badge blocked">🚫 Blocked</span>`;
+      else if (suspended) statusBadge = `<span class="badge" style="color:#f59e0b;border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.08)">⏸ Suspended</span>`;
+      else statusBadge = `<span class="badge" style="color:var(--green);border-color:rgba(74,222,128,.2);background:rgba(74,222,128,.07)">✅ Active</span>`;
       return `<tr>
         <td class="email-cell">${u.email}${u.displayName?`<br><span style="font-size:11px;color:var(--dim);font-weight:400">${u.displayName}</span>`:''}</td>
         <td><span class="badge ${pro?'pro':'free'}">${pro?'⚡ Pro':'Free'}</span></td>
-        <td><span class="badge ${blocked?'blocked':''}" style="${!blocked?'color:var(--green);border-color:rgba(74,222,128,.2);background:rgba(74,222,128,.07)':''}">${blocked?'🚫 Blocked':'✅ Active'}</span></td>
-        <td style="font-size:12px">${lastLogin}${u.lastLoginIP?`<br><span style="font-size:10px;color:var(--muted)">${u.lastLoginIP}</span>`:''}</td>
+        <td>${oauthBadges}</td>
+        <td style="font-weight:700;${vioColor}">${u.violationCount||0}</td>
+        <td>${statusBadge}</td>
+        <td style="font-size:12px">${lastLogin}</td>
         <td style="font-size:12px;color:var(--muted)">${new Date(u.createdAt).toLocaleDateString('en-GB')}</td>
-        <td style="color:var(--dim)">${u.totalMessages||0}</td>
         <td><div class="actions">
           ${blocked
             ? `<button class="btn btn-green" onclick="unblockUser('${u._id}')">Unblock</button>`
             : `<button class="btn btn-red" onclick="openBlockUser('${u._id}')">Block</button>`}
+          <button class="btn btn-gold" onclick="addViolation('${u._id}','${u.email}')">⚠️ Warn</button>
+          ${(u.violationCount||0)>0?`<button class="btn" style="border-color:rgba(74,222,128,.3);color:var(--green)" onclick="clearViolations('${u._id}')">Clear</button>`:''}
           ${pro
             ? `<button class="btn btn-gold" onclick="revokePro('${u._id}')">Revoke Pro</button>`
             : `<button class="btn btn-blue" onclick="openGrantPro('${u._id}')">Grant Pro</button>`}
@@ -802,6 +835,52 @@ async function deleteUser(id, email) {
   const res = await apiFetch(`/admin/users/${id}`, 'DELETE');
   if (res) { showToast('User deleted','success'); loadUsers(true); loadAllStats(); }
 }
+async function addViolation(id, email) {
+  const reason = prompt(`Issue a violation to ${email}.\nReason:`);
+  if (!reason) return;
+  const res = await apiFetch(`/admin/users/${id}/violation`, 'POST', { reason });
+  if (res) { showToast(res.message || 'Violation issued','success'); loadUsers(true); loadViolations(); }
+}
+async function clearViolations(id) {
+  if (!confirm('Clear all violations and lift suspension for this user?')) return;
+  const res = await apiFetch(`/admin/users/${id}/clear-violations`, 'POST');
+  if (res) { showToast('Violations cleared','success'); loadUsers(true); loadViolations(); }
+}
+
+// ══ VIOLATIONS PAGE ══
+async function loadViolations() {
+  const search = document.getElementById('vioSearch')?.value || '';
+  const body = document.getElementById('vioBody');
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="6" class="loading-row"><span class="spinner"></span>Loading…</td></tr>`;
+  try {
+    const res = await fetch(`${API}/admin/users?page=1&limit=50&search=${encodeURIComponent(search)}&filter=all`, {headers:{'x-admin-secret':SECRET}});
+    const data = await res.json();
+    const flagged = (data.users||[]).filter(u => (u.violationCount||0)>0 || u.isBlocked || (u.suspendedUntil && new Date(u.suspendedUntil)>new Date()));
+    if (!flagged.length) { body.innerHTML=`<tr><td colspan="6" class="empty"><div class="empty-icon">✅</div>No violations found.</td></tr>`; return; }
+    body.innerHTML = flagged.map(u => {
+      const suspended = u.suspendedUntil && new Date(u.suspendedUntil) > new Date();
+      const until = suspended ? new Date(u.suspendedUntil).toLocaleString() : '—';
+      let status;
+      if (u.isBlocked) status = '<span class="badge blocked">🚫 Blocked</span>';
+      else if (suspended) status = '<span class="badge" style="color:#f59e0b;border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.08)">⏸ Suspended</span>';
+      else status = '<span class="badge" style="color:#fb923c;border-color:rgba(251,146,60,.25);background:rgba(251,146,60,.08)">⚠️ Warned</span>';
+      return `<tr>
+        <td class="email-cell">${u.email}</td>
+        <td style="font-weight:700;color:#f87171">${u.violationCount||0}</td>
+        <td>${status}</td>
+        <td style="font-size:12px;color:var(--muted)">${until}</td>
+        <td style="font-size:12px;color:var(--muted)">${u.suspensionReason||u.blockedReason||'—'}</td>
+        <td><div class="actions">
+          <button class="btn btn-gold" onclick="addViolation('${u._id}','${u.email}')">⚠️ Warn</button>
+          <button class="btn btn-green" onclick="clearViolations('${u._id}')">Clear All</button>
+          ${u.isBlocked?`<button class="btn btn-green" onclick="unblockUser('${u._id}')">Unblock</button>`:''}
+        </div></td>
+      </tr>`;
+    }).join('');
+  } catch { showToast('Failed to load violations','error'); }
+}
+document.getElementById('vioSearchBtn')?.addEventListener('click', loadViolations);
 
 // ══ BROADCAST ══
 document.getElementById('broadcastBtn').addEventListener('click', async () => {
