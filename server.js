@@ -204,7 +204,7 @@ const userSchema = new mongoose.Schema({
 const User = mongoose.model("User", userSchema);
 
 // --- Priority 2: OAuth routes (manual implementation, no passport dependency) ---
-app.use(createOAuthRouter({ User }));
+app.use(createOAuthRouter({ User, Integration, encryptToken }));
 
 const paymentSchema = new mongoose.Schema({
   userId:        { type:mongoose.Schema.Types.ObjectId, ref:"User", required:true },
