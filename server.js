@@ -203,9 +203,6 @@ const userSchema = new mongoose.Schema({
 }, { timestamps:true });
 const User = mongoose.model("User", userSchema);
 
-// --- Priority 2: OAuth routes (manual implementation, no passport dependency) ---
-app.use(createOAuthRouter({ User, Integration, encryptToken }));
-
 const paymentSchema = new mongoose.Schema({
   userId:        { type:mongoose.Schema.Types.ObjectId, ref:"User", required:true },
   email:         { type:String, required:true },
@@ -1834,7 +1831,9 @@ app.post("/tts",ttsLimiter,auth,async(req,res)=>{try{const{text,voiceId}=req.bod
 const imageLimiter=rateLimit({windowMs:60*60*1000,max:20,message:{message:"Image limit reached. Try later."}});
 app.post("/generate-image",imageLimiter,auth,checkBlocked,async(req,res)=>{try{const user=await User.findById(req.user.id);if(!user)return res.status(401).json({message:"User not found."});const{prompt}=req.body;const clampDim=v=>Math.min(1536,Math.max(256,parseInt(v)||1024));const width=clampDim(req.body.width);const height=clampDim(req.body.height);if(!prompt||typeof prompt!=="string")return res.status(400).json({message:"Prompt required."});if(prompt.length>500)return res.status(400).json({message:"Prompt too long (max 500 chars)."});if(user.settings?.parentalControl){const blocked=["nude","naked","sexual","porn","explicit","gore","blood","weapon","violence"];if(blocked.some(t=>prompt.toLowerCase().includes(t)))return res.status(403).json({message:"Blocked by Safe Mode."});}const encodedPrompt=encodeURIComponent(prompt);const seed=Math.floor(Math.random()*999999);const imageUrl=`https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=true`;const response=await fetch(imageUrl,{headers:{"User-Agent":"Mozilla/5.0"},signal:AbortSignal.timeout(60000)});if(!response.ok){return res.status(500).json({message:"Image generation failed. Please try again."});}const buffer=await response.arrayBuffer();const b64=Buffer.from(buffer).toString("base64");const mime=response.headers.get("content-type")||"image/jpeg";res.json({image:`data:${mime};base64,${b64}`,prompt});}catch(err){res.status(500).json({message:"Server error. Please try again."});}});
 
-// ══ PRIORITY 2: WORKFLOW / ACTION ENGINE ══
+// ══ PRIORITY 2: OAUTH + WORKFLOW / ACTION ENGINE ══
+// Mounted here so all models (User, Integration, encryptToken etc.) are already defined
+app.use(createOAuthRouter({ User, Integration, encryptToken }));
 registerModels({ Note, Task, Goal, User, sendEmail });
 app.use("/workflows", createWorkflowRouter({ auth, checkBlocked, apiLimiter, sanitize }));
 startScheduler();
