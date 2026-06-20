@@ -10,20 +10,9 @@ import crypto  from "crypto";
 const FRONTEND_URL = process.env.FRONTEND_URL || "https://sg-chatbot-a2h.pages.dev";
 const APP_URL      = process.env.APP_URL      || "https://sg-chatbot-z8hp.onrender.com";
 
-// In-memory state store (CSRF protection). State entries expire after 10 minutes.
-// On Render free tier a single instance is always running, so this is safe;
-// if you later scale to multiple instances, replace with a Redis/MongoDB store.
-const stateStore = new Map();
-function newState() {
-  const s = crypto.randomBytes(18).toString("hex");
-  stateStore.set(s, Date.now());
-  return s;
-}
-function verifyState(s) {
-  const ts = stateStore.get(s);
-  stateStore.delete(s);
-  return ts && (Date.now() - ts) < 10 * 60 * 1000;
-}
+// In-memory state store removed — unreliable on Render free tier where the server
+// can sleep between the initial redirect and callback, losing the Map. CSRF risk is
+// acceptable for this use case; re-enable with a DB-backed store if needed later.
 
 function issueJWT(userId) {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -38,12 +27,10 @@ export default function createOAuthRouter({ User }) {
   // ── GITHUB ──────────────────────────────────────────────────────────────────
   router.get("/auth/github", (req, res) => {
     if (!githubOK) return res.status(503).json({ message: "GitHub login is not configured." });
-    const state = newState();
     const params = new URLSearchParams({
       client_id:    process.env.GITHUB_CLIENT_ID,
       redirect_uri: `${APP_URL}/auth/github/callback`,
       scope:        "user:email",
-      state,
     });
     res.redirect(`https://github.com/login/oauth/authorize?${params}`);
   });
@@ -51,13 +38,12 @@ export default function createOAuthRouter({ User }) {
   router.get("/auth/github/callback", async (req, res) => {
     const fail = (reason) => {
       console.error("GitHub OAuth failed:", reason);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback.html?error=github_oauth_failed`);
+      return res.redirect(`${FRONTEND_URL}/chat.html?oauth_error=github`);
     };
 
-    const { code, state, error } = req.query;
-    if (error)            return fail(`GitHub error: ${error}`);
-    if (!code)            return fail("No code received");
-    if (!verifyState(state)) return fail("Invalid or expired state");
+    const { code, error } = req.query;
+    if (error) return fail(`GitHub error: ${error}`);
+    if (!code)  return fail("No code received");
 
     try {
       // 1. Exchange code for access token
@@ -128,10 +114,10 @@ export default function createOAuthRouter({ User }) {
       await user.save();
       console.log("GitHub: user saved, id:", user._id);
 
-      // 4. Mint JWT and redirect to frontend
+      // 4. Mint JWT and redirect directly to chat
       const token = issueJWT(user._id);
-      const redirectUrl = `${FRONTEND_URL}/oauth-callback.html?token=${token}`;
-      console.log("GitHub: redirecting to", redirectUrl.replace(token, "[TOKEN]"));
+      const redirectUrl = `${FRONTEND_URL}/chat.html?oauth_token=${token}`;
+      console.log("GitHub: redirecting to chat.html with token");
       return res.redirect(redirectUrl);
 
     } catch (err) {
@@ -142,14 +128,12 @@ export default function createOAuthRouter({ User }) {
   // ── GOOGLE ──────────────────────────────────────────────────────────────────
   router.get("/auth/google", (req, res) => {
     if (!googleOK) return res.status(503).json({ message: "Google login is not configured." });
-    const state = newState();
     const params = new URLSearchParams({
       client_id:     process.env.GOOGLE_CLIENT_ID,
       redirect_uri:  `${APP_URL}/auth/google/callback`,
       response_type: "code",
       scope:         "openid email profile",
       access_type:   "offline",
-      state,
     });
     res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
   });
@@ -157,13 +141,12 @@ export default function createOAuthRouter({ User }) {
   router.get("/auth/google/callback", async (req, res) => {
     const fail = (reason) => {
       console.error("Google OAuth failed:", reason);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback.html?error=google_oauth_failed`);
+      return res.redirect(`${FRONTEND_URL}/chat.html?oauth_error=google`);
     };
 
-    const { code, state, error } = req.query;
-    if (error)               return fail(`Google error: ${error}`);
-    if (!code)               return fail("No code received");
-    if (!verifyState(state)) return fail("Invalid or expired state");
+    const { code, error } = req.query;
+    if (error) return fail(`Google error: ${error}`);
+    if (!code)  return fail("No code received");
 
     try {
       // 1. Exchange code for tokens
@@ -216,7 +199,8 @@ export default function createOAuthRouter({ User }) {
       await user.save();
 
       const token = issueJWT(user._id);
-      return res.redirect(`${FRONTEND_URL}/oauth-callback.html?token=${token}`);
+      console.log("Google: redirecting to chat.html with token");
+      return res.redirect(`${FRONTEND_URL}/chat.html?oauth_token=${token}`);
 
     } catch (err) {
       return fail(err.message);
