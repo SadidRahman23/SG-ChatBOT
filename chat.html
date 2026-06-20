@@ -1964,7 +1964,7 @@
           </div>
         </div>
         <div>
-          <button class="btn-ghost" style="padding:4px 10px;font-size:11px;font-weight:600;" onclick="window.location.href='https://sg-chatbot-z8hp.onrender.com/auth/github'">Connect</button>
+          <button class="btn-ghost" style="padding:4px 10px;font-size:11px;font-weight:600;" onclick="openOAuthPopup('github')">Connect</button>
         </div>
       </div>
       
@@ -2050,8 +2050,17 @@ const ENG_RULE = "CRITICAL: (1) Reply in the same language as the user. (2) You 
   const p = new URLSearchParams(window.location.search);
   const t = p.get('oauth_token');
   const e = p.get('oauth_error');
-  if (t) { localStorage.setItem('sg_token', t); window.history.replaceState({}, '', window.location.pathname); }
-  if (e) { window._oauthErrorMsg = {github:'GitHub login failed. Try again.',google:'Google login failed. Try again.'}[e]||'OAuth login failed.'; window.history.replaceState({}, '', window.location.pathname); }
+  if (t) {
+    localStorage.setItem('sg_token', t);
+    window.history.replaceState({}, '', window.location.pathname);
+    // If this page was opened as a popup, close it so the opener detects the new token
+    if (window.opener && !window.opener.closed) { window.close(); return; }
+  }
+  if (e) {
+    window._oauthErrorMsg = {github:'GitHub login failed. Try again.',google:'Google login failed. Try again.'}[e]||'OAuth login failed.';
+    window.history.replaceState({}, '', window.location.pathname);
+    if (window.opener && !window.opener.closed) { window.close(); return; }
+  }
 })();
 
 const S = {
@@ -2169,7 +2178,31 @@ document.querySelectorAll('[data-mpersona]').forEach(btn => {
   btn.addEventListener('click', () => { setPersona(btn.dataset.mpersona); toast(`${PERSONA_LABELS[btn.dataset.mpersona]} mode`, 'ok'); });
 });
 
-// ══ ROLE (item 3) ══
+// ══ OAUTH POPUP (GitHub / Google login) ══
+const BACKEND = 'https://sg-chatbot-z8hp.onrender.com';
+function openOAuthPopup(provider) {
+  const w=600, h=700;
+  const left = Math.round(window.screenX + (window.outerWidth  - w) / 2);
+  const top  = Math.round(window.screenY + (window.outerHeight - h) / 2);
+  const popup = window.open(
+    `${BACKEND}/auth/${provider}`,
+    'sg_oauth',
+    `width=${w},height=${h},left=${left},top=${top},toolbar=no,menubar=no,location=no`
+  );
+  if (!popup) { toast('Please allow popups for this site to use OAuth login.', 'err'); return; }
+  // Poll until popup closes, then check if a new token appeared in localStorage
+  const poll = setInterval(() => {
+    try { if (popup.closed) { clearInterval(poll); handleOAuthPopupDone(); } } catch { clearInterval(poll); }
+  }, 400);
+}
+function handleOAuthPopupDone() {
+  const newToken = localStorage.getItem('sg_token');
+  if (newToken && newToken !== S.token) {
+    S.token = newToken;
+    toast('Signed in! Loading your account…', 'ok');
+    fetchStatus(); // re-load profile without full page reload
+  }
+}
 function setRole(key) {
   S.role = key;
   const label = ROLE_LABELS[key] || key || 'General Assistant';
