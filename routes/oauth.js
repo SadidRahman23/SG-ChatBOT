@@ -18,7 +18,7 @@ function issueJWT(userId) {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 }
 
-export default function createOAuthRouter({ User }) {
+export default function createOAuthRouter({ User, Integration, encryptToken }) {
   const router = express.Router();
 
   const githubOK = !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
@@ -30,7 +30,7 @@ export default function createOAuthRouter({ User }) {
     const params = new URLSearchParams({
       client_id:    process.env.GITHUB_CLIENT_ID,
       redirect_uri: `${APP_URL}/auth/github/callback`,
-      scope:        "user:email",
+      scope:        "user:email repo",   // repo scope so we can access repos/issues after login
     });
     res.redirect(`https://github.com/login/oauth/authorize?${params}`);
   });
@@ -113,6 +113,18 @@ export default function createOAuthRouter({ User }) {
       user.lastLoginAt = new Date();
       await user.save();
       console.log("GitHub: user saved, id:", user._id);
+
+      // Save encrypted access_token to Integration so the AI can access repos/issues
+      if (Integration && encryptToken) {
+        try {
+          await Integration.findOneAndUpdate(
+            { userId: user._id, service: "github" },
+            { userId: user._id, service: "github", accessToken: encryptToken(accessToken), connectedAt: new Date() },
+            { upsert: true }
+          );
+          console.log("GitHub: integration token saved for user", user._id);
+        } catch (e) { console.error("GitHub: integration save failed:", e.message); }
+      }
 
       // 4. Mint JWT and redirect directly to chat
       const token = issueJWT(user._id);
