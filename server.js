@@ -195,6 +195,8 @@ const userSchema = new mongoose.Schema({
   googleId:       { type:String, default:null, unique:true, sparse:true }, // OAuth (Priority 2)
   githubId:       { type:String, default:null, unique:true, sparse:true }, // OAuth (Priority 2)
   avatarUrl:      { type:String, default:"" },
+  videoCount:     { type:Number, default:0 },
+  videoResetAt:   { type:Date,   default:null },
   totalMessages:  { type:Number, default:0 },
   role:           { type:String, default:"" },
   settings: {
@@ -1443,7 +1445,7 @@ const GOOGLE_MODELS={fast:"gemini-2.0-flash",smart:"gemini-2.0-flash",coding:"ge
 const MISTRAL_MODELS={fast:"mistral-small-latest",smart:"mistral-small-latest",coding:"codestral-latest",deep:"mistral-large-latest"};
 const OR_MODELS={fast:"meta-llama/llama-3.3-70b-instruct:free",smart:"mistralai/mistral-small-3.1-24b-instruct:free",coding:"qwen/qwen3-coder:free",deep:"google/gemini-2.5-flash:free"};
 const POWERFUL_OR_MODEL="google/gemini-2.5-flash:free";
-const VISION_MODELS=["meta-llama/llama-4-maverick:free","meta-llama/llama-4-scout:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","mistralai/pixtral-12b:free","google/gemini-2.0-flash-exp:free"];
+const VISION_MODELS=["meta-llama/llama-4-maverick:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","meta-llama/llama-4-scout:free","mistralai/pixtral-12b:free","qwen/qwen2.5-vl-72b-instruct:free","google/gemini-2.0-flash-exp:free","anthropic/claude-3-haiku:free","meta-llama/llama-3.2-90b-vision-instruct:free"];
 const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","google/gemini-2.5-flash:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free"];
 // ════════════════════════════════════════════════
 
@@ -1798,8 +1800,20 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
         if (!success && !fullReply) { const fb=["google/gemini-2.5-flash:free","meta-llama/llama-3.3-70b-instruct:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free"]; for(const m of fb){if(fullReply)break;success=await tryORStream(m);if(success)break;} }
       }
     } else {
-      const vms=["meta-llama/llama-4-maverick:free","google/gemini-2.5-flash:free","qwen/qwen3-vl-32b-instruct:free","meta-llama/llama-4-scout:free","mistralai/pixtral-12b:free"];
+      // Vision models — more fallbacks to prevent "AI busy"
+      const vms=[
+        "meta-llama/llama-4-maverick:free",
+        "google/gemini-2.5-flash:free",
+        "qwen/qwen3-vl-32b-instruct:free",
+        "meta-llama/llama-4-scout:free",
+        "mistralai/pixtral-12b:free",
+        "qwen/qwen2.5-vl-72b-instruct:free",
+        "google/gemini-2.0-flash-exp:free",
+        "anthropic/claude-3-haiku:free",
+      ];
       for(const vm of vms){if(fullReply)break;success=await tryORStream(vm);if(success)break;}
+      // Final vision fallback: Google direct
+      if (!success && !fullReply) success = await tryGoogleAsChunk("gemini-2.0-flash");
     }
 
     // FIX (H1+H4): only treat this as a hard failure (and refund the message credit) when we have
@@ -1839,6 +1853,123 @@ app.post("/tts",ttsLimiter,auth,async(req,res)=>{try{const{text,voiceId}=req.bod
 // ══ IMAGE GENERATION ══
 const imageLimiter=rateLimit({windowMs:60*60*1000,max:20,message:{message:"Image limit reached. Try later."}});
 app.post("/generate-image",imageLimiter,auth,checkBlocked,async(req,res)=>{try{const user=await User.findById(req.user.id);if(!user)return res.status(401).json({message:"User not found."});const{prompt}=req.body;const clampDim=v=>Math.min(1536,Math.max(256,parseInt(v)||1024));const width=clampDim(req.body.width);const height=clampDim(req.body.height);if(!prompt||typeof prompt!=="string")return res.status(400).json({message:"Prompt required."});if(prompt.length>500)return res.status(400).json({message:"Prompt too long (max 500 chars)."});if(user.settings?.parentalControl){const blocked=["nude","naked","sexual","porn","explicit","gore","blood","weapon","violence"];if(blocked.some(t=>prompt.toLowerCase().includes(t)))return res.status(403).json({message:"Blocked by Safe Mode."});}const encodedPrompt=encodeURIComponent(prompt);const seed=Math.floor(Math.random()*999999);const imageUrl=`https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${seed}&nologo=true&enhance=true`;const response=await fetch(imageUrl,{headers:{"User-Agent":"Mozilla/5.0"},signal:AbortSignal.timeout(60000)});if(!response.ok){return res.status(500).json({message:"Image generation failed. Please try again."});}const buffer=await response.arrayBuffer();const b64=Buffer.from(buffer).toString("base64");const mime=response.headers.get("content-type")||"image/jpeg";res.json({image:`data:${mime};base64,${b64}`,prompt});}catch(err){res.status(500).json({message:"Server error. Please try again."});}});
+
+// ══ VIDEO GENERATION ══
+const VIDEO_LIMITS = { free:3, student:5, monthly:25, yearly:178 };
+const videoLimiter = rateLimit({ windowMs:60*60*1000, max:20, standardHeaders:true, legacyHeaders:false });
+
+function getUserVideoPlan(user) {
+  const now = new Date();
+  if (user.plan==='pro' && user.proExpiresAt && new Date(user.proExpiresAt)>now) {
+    // Distinguish plan type by expiry length (yearly > 300 days from purchase)
+    const daysLeft = (new Date(user.proExpiresAt) - now) / 86400000;
+    if (daysLeft > 300) return 'yearly';
+    return user.planType==='student' ? 'student' : 'monthly';
+  }
+  return 'free';
+}
+function checkVideoQuota(user) {
+  const now = new Date();
+  if (!user.videoResetAt || now - new Date(user.videoResetAt) > 24*60*60*1000) {
+    user.videoCount = 0; user.videoResetAt = now;
+  }
+  const plan = getUserVideoPlan(user);
+  const limit = VIDEO_LIMITS[plan];
+  return { ok: user.videoCount < limit, count: user.videoCount, limit, plan };
+}
+
+async function uploadToCloudinary(videoUrl) {
+  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) return null;
+  try {
+    const auth = Buffer.from(`${process.env.CLOUDINARY_API_KEY}:${process.env.CLOUDINARY_API_SECRET}`).toString('base64');
+    const fd = new URLSearchParams({ file: videoUrl, resource_type: 'video', folder: 'sg-chatbot-videos' });
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${process.env.CLOUDINARY_CLOUD_NAME}/video/upload`, {
+      method:'POST', headers:{ Authorization:`Basic ${auth}`, 'Content-Type':'application/x-www-form-urlencoded' },
+      body: fd.toString(), signal: AbortSignal.timeout(120000),
+    });
+    if (!res.ok) { console.error('Cloudinary upload failed:', res.status); return null; }
+    const data = await res.json();
+    return data.secure_url || null;
+  } catch(e) { console.error('Cloudinary error:', e.message); return null; }
+}
+
+app.post("/generate-video", videoLimiter, auth, checkBlocked, async (req, res) => {
+  try {
+    if (!process.env.REPLICATE_API_TOKEN) return res.status(503).json({ message:"Video generation is not configured on this server." });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ message:"User not found." });
+
+    const quota = checkVideoQuota(user);
+    if (!quota.ok) return res.status(429).json({ message:`Video limit reached (${quota.count}/${quota.limit} per 24h for ${quota.plan} plan). Upgrade for more.`, quota });
+
+    const { prompt, aspectRatio='16:9', duration=5 } = req.body;
+    if (!prompt || typeof prompt !== 'string') return res.status(400).json({ message:"Prompt required." });
+    if (prompt.length > 500) return res.status(400).json({ message:"Prompt too long (max 500 chars)." });
+    if (user.settings?.parentalControl) {
+      const blocked=["nude","naked","sexual","porn","explicit","gore","blood","violence"];
+      if (blocked.some(t=>prompt.toLowerCase().includes(t))) return res.status(403).json({message:"Blocked by Safe Mode."});
+    }
+
+    const isHighRes = getUserVideoPlan(user) === 'yearly';
+    const clampedDuration = Math.min(Math.max(parseInt(duration)||5, 3), isHighRes?10:6);
+
+    // Use minimax/video-01 on Replicate (good quality, reasonable cost)
+    console.log(`Video gen: user=${user._id} plan=${quota.plan} prompt="${prompt.slice(0,50)}"`);
+    const predRes = await fetch("https://api.replicate.com/v1/models/minimax/video-01/predictions", {
+      method:'POST',
+      headers:{ Authorization:`Token ${process.env.REPLICATE_API_TOKEN}`, 'Content-Type':'application/json', Prefer:'wait=60' },
+      body: JSON.stringify({ input:{ prompt, duration: clampedDuration, aspect_ratio: aspectRatio } }),
+      signal: AbortSignal.timeout(65000),
+    });
+    if (!predRes.ok) {
+      const err = await predRes.json().catch(()=>({}));
+      console.error('Replicate error:', predRes.status, err);
+      return res.status(502).json({ message:"Video generation failed. Please try again." });
+    }
+    let prediction = await predRes.json();
+
+    // Poll until done (max 4 min)
+    const maxWait = Date.now() + 4*60*1000;
+    while (['starting','processing'].includes(prediction.status) && Date.now()<maxWait) {
+      await new Promise(r=>setTimeout(r,3000));
+      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+        headers:{ Authorization:`Token ${process.env.REPLICATE_API_TOKEN}` }, signal:AbortSignal.timeout(10000),
+      });
+      if (pollRes.ok) prediction = await pollRes.json();
+    }
+
+    if (prediction.status !== 'succeeded' || !prediction.output) {
+      console.error('Video prediction failed:', prediction.status, prediction.error);
+      return res.status(502).json({ message:"Video generation timed out. Please try again with a simpler prompt." });
+    }
+
+    const replicateUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+
+    // Upload to Cloudinary for permanent storage
+    let videoUrl = replicateUrl;
+    const cloudUrl = await uploadToCloudinary(replicateUrl);
+    if (cloudUrl) videoUrl = cloudUrl;
+
+    // Increment quota
+    user.videoCount += 1;
+    await user.save();
+
+    res.json({ video: videoUrl, prompt, plan: quota.plan, videosLeft: quota.limit - user.videoCount, quota });
+  } catch(e) {
+    console.error('Video gen error:', e.message);
+    res.status(500).json({ message:"Server error. Please try again." });
+  }
+});
+
+// Video quota status
+app.get("/video-status", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ message:"Not found" });
+    const quota = checkVideoQuota(user);
+    res.json({ ...quota, videosLeft: quota.limit - quota.count });
+  } catch { res.status(500).json({ message:"Error" }); }
+});
 
 // ══ PRIORITY 2: OAUTH + WORKFLOW / ACTION ENGINE ══
 // Mounted here so all models (User, Integration, encryptToken etc.) are already defined
