@@ -2114,18 +2114,18 @@ document.getElementById('newChatBtn').addEventListener('click', () => { clearCha
 if (window.innerWidth > 768) { sidebar.classList.remove('collapsed'); S.sidebarOpen = true; }
 
 // ── OAuth URL token handler (runs before anything else) ──
-// When GitHub/Google OAuth completes, the backend redirects here with ?oauth_token=JWT
-// We save it immediately and clean the URL so it doesn't linger in browser history.
 (function handleOAuthRedirect() {
   const p = new URLSearchParams(window.location.search);
   const oauthToken = p.get('oauth_token');
   const oauthError = p.get('oauth_error');
   if (oauthToken) {
     localStorage.setItem('sg_token', oauthToken);
-    window.history.replaceState({}, '', window.location.pathname);
-  } else if (oauthError) {
+    // Reload without the query param so S.token picks up the new value from localStorage
+    window.location.replace(window.location.pathname);
+    return;
+  }
+  if (oauthError) {
     const msgs = { github: 'GitHub login failed. Please try again.', google: 'Google login failed. Please try again.' };
-    // Toast will fire after toast() is defined — store for deferred call
     window._oauthErrorMsg = msgs[oauthError] || 'OAuth login failed.';
     window.history.replaceState({}, '', window.location.pathname);
   }
