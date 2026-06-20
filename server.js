@@ -81,27 +81,37 @@ const GROQ_KEYS = [
   process.env.GROQ_API_KEY,
 ].filter(Boolean);
 
-// Email — Brevo HTTP API only (Render blocks outbound SMTP).
-// Set BREVO_API_KEY in Render environment. Get it from app.brevo.com → SMTP & API → API Keys.
-// BREVO_SENDER_EMAIL must be a verified sender in your Brevo account.
+// Email — HTTP API only (Render blocks outbound SMTP).
+// Priority: Brevo → Resend. Set whichever API key you have in Render environment.
 async function sendEmail(to, subject, html) {
   try {
-    if (!process.env.BREVO_API_KEY) { console.error("Email error: BREVO_API_KEY not set"); return false; }
-    const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER || "noreply@sgchatbot.com";
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: { "api-key": process.env.BREVO_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sender: { name: "SG ChatBOT", email: senderEmail },
-        to: [{ email: to }],
-        subject,
-        htmlContent: html,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (res.ok) { console.log(`✅ Email sent via Brevo to ${to}`); return true; }
-    const err = await res.json().catch(()=>({}));
-    console.error("Brevo email error:", res.status, JSON.stringify(err));
+    // 1. Try Brevo
+    if (process.env.BREVO_API_KEY) {
+      const senderEmail = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER || "noreply@sgchatbot.com";
+      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: { "api-key": process.env.BREVO_API_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ sender:{name:"SG ChatBOT",email:senderEmail}, to:[{email:to}], subject, htmlContent:html }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) { console.log(`✅ Email sent via Brevo to ${to}`); return true; }
+      const err = await res.json().catch(()=>({}));
+      console.error("Brevo error:", res.status, err.message||JSON.stringify(err));
+    }
+    // 2. Fallback: Resend
+    if (process.env.RESEND_API_KEY) {
+      const senderEmail = process.env.RESEND_SENDER_EMAIL || "onboarding@resend.dev";
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: { "Authorization":`Bearer ${process.env.RESEND_API_KEY}`, "Content-Type":"application/json" },
+        body: JSON.stringify({ from:`SG ChatBOT <${senderEmail}>`, to:[to], subject, html }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) { console.log(`✅ Email sent via Resend to ${to}`); return true; }
+      const err = await res.json().catch(()=>({}));
+      console.error("Resend error:", res.status, err.message||JSON.stringify(err));
+    }
+    if (!process.env.BREVO_API_KEY && !process.env.RESEND_API_KEY) console.error("Email error: No email provider configured (set BREVO_API_KEY or RESEND_API_KEY)");
     return false;
   } catch (err) { console.error("Email error:", err.message); return false; }
 }
