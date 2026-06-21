@@ -3101,8 +3101,11 @@ function openVideoGen() {
   updateVidCounter();
 }
 function closeVideoGen() { document.getElementById('videoGenOverlay').classList.remove('on'); }
-document.getElementById('videoGenClose')?.addEventListener('click', closeVideoGen);
-document.getElementById('videoGenOverlay')?.addEventListener('click', e=>{ if(e.target===document.getElementById('videoGenOverlay')) closeVideoGen(); });
+// Wrap all post-script element listeners in DOMContentLoaded so they work
+// regardless of whether the HTML is defined before or after this script tag.
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('videoGenClose')?.addEventListener('click', closeVideoGen);
+  document.getElementById('videoGenOverlay')?.addEventListener('click', e=>{ if(e.target===document.getElementById('videoGenOverlay')) closeVideoGen(); });
 document.getElementById('videoGenBtn')?.addEventListener('click', ()=>{plusMenu.classList.remove('on');plusBtn.classList.remove('on');openVideoGen();});
 
 document.getElementById('vidGenSubmit')?.addEventListener('click', async () => {
@@ -3153,6 +3156,7 @@ document.getElementById('vidToChat')?.addEventListener('click', () => {
   closeVideoGen();
   toast('Video added to chat','ok');
 });
+}); // end DOMContentLoaded (video)
 function updateImgCounter(){ const r=imgRemaining(); const el=document.getElementById('imgCounter'); el.textContent=r===Infinity?'Unlimited':`${r} of 3 remaining today`; el.style.color=r<=1&&r!==Infinity?'var(--red)':'var(--muted)'; const btn=document.getElementById('imgGenSubmit'); btn.disabled=r===0; }
 document.getElementById('imgGenClose').addEventListener('click',closeImgGen);
 document.getElementById('imgGenOverlay').addEventListener('click',e=>{ if(e.target===document.getElementById('imgGenOverlay')) closeImgGen(); });
@@ -3457,6 +3461,7 @@ async function viewWfHistory(id, name) {
 
 // AI Suggest
 let wfSuggestionData = null;
+window.addEventListener('DOMContentLoaded', () => {
 document.getElementById('wfSuggestBtn')?.addEventListener('click', async () => {
   const desc = document.getElementById('wfSuggestInput').value.trim();
   if (!desc) { toast('Describe your workflow first','err'); return; }
@@ -3482,6 +3487,7 @@ document.getElementById('wfSuggestDiscard')?.addEventListener('click', () => {
   document.getElementById('wfSuggestPreview').style.display='none';
   wfSuggestionData = null;
 });
+}); // end DOMContentLoaded (workflows)
 </script>
 
 <!-- ══ WORKFLOW DRAWER ══ -->
