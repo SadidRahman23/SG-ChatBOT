@@ -3351,21 +3351,27 @@ updateNotifBtn();
 
 // ══ WORKFLOW JS ══
 const API_BASE = 'https://sg-chatbot-z8hp.onrender.com';
-const wfDrawer   = document.getElementById('wfDrawer');
-const wfBackdrop = document.getElementById('wfBackdrop');
 
+// FIX: wfDrawer HTML is defined AFTER this script, so getElementById returns null at
+// script-parse time. Use lazy getters inside each function instead of top-level consts.
 function openWfDrawer() {
-  wfDrawer.classList.add('open');
-  wfBackdrop.classList.add('open');
+  const d = document.getElementById('wfDrawer');
+  const b = document.getElementById('wfBackdrop');
+  if (!d) return;
+  d.classList.add('open');
+  b?.classList.add('open');
   loadWorkflows();
 }
 function closeWfDrawer() {
-  wfDrawer.classList.remove('open');
-  wfBackdrop.classList.remove('open');
+  document.getElementById('wfDrawer')?.classList.remove('open');
+  document.getElementById('wfBackdrop')?.classList.remove('open');
 }
 document.getElementById('workflowsBtn')?.addEventListener('click', openWfDrawer);
-document.getElementById('wfDrawerClose')?.addEventListener('click', closeWfDrawer);
-wfBackdrop?.addEventListener('click', closeWfDrawer);
+// Drawer close + backdrop — attached via DOMContentLoaded so the elements exist
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('wfDrawerClose')?.addEventListener('click', closeWfDrawer);
+  document.getElementById('wfBackdrop')?.addEventListener('click', closeWfDrawer);
+});
 
 async function wfFetch(path, method='GET', body=null) {
   if (!S.token) { toast('Please sign in to use workflows','err'); return null; }
