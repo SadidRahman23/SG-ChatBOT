@@ -1449,12 +1449,24 @@ const VISION_MODELS=["meta-llama/llama-4-maverick:free","google/gemini-2.5-flash
 const TEXT_FB=["meta-llama/llama-3.3-70b-instruct:free","google/gemini-2.5-flash:free","mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-8b:free","google/gemma-3-27b-it:free"];
 // ════════════════════════════════════════════════
 
+// Powerful thinking works by injecting a deep chain-of-thought reasoning protocol
+// into the system prompt — this works with ANY model, no special "reasoning" model needed.
+// This is how OpenAI o1 and DeepSeek R1 work conceptually: structured thinking instructions.
+const POWERFUL_THINKING_PROMPT = `
+THINKING LEVEL: POWERFUL — DEEP REASONING MODE ACTIVATED.
+You must think step-by-step BEFORE answering. Follow this internal protocol:
+1. UNDERSTAND: Restate the core question/problem in your own words (1-2 lines).
+2. BREAKDOWN: Break it into sub-problems or steps. Number them.
+3. THINK: For each step, reason through it carefully. Consider edge cases, alternatives, tradeoffs.
+4. VERIFY: Check your reasoning. Is there a simpler approach? Any mistakes?
+5. ANSWER: Give the final, well-organized answer based on your analysis.
+Format: Show your thinking clearly. Use headers, numbered steps, and organized structure.
+Never skip the breakdown phase. Be thorough, precise, and comprehensive.`;
+
 function buildSystemPrompt(user, personaKey, roleKey, isPowerful, isProjectRequest) {
   const personaExtra = PERSONA_PROMPTS[personaKey] ? ' ' + PERSONA_PROMPTS[personaKey] : '';
   const roleExtra    = ROLE_PROMPTS[roleKey]        ? ' ' + ROLE_PROMPTS[roleKey]       : '';
-  const powerExtra   = isPowerful
-    ? ' THINKING LEVEL: POWERFUL. Apply deep, thorough, step-by-step reasoning. Show all your work clearly. Consider edge cases, alternatives, tradeoffs, and best practices. Never skip steps. Be comprehensive but organized.'
-    : '';
+  const powerExtra   = isPowerful ? POWERFUL_THINKING_PROMPT : '';
 
   return (
     "You are SG — a powerful, free AI assistant. SG stands for StrongGuy. You are the flagship product of StrongGuy AI. " +
@@ -1633,12 +1645,13 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
       if (googleVisionRes?.ok) { response=googleVisionRes; responseData=googleVisionRes._googleData; }
       else { for (const vm of VISION_MODELS) { response=await callOR(vm); if (response?.ok) break; await new Promise(r=>setTimeout(r,500)); } }
     } else if (isPowerful) {
-      // Powerful mode: Google FIRST (most reliable), then Groq, then OR fallbacks
-      try { const gRes=await callGoogle("gemini-2.5-flash-preview-04-17",systemMsg,chatMsgs); if (gRes?.ok){response=gRes;responseData=gRes._googleData;} } catch{response=null;}
-      if (!response?.ok && GROQ_KEYS.length>0) { try { response=await callGroqRotating(POWERFUL_GROQ_MODEL,trimmed); } catch{response=null;} }
-      if (!response?.ok) { try { response=await callOR(POWERFUL_OR_MODEL); } catch{response=null;} }
-      if (!response?.ok) { try { response=await callOR("deepseek/deepseek-r1:free"); } catch{response=null;} }
+      // Same reliable chain as Default — CoT prompt does the heavy lifting
+      if (GROQ_KEYS.length>0) { try { response=await callGroqRotating(GROQ_MODELS[modelKey]||GROQ_MODELS.fast,trimmed.filter(m=>!Array.isArray(m.content))); } catch{response=null;} }
+      if (!response?.ok) { try { const gRes=await callGoogle("gemini-2.0-flash",systemMsg,chatMsgs); if (gRes?.ok){response=gRes;responseData=gRes._googleData;} } catch{response=null;} }
+      if (!response?.ok) { try { response=await callMistral("mistral-small-latest",trimmed); } catch{response=null;} }
+      if (!response?.ok) { try { response=await callOR("google/gemini-2.5-flash:free"); } catch{response=null;} }
       if (!response?.ok) { try { response=await callOR("meta-llama/llama-3.3-70b-instruct:free"); } catch{response=null;} }
+      if (!response?.ok) { for(const fb of TEXT_FB){response=await callOR(fb);if(response?.ok)break;await new Promise(r=>setTimeout(r,500));} }
     } else {
       if (GROQ_KEYS.length>0) { try { response=await callGroqRotating(GROQ_MODELS[modelKey],trimmed.filter(m=>!Array.isArray(m.content))); } catch{response=null;} }
       if (!response?.ok) { try { const gRes=await callGoogle(GOOGLE_MODELS[modelKey],systemMsg,chatMsgs); if (gRes?.ok){response=gRes;responseData=gRes._googleData;} } catch{response=null;} }
@@ -1789,14 +1802,19 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     // stops the fallback chain as soon as we've already sent the user something.
     if (!hasImage) {
       if (isPowerful) {
-        // Powerful mode: Google FIRST (most reliable, no rate limit issues), then Groq, then OR
-        success = await tryGoogleAsChunk("gemini-2.5-flash-preview-04-17");
-        if (!success && !fullReply) success = await tryGroqStream(POWERFUL_GROQ_MODEL);
-        if (!success && !fullReply) success = await tryGoogleAsChunk("gemini-2.0-flash");
-        if (!success && !fullReply) success = await tryORStream(POWERFUL_OR_MODEL);
-        if (!success && !fullReply) success = await tryORStream("deepseek/deepseek-r1:free");
-        if (!success && !fullReply) success = await tryORStream("meta-llama/llama-3.3-70b-instruct:free");
-        if (!success && !fullReply) success = await tryORStream("google/gemini-2.5-flash:free");
+        // Powerful mode uses the SAME reliable model chain as Default mode.
+        // The heavy lifting is done by the POWERFUL_THINKING_PROMPT injected into the
+        // system prompt — chain-of-thought instructions work with any capable model.
+        // Previously this tried specific "reasoning" models first (deepseek-r1, gemini-2.5-pro)
+        // which are frequently rate-limited on free tiers, causing "AI busy" errors.
+        success=await tryGroqStream(GROQ_MODELS[modelKey]||GROQ_MODELS.fast);
+        if (!success && !fullReply) success=await tryGoogleAsChunk("gemini-2.0-flash");
+        if (!success && !fullReply) success=await tryGoogleAsChunk("gemini-2.5-flash-preview-04-17");
+        if (!success && !fullReply) { const mRes=await callMistral("mistral-small-latest",trimmed); if(mRes?.ok){const mData=await mRes.json();const text=mData?.choices?.[0]?.message?.content||"";if(text){fullReply=text;sendChunk(text);success=true;}} }
+        if (!success && !fullReply) success=await tryORStream("google/gemini-2.5-flash:free");
+        if (!success && !fullReply) success=await tryORStream("meta-llama/llama-3.3-70b-instruct:free");
+        if (!success && !fullReply) success=await tryORStream("deepseek/deepseek-r1:free");
+        if (!success && !fullReply) { const fb=["mistralai/mistral-small-3.1-24b-instruct:free","qwen/qwen3-14b:free","qwen/qwen3-30b-a3b:free"]; for(const m of fb){if(fullReply)break;success=await tryORStream(m);if(success)break;} }
       } else {
         success=await tryGroqStream(GROQ_MODELS[modelKey]);
         if (!success && !fullReply) success=await tryGoogleAsChunk(modelKey==="deep"?"gemini-2.5-flash-preview-04-17":"gemini-2.0-flash");
