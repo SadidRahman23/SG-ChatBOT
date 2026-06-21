@@ -1633,9 +1633,12 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
       if (googleVisionRes?.ok) { response=googleVisionRes; responseData=googleVisionRes._googleData; }
       else { for (const vm of VISION_MODELS) { response=await callOR(vm); if (response?.ok) break; await new Promise(r=>setTimeout(r,500)); } }
     } else if (isPowerful) {
-      if (GROQ_KEYS.length>0) { try { response=await callGroqRotating(POWERFUL_GROQ_MODEL,trimmed); } catch{response=null;} }
+      // Powerful mode: Google FIRST (most reliable), then Groq, then OR fallbacks
+      try { const gRes=await callGoogle("gemini-2.5-flash-preview-04-17",systemMsg,chatMsgs); if (gRes?.ok){response=gRes;responseData=gRes._googleData;} } catch{response=null;}
+      if (!response?.ok && GROQ_KEYS.length>0) { try { response=await callGroqRotating(POWERFUL_GROQ_MODEL,trimmed); } catch{response=null;} }
       if (!response?.ok) { try { response=await callOR(POWERFUL_OR_MODEL); } catch{response=null;} }
-      if (!response?.ok) { try { const gRes=await callGoogle("gemini-2.5-flash-preview-04-17",systemMsg,chatMsgs); if (gRes?.ok){response=gRes;responseData=gRes._googleData;} } catch{response=null;} }
+      if (!response?.ok) { try { response=await callOR("deepseek/deepseek-r1:free"); } catch{response=null;} }
+      if (!response?.ok) { try { response=await callOR("meta-llama/llama-3.3-70b-instruct:free"); } catch{response=null;} }
     } else {
       if (GROQ_KEYS.length>0) { try { response=await callGroqRotating(GROQ_MODELS[modelKey],trimmed.filter(m=>!Array.isArray(m.content))); } catch{response=null;} }
       if (!response?.ok) { try { const gRes=await callGoogle(GOOGLE_MODELS[modelKey],systemMsg,chatMsgs); if (gRes?.ok){response=gRes;responseData=gRes._googleData;} } catch{response=null;} }
@@ -1786,12 +1789,14 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     // stops the fallback chain as soon as we've already sent the user something.
     if (!hasImage) {
       if (isPowerful) {
-        success = await tryGroqStream(POWERFUL_GROQ_MODEL);
+        // Powerful mode: Google FIRST (most reliable, no rate limit issues), then Groq, then OR
+        success = await tryGoogleAsChunk("gemini-2.5-flash-preview-04-17");
+        if (!success && !fullReply) success = await tryGroqStream(POWERFUL_GROQ_MODEL);
+        if (!success && !fullReply) success = await tryGoogleAsChunk("gemini-2.0-flash");
         if (!success && !fullReply) success = await tryORStream(POWERFUL_OR_MODEL);
-        if (!success && !fullReply) success = await tryGoogleAsChunk("gemini-2.5-flash-preview-04-17");
-        if (!success && !fullReply) success = await tryORStream("google/gemini-2.5-pro:free");
         if (!success && !fullReply) success = await tryORStream("deepseek/deepseek-r1:free");
         if (!success && !fullReply) success = await tryORStream("meta-llama/llama-3.3-70b-instruct:free");
+        if (!success && !fullReply) success = await tryORStream("google/gemini-2.5-flash:free");
       } else {
         success=await tryGroqStream(GROQ_MODELS[modelKey]);
         if (!success && !fullReply) success=await tryGoogleAsChunk(modelKey==="deep"?"gemini-2.5-flash-preview-04-17":"gemini-2.0-flash");
