@@ -71,6 +71,93 @@ const ROLE_PROMPTS = {
   'Productivity Coach': 'USER ROLE: Productivity Coach. Focus on time management, habit-building, prioritization frameworks (e.g. Eisenhower matrix, time-blocking), and turning requests into concrete, actionable daily/weekly plans.',
 };
 
+// ══════════════════════════════════════════════════════════
+// SCHOLAR 1.0 — BANGLADESH KNOWLEDGE BASE (RAG)
+// Keyword-based retrieval now; upgrade to Pinecone vector RAG
+// by adding PINECONE_API_KEY env var later.
+// ══════════════════════════════════════════════════════════
+const SCHOLAR_KNOWLEDGE = [
+  { tags:['ssc','মাধ্যমিক','secondary','class 9','class 10','নবম','দশম'],
+    title:'SSC Exam (Secondary School Certificate)',
+    content:`SSC (Secondary School Certificate) বাংলাদেশে মাধ্যমিক শিক্ষা সমাপনী পরীক্ষা। শ্রেণি ৯-১০। বোর্ড: ঢাকা, চট্টগ্রাম, রাজশাহী, কুমিল্লা, যশোর, বরিশাল, সিলেট, দিনাজপুর, ময়মনসিংহ (৯টি সাধারণ বোর্ড) + মাদ্রাসা + কারিগরি বোর্ড। বিভাগ: বিজ্ঞান, ব্যবসায় শিক্ষা, মানবিক। মোট নম্বর: প্রতি বিষয় ১০০ (MCQ ৩০ + রচনামূলক ৭০)। পাস নম্বর: প্রতি বিষয়ে ৩৩। GPA সর্বোচ্চ ৫.০০। বাংলা, ইংরেজি, গণিত, সাধারণ বিজ্ঞান, বাংলাদেশ ও বিশ্বপরিচয়, ধর্ম বাধ্যতামূলক। ফলাফল জানতে: educationboardresults.gov.bd বা SMS: ফলাফল SSC <Board 1st 3 letters> <Roll> <Year> পাঠাও 16222 নম্বরে।`},
+  { tags:['hsc','উচ্চমাধ্যমিক','higher secondary','class 11','class 12','একাদশ','দ্বাদশ','college'],
+    title:'HSC Exam (Higher Secondary Certificate)',
+    content:`HSC (Higher Secondary Certificate) বাংলাদেশে উচ্চমাধ্যমিক সমাপনী পরীক্ষা। শ্রেণি ১১-১২। বিভাগ: বিজ্ঞান, ব্যবসায় শিক্ষা, মানবিক। বিজ্ঞান বিভাগ: পদার্থবিজ্ঞান, রসায়ন, জীববিজ্ঞান/উচ্চতর গণিত, ICT। ব্যবসায়: হিসাববিজ্ঞান, ব্যবসায় সংগঠন ও ব্যবস্থাপনা, ফিনান্স, উৎপাদন ব্যবস্থাপনা। মানবিক: পৌরনীতি, অর্থনীতি, ইতিহাস, যুক্তিবিদ্যা। ২০২৪ থেকে নতুন পাঠ্যক্রম চালু। ভর্তি পরীক্ষা: gst.teletalk.com.bd। CUET, RUET, KUET, BUET ভর্তি পরীক্ষার জন্য HSC ফলাফল গুরুত্বপূর্ণ।`},
+  { tags:['bcs','বিসিএস','civil service','সরকারি চাকরি','ক্যাডার','psc','Bangladesh Civil Service'],
+    title:'BCS (Bangladesh Civil Service) Exam',
+    content:`BCS পরীক্ষা বাংলাদেশ সরকারি কর্ম কমিশন (BPSC/PSC) পরিচালনা করে। ২৬টি ক্যাডার পদ। পর্যায়: ১) প্রিলিমিনারি (২০০ MCQ, ২ ঘণ্টা) ২) লিখিত (৯০০ নম্বর) ৩) মৌখিক (১০০ নম্বর)। প্রিলি সিলেবাস: বাংলা (৩৫), ইংরেজি (৩৫), বাংলাদেশ বিষয়াবলী (৩০), আন্তর্জাতিক বিষয়াবলী (২০), ভূগোল (১০), সাধারণ বিজ্ঞান ও প্রযুক্তি (১৫), কম্পিউটার (১৫), গণিত (১৫), মানসিক দক্ষতা (১৫), নৈতিকতা ও সুশাসন (১০)। যোগ্যতা: যেকোনো স্বীকৃত বিশ্ববিদ্যালয় থেকে স্নাতক, বয়স ২১-৩০ বছর (মুক্তিযোদ্ধার সন্তান ৩২)। ওয়েবসাইট: bpsc.gov.bd। প্রস্তুতি: MP3, Professor's, Oracle BCS গাইড পড়ো।`},
+  { tags:['bcs bangla','বিসিএস বাংলা','বাংলা সাহিত্য','বাংলা ব্যাকরণ'],
+    title:'BCS বাংলা প্রস্তুতি',
+    content:`BCS বাংলা মোট ৩৫ নম্বর। বাংলা ভাষার উদ্ভব ও বিকাশ, বাংলা সাহিত্যের ইতিহাস (প্রাচীন-মধ্য-আধুনিক), রবীন্দ্রনাথ ঠাকুর, কাজী নজরুল ইসলাম, মাইকেল মধুসূদন দত্ত, বঙ্কিমচন্দ্র চট্টোপাধ্যায়, শরৎচন্দ্র, জীবনানন্দ দাশ। ব্যাকরণ: ধ্বনি, বর্ণ, শব্দ, পদ, সন্ধি, সমাস, কারক, বিভক্তি, ছন্দ, অলংকার। গুরুত্বপূর্ণ: মুক্তিযুদ্ধভিত্তিক সাহিত্য, ভাষা আন্দোলনের সাহিত্য।`},
+  { tags:['bcs english','বিসিএস ইংরেজি','english grammar','vocabulary'],
+    title:'BCS ইংরেজি প্রস্তুতি',
+    content:`BCS ইংরেজি ৩৫ নম্বর। Parts of Speech, Tense, Voice, Narration, Sentence Structure, Transformation of Sentences, Correction, Idioms & Phrases, Vocabulary (Synonyms/Antonyms), Literature (Shakespeare, Milton, Wordsworth, Keats, Browning, T.S. Eliot, Hardy, G.B. Shaw)। Spelling, One-word Substitution, Fill in the Blanks। সাহিত্য: Age of Chaucer থেকে Modern Age পর্যন্ত।`},
+  { tags:['bcs math','বিসিএস গণিত','arithmetic','algebra','geometry'],
+    title:'BCS গণিত প্রস্তুতি',
+    content:`BCS গণিত ১৫ নম্বর। পাটিগণিত: সংখ্যা, ল.সা.গু, গ.সা.গু, ভগ্নাংশ, ঐকিক নিয়ম, শতকরা, লাভক্ষতি, সুদকষা, অনুপাত-সমানুপাত। বীজগণিত: সূত্রাবলী, সমীকরণ, ক্রমস্থান-বিন্যাস। জ্যামিতি: ত্রিভুজ, চতুর্ভুজ, বৃত্ত, পিথাগোরাসের উপপাদ্য। পরিমিতি: ক্ষেত্রফল, আয়তন। সেট, বাস্তব সংখ্যা।`},
+  { tags:['bcs bangladesh','বাংলাদেশ বিষয়াবলী','বাংলাদেশের ইতিহাস','মুক্তিযুদ্ধ'],
+    title:'BCS বাংলাদেশ বিষয়াবলী',
+    content:`বাংলাদেশ বিষয়াবলী ৩০ নম্বর। মুক্তিযুদ্ধ ১৯৭১: ৭ই মার্চের ভাষণ, ২৫শে মার্চ গণহত্যা, ১৭ই এপ্রিল মুজিবনগর সরকার, ১৬ই ডিসেম্বর বিজয়। সংবিধান: ৪ নভেম্বর ১৯৭২ গৃহীত, মূলনীতি ৪টি (গণতন্ত্র, জাতীয়তাবাদ, সমাজতন্ত্র, ধর্মনিরপেক্ষতা)। রাষ্ট্রপতি শাসিত নয়, সংসদীয় গণতন্ত্র। মোট জেলা ৬৪, উপজেলা ৪৯৫। নদী: পদ্মা, মেঘনা, যমুনা। জিডিপি প্রবৃদ্ধি (গড়) ৬-৮%। রপ্তানি: পোশাক শিল্প (মোট রপ্তানির ৮৩%)।`},
+  { tags:['business','ব্যবসা','company registration','trade license','tin','vat','rjsc','bida'],
+    title:'বাংলাদেশে ব্যবসা শুরু করার নিয়ম',
+    content:`বাংলাদেশে ব্যবসা নিবন্ধন: ১) ট্রেড লাইসেন্স: সিটি কর্পোরেশন/পৌরসভা থেকে। ফি ৫০০-৫০০০ টাকা (ব্যবসার ধরন অনুযায়ী)। ২) টিআইএন (TIN): NBR ওয়েবসাইটে (nbr.gov.bd) অনলাইনে বিনামূল্যে। ৩) ভ্যাট নিবন্ধন: বার্ষিক টার্নওভার ৫০ লাখের বেশি হলে (nbr.gov.bd)। ৪) RJSC-তে কোম্পানি নিবন্ধন: roc.gov.bd — প্রাইভেট লিমিটেড কোম্পানি, পাবলিক লিমিটেড, সমিতি। ৫) BIDA: বিদেশি বিনিয়োগ (bida.gov.bd)। ৬) Export: EPB-তে রপ্তানিকারক নিবন্ধন (epb.gov.bd)। ৭) Import: BICIC-তে আমদানিকারক নিবন্ধন।`},
+  { tags:['freelancing','ফ্রিল্যান্সিং','fiverr','upwork','remote work','আউটসোর্সিং'],
+    title:'বাংলাদেশ থেকে ফ্রিল্যান্সিং গাইড',
+    content:`বাংলাদেশ বিশ্বের অন্যতম শীর্ষ ফ্রিল্যান্সিং দেশ। জনপ্রিয় প্ল্যাটফর্ম: Fiverr, Upwork, Freelancer.com, PeoplePerHour, Toptal। শীর্ষ ক্যাটাগরি: Web Development, Graphic Design, Digital Marketing, Content Writing, Data Entry, Video Editing, App Development। পেমেন্ট: Payoneer (সবচেয়ে জনপ্রিয়), Wise, Skrill, Bank Transfer। Payoneer থেকে বাংলাদেশের ব্যাংকে সরাসরি ট্রান্সফার সম্ভব। ট্যাক্স: ফ্রিল্যান্সার আয়ের প্রথম ৭ লাখ পর্যন্ত ট্যাক্স মুক্ত (NBR সার্কুলার)। রিমিট্যান্স আনলে ২.৫% সরকারি প্রণোদনা পাওয়া যায়। বাংলাদেশ ব্যাংকের অনুমতিতে $১০০০ পর্যন্ত ঘোষণা ছাড়া আনা যায়।`},
+  { tags:['fiverr','ফাইভার','gig','fiverr tips','fiverr guide'],
+    title:'Fiverr সফলতার গাইড',
+    content:`Fiverr-এ সফল হতে: ১) প্রোফাইল: Professional photo, compelling bio, relevant skills। ২) Gig তৈরি: Title SEO-friendly করো (যেমন "I will create professional logo design"), পরিষ্কার description, competitive price ($5 থেকে শুরু)। ৩) Gig Image/Video: High-quality portfolio দেখাও। ৪) প্রথম অর্ডার: Friends/family কে বলো review দিতে, Buyer Request-এ apply করো। ৫) Response Rate: ১ ঘণ্টার মধ্যে reply করার চেষ্টা করো। ৬) Level Badge: Level 1 (৬০ দিনে ১০ অর্ডার + ৪.৭ রেটিং), Level 2 (১২০ দিনে ৫০ অর্ডার)। ৭) নিষিদ্ধ: একাধিক account, fake review, copyright content।`},
+  { tags:['upwork','আপওয়ার্ক','upwork profile','upwork proposal','upwork tips'],
+    title:'Upwork সফলতার গাইড',
+    content:`Upwork-এ সফল হতে: ১) প্রোফাইল: Top Rated-এর জন্য ৯০%+ Job Success Score দরকার। Professional photo, detailed overview (৫০০+ words), portfolio projects। ২) Connects: প্রতি Proposal-এ ৬-১৬ Connects লাগে (মাসে ১০টি বিনামূল্যে)। ৩) Proposal লেখা: Client-এর সমস্যা বোঝো, solution focus করো, price transparent রাখো। Cover letter ৩-৪ paragraph। ৪) Fixed-price vs Hourly: নতুনদের জন্য Fixed-price ভালো। ৫) Upwork Payment: Escrow system — client আগে টাকা lock করে। Payment method: Payoneer, Direct to BD Bank। ৬) Rising Talent badge: ৯০ দিনের মধ্যে পাওয়া সম্ভব।`},
+  { tags:['payment','payoneer','wise','bkash','bank','রেমিট্যান্স','dollar'],
+    title:'ফ্রিল্যান্সার পেমেন্ট পদ্ধতি বাংলাদেশ',
+    content:`বাংলাদেশে ফ্রিল্যান্সিং পেমেন্ট: Payoneer: সবচেয়ে জনপ্রিয়। Fiverr/Upwork-এর সাথে সরাসরি সংযুক্ত। বাংলাদেশের যেকোনো ব্যাংকে ট্রান্সফার করো (Payoneer to Bank: সাধারণত ২-৩ কার্যদিবস, ফি $০-$৩)। Wise (TransferWise): সরাসরি ব্যাংক ট্রান্সফার, কম চার্জ। Skrill: কম জনপ্রিয় কিন্তু কাজ করে। Crypto: সরকারিভাবে বৈধ নয়। সরকারি প্রণোদনা: রেমিট্যান্সে ২.৫% ক্যাশ ইনসেন্টিভ (২৫০ ডলার পাঠালে বাড়তি ৬.২৫ ডলার)। Tax: ফ্রিল্যান্সিং আয় ৭ লাখ পর্যন্ত ট্যাক্স ফ্রি। TIN থাকলে ভালো।`},
+  { tags:['skill','দক্ষতা','web development','graphic design','digital marketing','সফটওয়্যার'],
+    title:'বাংলাদেশে জনপ্রিয় ফ্রিল্যান্সিং স্কিল',
+    content:`বাংলাদেশ থেকে সবচেয়ে বেশি আয় করা স্কিল: ১) Web Development: HTML, CSS, JavaScript, React, PHP, Laravel, WordPress — চাহিদা সবচেয়ে বেশি। ২) Graphics Design: Photoshop, Illustrator, Canva, Figma — Logo, Banner, Social Media। ৩) Digital Marketing: SEO, Social Media Marketing, Google Ads, Facebook Ads। ৪) Video Editing: Premiere Pro, After Effects, DaVinci Resolve। ৫) Data Entry & Virtual Assistant: কম পারিশ্রমিক কিন্তু শুরু করতে সহজ। ৬) Content Writing: Blog, Copywriting, Technical Writing (ইংরেজিতে দক্ষতা দরকার)। ৭) App Development: Flutter, React Native, Android (Java/Kotlin)। শেখার রিসোর্স: YouTube বাংলা tutorials, Coursera, Udemy, Bangladesh-এ LEDP, LICT প্রকল্প (বিনামূল্যে ট্রেনিং)।`},
+  { tags:['constitution','সংবিধান','bangladesh constitution','মৌলিক অধিকার'],
+    title:'বাংলাদেশের সংবিধান',
+    content:`বাংলাদেশের সংবিধান ৪ নভেম্বর ১৯৭২ গৃহীত, ১৬ ডিসেম্বর ১৯৭২ কার্যকর। মোট অনুচ্ছেদ ১৫৩ + ৭টি তফসিল। মূলনীতি ৪টি: জাতীয়তাবাদ, গণতন্ত্র, সমাজতন্ত্র, ধর্মনিরপেক্ষতা। মৌলিক অধিকার: অনুচ্ছেদ ২৭-৪৭। রাষ্ট্রীয় মূলনীতি: অনুচ্ছেদ ৮-২৫। সংসদীয় ব্যবস্থা: রাষ্ট্রপতি নির্বাহী প্রধান নন, প্রধানমন্ত্রীর নেতৃত্বে মন্ত্রিসভা। সংসদ: জাতীয় সংসদ, ৩৫০ আসন (৩০০ নির্বাচিত + ৫০ সংরক্ষিত মহিলা)। সংশোধনী: এ পর্যন্ত ১৭টি সংশোধনী।`},
+  { tags:['geography','ভূগোল','bangladesh geography','নদী','জেলা','বিভাগ'],
+    title:'বাংলাদেশের ভূগোল',
+    content:`আয়তন: ১,৪৭,৫৭০ বর্গকিমি। জনসংখ্যা: প্রায় ১৭ কোটি (বিশ্বে অষ্টম)। বিভাগ: ৮টি (ঢাকা, চট্টগ্রাম, রাজশাহী, খুলনা, বরিশাল, সিলেট, রংপুর, ময়মনসিংহ)। জেলা: ৬৪। উপজেলা: ৪৯৫। প্রধান নদী: পদ্মা, মেঘনা, যমুনা, ব্রহ্মপুত্র, কর্ণফুলী। সর্বোচ্চ পর্বত: কেওক্রাডং (বান্দরবান, ১২৩০ মিটার)। সুন্দরবন: বিশ্বের বৃহত্তম ম্যানগ্রোভ বন (UNESCO World Heritage)। সেন্টমার্টিন: একমাত্র প্রবাল দ্বীপ। পার্বত্য চট্টগ্রাম: রাঙামাটি, বান্দরবান, খাগড়াছড়ি।`},
+  { tags:['economy','অর্থনীতি','gdp','bangladesh economy','remittance','garments','পোশাক'],
+    title:'বাংলাদেশের অর্থনীতি',
+    content:`GDP: প্রায় $৪৬০ বিলিয়ন (২০২৩)। GDP প্রবৃদ্ধি: গড় ৬-৭%। মাথাপিছু আয়: প্রায় $২৭৬৫। রপ্তানি: তৈরি পোশাক (RMG) — মোট রপ্তানির ৮৩%, বিশ্বের ২য় বৃহত্তম পোশাক রপ্তানিকারক। প্রবাসী আয় (Remittance): বার্ষিক $২০+ বিলিয়ন। কৃষি: GDP-তে ১৩%, কর্মসংস্থান ৪০%। শিল্প: GDP-তে ২৮%। সেবা খাত: GDP-তে ৫১%। মুদ্রা: বাংলাদেশি টাকা (BDT)। কেন্দ্রীয় ব্যাংক: Bangladesh Bank। প্রধান শেয়ারবাজার: DSE (Dhaka Stock Exchange), CSE।`},
+  { tags:['admission','ভর্তি','university','বিশ্ববিদ্যালয়','buet','dhaka university','du','cu'],
+    title:'বাংলাদেশে বিশ্ববিদ্যালয় ভর্তি পরীক্ষা',
+    content:`বাংলাদেশে বিশ্ববিদ্যালয় ভর্তি: ১) BUET (বুয়েট): ইঞ্জিনিয়ারিং, আলাদা পরীক্ষা। ২) Medical (MBBS): কেন্দ্রীয় ভর্তি পরীক্ষা (DGHS পরিচালিত)। ৩) সাধারণ বিশ্ববিদ্যালয় (Cluster): A cluster (বিজ্ঞান), B cluster (মানবিক/ব্যবসা)। GST পরীক্ষায় অংশ নেয় ঢাকা, জাহাঙ্গীরনগর, রাজশাহী, চট্টগ্রাম বিশ্ববিদ্যালয়। ৪) জাতীয় বিশ্ববিদ্যালয়: SSC+HSC নম্বরের ভিত্তিতে ভর্তি। ৫) বেসরকারি বিশ্ববিদ্যালয়: BRAC, NSU, AIUB, DIU, IUB — আলাদা ভর্তি পরীক্ষা। ওয়েবসাইট: gstadmission.ac.bd, allapps.eis.du.ac.bd।`},
+];
+
+// Scholar RAG retrieval — keyword-based (upgrade to vector search with Pinecone later)
+function scholarRetrieve(query, topK=3) {
+  const q = query.toLowerCase();
+  const scored = SCHOLAR_KNOWLEDGE.map(doc => {
+    let score = doc.tags.filter(t => q.includes(t.toLowerCase())).length * 3;
+    // Also check title and content
+    const titleWords = doc.title.toLowerCase().split(' ');
+    score += titleWords.filter(w => w.length>3 && q.includes(w)).length;
+    // Bonus for question words matching
+    const contentWords = doc.content.toLowerCase().split(/\s+/).slice(0,50);
+    score += contentWords.filter(w => w.length>4 && q.includes(w)).length * 0.5;
+    return { ...doc, score };
+  }).filter(d => d.score > 0).sort((a,b) => b.score - a.score);
+  return scored.slice(0, topK);
+}
+
+const SCHOLAR_SYSTEM_PROMPT = `You are Scholar 1.0 — SG ChatBOT-এর বাংলাদেশ বিশেষজ্ঞ AI মডেল। তুমি তৈরি করেছেন Mohammed Sadid Rahman।
+তোমার বিশেষত্ব:
+- SSC, HSC পরীক্ষার প্রস্তুতি ও সিলেবাস
+- BCS পরীক্ষার প্রস্তুতি (সকল বিষয়)
+- বাংলাদেশে ব্যবসা শুরু করার নিয়ম ও আইন
+- Fiverr, Upwork, Freelancer-এ সফলতার কৌশল
+- বাংলাদেশ থেকে অনলাইন আয় ও পেমেন্ট পদ্ধতি
+- বাংলাদেশের ইতিহাস, ভূগোল, সংবিধান, অর্থনীতি
+তুমি যখন context পাবে, সেটা থেকে উত্তর দেবে। Context না পেলে নিজের জ্ঞান থেকে দেবে।
+ভাষা: বাংলায় প্রশ্ন হলে বাংলায়, ইংরেজিতে হলে ইংরেজিতে।
+IDENTITY: তুমি Scholar 1.0, SG ChatBOT-এর একটি বিশেষ মডেল। অন্য কোনো AI নও।`;
+
 let groqKeyCounter = 0;
 const GROQ_KEYS = [
   process.env.GROQ_API_KEY_1,
@@ -1597,12 +1684,21 @@ app.post("/chat", chatLimiter, auth, checkBlocked, upload.single("file"), async 
     const personaKey  = req.body.personaKey  || 'default';
     const roleKey     = req.body.roleKey !== undefined ? req.body.roleKey : (user.role || '');
     const isPowerful  = req.body.thinkingLevel === 'powerful';
+    const isScholar   = req.body.scholarMode === 'true';
 
     const trimmed=messages.slice(-MAX_HISTORY).map(m=>({role:["user","assistant","system"].includes(m.role)?m.role:"user",content:typeof m.content==="string"?m.content.slice(0,8000):m.content}));
     const lastUserText=typeof trimmed.filter(m=>m.role==="user").slice(-1)[0]?.content==="string"?trimmed.filter(m=>m.role==="user").slice(-1)[0].content:"";
     const isProjectRequest=/বানাও|বানাবো|তৈরি করো|make a|create a|build a|game|website|app\b|project|portfolio|calculator|todo|quiz|landing page/i.test(lastUserText);
 
-    const sysContent=buildSystemPrompt(user,personaKey,roleKey,isPowerful,isProjectRequest);
+    let sysContent;
+    if (isScholar) {
+      // Scholar 1.0 — RAG pipeline
+      const docs = scholarRetrieve(lastUserText);
+      const context = docs.length ? `\n\n--- BANGLADESH KNOWLEDGE BASE ---\n${docs.map(d=>`[${d.title}]\n${d.content}`).join('\n\n---\n')}\n--- END CONTEXT ---` : '';
+      sysContent = SCHOLAR_SYSTEM_PROMPT + context;
+    } else {
+      sysContent = buildSystemPrompt(user,personaKey,roleKey,isPowerful,isProjectRequest);
+    }
     if (trimmed[0]?.role!=="system") { trimmed.unshift({role:"system",content:sysContent}); } else { trimmed[0].content=sysContent; }
 
     if (req.file) { const base64=req.file.buffer.toString("base64"),mime=req.file.mimetype,last=trimmed[trimmed.length-1]; if (last?.role==="user"&&mime.startsWith("image/")) { const txt=req.body.imageText||(typeof last.content==="string"?last.content:"")||"Analyze this image in detail."; last.content=[{type:"text",text:txt},{type:"image_url",image_url:{url:`data:${mime};base64,${base64}`}}]; } }
@@ -1706,12 +1802,20 @@ app.post("/chat/stream", chatLimiter, auth, checkBlocked, upload.single("file"),
     const personaKey  = req.body.personaKey  || 'default';
     const roleKey     = req.body.roleKey !== undefined ? req.body.roleKey : (user.role || '');
     const isPowerful  = req.body.thinkingLevel === 'powerful';
+    const isScholar   = req.body.scholarMode === 'true';
 
     const trimmed=messages.slice(-MAX_HISTORY).map(m=>({role:["user","assistant","system"].includes(m.role)?m.role:"user",content:typeof m.content==="string"?m.content.slice(0,8000):m.content}));
     const lastUserTextStream=typeof trimmed.filter(m=>m.role==="user").slice(-1)[0]?.content==="string"?trimmed.filter(m=>m.role==="user").slice(-1)[0].content:"";
     const isProjectReqStream=/বানাও|বানাবো|তৈরি করো|make a|create a|build a|game|website|app\b|project|portfolio|calculator|todo|quiz|landing page/i.test(lastUserTextStream);
 
-    const sysContent=buildSystemPrompt(user,personaKey,roleKey,isPowerful,isProjectReqStream);
+    let sysContent;
+    if (isScholar) {
+      const docs = scholarRetrieve(lastUserTextStream);
+      const context = docs.length ? `\n\n--- BANGLADESH KNOWLEDGE BASE ---\n${docs.map(d=>`[${d.title}]\n${d.content}`).join('\n\n---\n')}\n--- END CONTEXT ---` : '';
+      sysContent = SCHOLAR_SYSTEM_PROMPT + context;
+    } else {
+      sysContent = buildSystemPrompt(user,personaKey,roleKey,isPowerful,isProjectReqStream);
+    }
     if (trimmed[0]?.role!=="system") { trimmed.unshift({role:"system",content:sysContent}); } else { trimmed[0].content=sysContent; }
 
     if (req.file) { const base64=req.file.buffer.toString("base64"),mime=req.file.mimetype,last=trimmed[trimmed.length-1]; if (last?.role==="user"&&mime.startsWith("image/")) { const txt=req.body.imageText||(typeof last.content==="string"?last.content:"")||"Analyze this image."; last.content=[{type:"text",text:txt},{type:"image_url",image_url:{url:`data:${mime};base64,${base64}`}}]; } }
@@ -1918,7 +2022,10 @@ async function uploadToCloudinary(videoUrl) {
 
 app.post("/generate-video", videoLimiter, auth, checkBlocked, async (req, res) => {
   try {
-    if (!process.env.REPLICATE_API_TOKEN) return res.status(503).json({ message:"Video generation is not configured on this server." });
+    const hasFal = !!process.env.FAL_API_KEY;
+    const hasReplicate = !!process.env.REPLICATE_API_TOKEN;
+    if (!hasFal && !hasReplicate) return res.status(503).json({ message:"Video generation is not configured on this server." });
+
     const user = await User.findById(req.user.id);
     if (!user) return res.status(401).json({ message:"User not found." });
 
@@ -1935,45 +2042,70 @@ app.post("/generate-video", videoLimiter, auth, checkBlocked, async (req, res) =
 
     const isHighRes = getUserVideoPlan(user) === 'yearly';
     const clampedDuration = Math.min(Math.max(parseInt(duration)||5, 3), isHighRes?10:6);
-
-    // Use minimax/video-01 on Replicate (good quality, reasonable cost)
     console.log(`Video gen: user=${user._id} plan=${quota.plan} prompt="${prompt.slice(0,50)}"`);
-    const predRes = await fetch("https://api.replicate.com/v1/models/minimax/video-01/predictions", {
-      method:'POST',
-      headers:{ Authorization:`Token ${process.env.REPLICATE_API_TOKEN}`, 'Content-Type':'application/json', Prefer:'wait=60' },
-      body: JSON.stringify({ input:{ prompt, duration: clampedDuration, aspect_ratio: aspectRatio } }),
-      signal: AbortSignal.timeout(65000),
-    });
-    if (!predRes.ok) {
-      const err = await predRes.json().catch(()=>({}));
-      console.error('Replicate error:', predRes.status, err);
-      return res.status(502).json({ message:"Video generation failed. Please try again." });
-    }
-    let prediction = await predRes.json();
 
-    // Poll until done (max 4 min)
-    const maxWait = Date.now() + 4*60*1000;
-    while (['starting','processing'].includes(prediction.status) && Date.now()<maxWait) {
-      await new Promise(r=>setTimeout(r,3000));
-      const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
-        headers:{ Authorization:`Token ${process.env.REPLICATE_API_TOKEN}` }, signal:AbortSignal.timeout(10000),
-      });
-      if (pollRes.ok) prediction = await pollRes.json();
-    }
+    let videoUrl = null;
 
-    if (prediction.status !== 'succeeded' || !prediction.output) {
-      console.error('Video prediction failed:', prediction.status, prediction.error);
-      return res.status(502).json({ message:"Video generation timed out. Please try again with a simpler prompt." });
+    // ── Try fal.ai first (free tier available) ──
+    if (hasFal && !videoUrl) {
+      try {
+        const falRes = await fetch("https://fal.run/fal-ai/kling-video/v1.6/standard/text-to-video", {
+          method:'POST',
+          headers:{ Authorization:`Key ${process.env.FAL_API_KEY}`, 'Content-Type':'application/json' },
+          body: JSON.stringify({ prompt, duration: clampedDuration, aspect_ratio: aspectRatio }),
+          signal: AbortSignal.timeout(180000),
+        });
+        if (falRes.ok) {
+          const falData = await falRes.json();
+          const url = falData?.video?.url || falData?.video_url || null;
+          if (url) { videoUrl = url; console.log('Video via fal.ai:', url.slice(0,60)); }
+          else console.error('fal.ai: no video URL in response', JSON.stringify(falData).slice(0,200));
+        } else {
+          const err = await falRes.json().catch(()=>({}));
+          console.error('fal.ai error:', falRes.status, err?.detail||err?.message||'');
+        }
+      } catch(e) { console.error('fal.ai exception:', e.message); }
     }
 
-    const replicateUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+    // ── Fallback: Replicate ──
+    if (hasReplicate && !videoUrl) {
+      try {
+        const predRes = await fetch("https://api.replicate.com/v1/models/minimax/video-01/predictions", {
+          method:'POST',
+          headers:{ Authorization:`Token ${process.env.REPLICATE_API_TOKEN}`, 'Content-Type':'application/json', Prefer:'wait=60' },
+          body: JSON.stringify({ input:{ prompt, duration: clampedDuration, aspect_ratio: aspectRatio } }),
+          signal: AbortSignal.timeout(65000),
+        });
+        if (!predRes.ok) {
+          const err = await predRes.json().catch(()=>({}));
+          if (predRes.status === 402) {
+            console.error('Replicate billing required:', err.detail||'');
+            if (!hasFal) return res.status(402).json({ message:"Video generation requires Replicate billing. Go to replicate.com/account/billing to add a payment method ($5 minimum). Or ask your admin to add a FAL_API_KEY for the free alternative." });
+          } else { console.error('Replicate error:', predRes.status, err); }
+        } else {
+          let prediction = await predRes.json();
+          const maxWait = Date.now() + 4*60*1000;
+          while (['starting','processing'].includes(prediction.status) && Date.now()<maxWait) {
+            await new Promise(r=>setTimeout(r,3000));
+            const pollRes = await fetch(`https://api.replicate.com/v1/predictions/${prediction.id}`, {
+              headers:{ Authorization:`Token ${process.env.REPLICATE_API_TOKEN}` }, signal:AbortSignal.timeout(10000),
+            });
+            if (pollRes.ok) prediction = await pollRes.json();
+          }
+          if (prediction.status === 'succeeded' && prediction.output) {
+            videoUrl = Array.isArray(prediction.output) ? prediction.output[0] : prediction.output;
+            console.log('Video via Replicate:', videoUrl.slice(0,60));
+          }
+        }
+      } catch(e) { console.error('Replicate exception:', e.message); }
+    }
+
+    if (!videoUrl) return res.status(502).json({ message: hasFal ? "Video generation failed. Please try again with a different prompt." : "Video generation requires billing. Visit replicate.com/account/billing to set up payment." });
 
     // Upload to Cloudinary for permanent storage
-    let videoUrl = replicateUrl;
-    const cloudUrl = await uploadToCloudinary(replicateUrl);
+    const cloudUrl = await uploadToCloudinary(videoUrl);
     if (cloudUrl) videoUrl = cloudUrl;
 
-    // Increment quota
     user.videoCount += 1;
     await user.save();
 
@@ -1983,6 +2115,166 @@ app.post("/generate-video", videoLimiter, auth, checkBlocked, async (req, res) =
     res.status(500).json({ message:"Server error. Please try again." });
   }
 });
+
+// ══ AI AGENT ══════════════════════════════════════════════════
+// Tool-calling agent with ReAct loop (Reason → Act → Observe → Repeat)
+// Tools the AI can call autonomously based on the user's request.
+const AGENT_TOOLS = [
+  { type:"function", function:{ name:"get_tasks", description:"Get the user's tasks. Use to check what tasks exist before creating or updating.", parameters:{ type:"object", properties:{ status:{ type:"string", enum:["all","todo","doing","done"], description:"Filter by status" } } } } },
+  { type:"function", function:{ name:"create_task", description:"Create a new task for the user.", parameters:{ type:"object", required:["title"], properties:{ title:{type:"string"}, description:{type:"string"}, priority:{type:"string",enum:["low","medium","high"]}, dueInDays:{type:"number",description:"Days from now until due"} } } } },
+  { type:"function", function:{ name:"update_task", description:"Update an existing task (change status, priority, title, or due date).", parameters:{ type:"object", required:["taskId"], properties:{ taskId:{type:"string"}, title:{type:"string"}, status:{type:"string",enum:["todo","doing","done"]}, priority:{type:"string",enum:["low","medium","high"]}, dueDate:{type:"string",description:"ISO date string"} } } } },
+  { type:"function", function:{ name:"delete_task", description:"Delete a task by ID.", parameters:{ type:"object", required:["taskId"], properties:{ taskId:{type:"string"} } } } },
+  { type:"function", function:{ name:"get_goals", description:"Get the user's goals.", parameters:{ type:"object", properties:{ status:{type:"string",enum:["all","active","completed"]} } } } },
+  { type:"function", function:{ name:"create_goal", description:"Create a new goal for the user.", parameters:{ type:"object", required:["title"], properties:{ title:{type:"string"}, description:{type:"string"}, targetDate:{type:"string",description:"ISO date"} } } } },
+  { type:"function", function:{ name:"get_notes", description:"Get the user's notes.", parameters:{ type:"object", properties:{ search:{type:"string"} } } } },
+  { type:"function", function:{ name:"create_note", description:"Create a new note.", parameters:{ type:"object", required:["title","content"], properties:{ title:{type:"string"}, content:{type:"string"}, tags:{type:"array",items:{type:"string"}} } } } },
+  { type:"function", function:{ name:"get_memories", description:"Get the user's saved memories and preferences.", parameters:{ type:"object", properties:{} } } },
+  { type:"function", function:{ name:"save_memory", description:"Save an important fact about the user to memory.", parameters:{ type:"object", required:["content"], properties:{ content:{type:"string"} } } } },
+  { type:"function", function:{ name:"get_habits", description:"Get the user's habits and their completion status.", parameters:{ type:"object", properties:{} } } },
+  { type:"function", function:{ name:"get_analytics", description:"Get the user's productivity analytics (tasks completed, messages sent, etc).", parameters:{ type:"object", properties:{ days:{type:"number",description:"Number of past days to include"} } } } },
+];
+
+async function executeAgentTool(toolName, args, userId) {
+  try {
+    switch(toolName) {
+      case "get_tasks": {
+        const q = { userId };
+        if (args.status && args.status !== 'all') q.status = args.status;
+        const tasks = await Task.find(q).sort({ createdAt:-1 }).limit(50).select("title description status priority dueDate createdAt");
+        return { tasks: tasks.map(t=>({ id:t._id, title:t.title, status:t.status, priority:t.priority, dueDate:t.dueDate, createdAt:t.createdAt })), count: tasks.length };
+      }
+      case "create_task": {
+        const task = await Task.create({ userId, title: String(args.title||'').slice(0,300), description: String(args.description||'').slice(0,2000), priority: args.priority||'medium', dueDate: args.dueInDays ? new Date(Date.now()+Number(args.dueInDays)*86400000) : null });
+        return { created: true, taskId: task._id, title: task.title };
+      }
+      case "update_task": {
+        const update = {};
+        if (args.title) update.title = String(args.title).slice(0,300);
+        if (args.status) update.status = args.status;
+        if (args.priority) update.priority = args.priority;
+        if (args.dueDate) update.dueDate = new Date(args.dueDate);
+        if (args.status === 'done') update.completedAt = new Date();
+        const task = await Task.findOneAndUpdate({ _id:args.taskId, userId }, update, { returnDocument:'after' });
+        return task ? { updated: true, taskId: task._id, title: task.title, status: task.status } : { error: "Task not found" };
+      }
+      case "delete_task": {
+        const r = await Task.findOneAndDelete({ _id:args.taskId, userId });
+        return r ? { deleted: true, title: r.title } : { error: "Task not found" };
+      }
+      case "get_goals": {
+        const q = { userId };
+        if (args.status === 'active') q.status = { $ne:'completed' };
+        if (args.status === 'completed') q.status = 'completed';
+        const goals = await Goal.find(q).sort({ createdAt:-1 }).limit(30).select("title description status progress targetDate createdAt");
+        return { goals: goals.map(g=>({ id:g._id, title:g.title, status:g.status, progress:g.progress, targetDate:g.targetDate })), count: goals.length };
+      }
+      case "create_goal": {
+        const goal = await Goal.create({ userId, title:String(args.title||'').slice(0,200), description:String(args.description||'').slice(0,2000), targetDate:args.targetDate?new Date(args.targetDate):null });
+        return { created: true, goalId: goal._id, title: goal.title };
+      }
+      case "get_notes": {
+        const q = { userId };
+        if (args.search) q.$or = [{ title:{$regex:args.search,$options:'i'} },{ content:{$regex:args.search,$options:'i'} }];
+        const notes = await Note.find(q).sort({ updatedAt:-1 }).limit(20).select("title content tags createdAt");
+        return { notes: notes.map(n=>({ id:n._id, title:n.title, preview:n.content?.slice(0,200), tags:n.tags })), count:notes.length };
+      }
+      case "create_note": {
+        const note = await Note.create({ userId, title:String(args.title||'').slice(0,200), content:String(args.content||'').slice(0,50000), tags:(args.tags||[]).slice(0,10) });
+        return { created: true, noteId: note._id, title: note.title };
+      }
+      case "get_memories": {
+        const mems = await Memory.find({ userId }).sort({ createdAt:-1 }).limit(30).select("content createdAt");
+        return { memories: mems.map(m=>m.content), count: mems.length };
+      }
+      case "save_memory": {
+        const mem = await Memory.create({ userId, content:String(args.content||'').slice(0,500) });
+        return { saved: true, memoryId: mem._id };
+      }
+      case "get_habits": {
+        const habits = await Habit.find({ userId }).limit(20).select("name frequency completions");
+        return { habits: habits.map(h=>({ id:h._id, name:h.name, frequency:h.frequency, completionsThisWeek: h.completions?.filter(c=>{ const d=new Date(c.date); return (Date.now()-d)<7*86400000; }).length||0 })) };
+      }
+      case "get_analytics": {
+        const days = Math.min(Number(args.days)||7, 30);
+        const from = new Date(Date.now()-days*86400000);
+        const analytics = await Analytics.find({ userId, date:{ $gte: from.toISOString().slice(0,10) } }).sort({ date:-1 });
+        return { period:`Last ${days} days`, records: analytics.map(a=>({ date:a.date, tasksCompleted:a.tasksCompleted||0, messages:a.messages||0 })) };
+      }
+      default: return { error: `Unknown tool: ${toolName}` };
+    }
+  } catch(e) { return { error: e.message }; }
+}
+
+const agentLimiter = rateLimit({ windowMs:60*60*1000, max:30, standardHeaders:true, legacyHeaders:false });
+
+app.post("/chat/agent", agentLimiter, auth, checkBlocked, async (req,res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(401).json({ message:"User not found." });
+
+    const pro = isProActive(user);
+    if (!pro) {
+      checkWindow(user);
+      if (user.msgCount >= FREE_LIMIT) return res.status(429).json({ reply:"limit_reached", msgsLeft:0, minsLeft:minsUntilReset(user) });
+      user.msgCount += 1;
+    }
+    user.totalMessages = (user.totalMessages||0)+1;
+    await user.save();
+
+    let { messages } = req.body;
+    try { if (typeof messages==="string") messages=JSON.parse(messages); } catch { return res.status(400).json({message:"Invalid messages"}); }
+    if (!Array.isArray(messages)||!messages.length) return res.status(400).json({message:"Messages required"});
+
+    const systemMsg = { role:"system", content:`You are SG Agent — an autonomous AI assistant for SG ChatBOT. You have access to tools to manage the user's tasks, goals, notes, habits, memories, and analytics. Use tools proactively to help the user. When the user asks you to do something, use the appropriate tools to actually do it — don't just describe what you would do. Always confirm what you did after using tools.\nIMPORTANT: If the user's language is Bengali/Bangla, respond in Bengali. If English, respond in English.` };
+
+    const trimmed = messages.slice(-10).map(m=>({ role:m.role==="assistant"?"assistant":"user", content:typeof m.content==="string"?m.content.slice(0,4000):m.content }));
+
+    const MAX_ITERATIONS = 5;
+    const toolCallLog = [];
+    let finalReply = "";
+    let loopMessages = [systemMsg, ...trimmed];
+
+    for (let i=0; i<MAX_ITERATIONS; i++) {
+      const agentRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method:'POST',
+        headers:{ Authorization:`Bearer ${process.env.OPENROUTER_KEY}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ model:"google/gemini-2.5-flash:free", messages:loopMessages, tools:AGENT_TOOLS, tool_choice:"auto", max_tokens:1500 }),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!agentRes.ok) { finalReply = "Agent encountered an error. Please try again."; break; }
+      const agentData = await agentRes.json();
+      const choice = agentData.choices?.[0];
+      if (!choice) break;
+
+      const msg = choice.message;
+      loopMessages.push(msg);
+
+      if (choice.finish_reason === 'tool_calls' || msg.tool_calls?.length) {
+        // Execute all tool calls in parallel
+        const toolResults = await Promise.all(msg.tool_calls.map(async tc => {
+          let args = {};
+          try { args = JSON.parse(tc.function.arguments||"{}"); } catch {}
+          const result = await executeAgentTool(tc.function.name, args, user._id);
+          toolCallLog.push({ tool:tc.function.name, args, result });
+          return { role:"tool", tool_call_id:tc.id, content:JSON.stringify(result) };
+        }));
+        loopMessages.push(...toolResults);
+        continue; // next iteration with tool results
+      }
+
+      // Final reply (no more tool calls)
+      finalReply = msg.content || "";
+      break;
+    }
+
+    res.json({ reply: finalReply, toolCalls: toolCallLog });
+  } catch(e) {
+    console.error("Agent error:", e.message);
+    res.status(500).json({ message:"Agent error. Please try again." });
+  }
+});
+
+// ══ END AI AGENT ══════════════════════════════════════════════
 
 // Video quota status
 app.get("/video-status", auth, async (req, res) => {
