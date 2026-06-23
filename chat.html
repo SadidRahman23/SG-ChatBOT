@@ -1300,6 +1300,14 @@
     .suspend-card { border-color: rgba(248,113,113,.3) !important; }
     .suspend-card .limit-sub strong { color: var(--red); }
 
+    /* Agent mode */
+    #agentToggle { cursor:pointer; border:1px solid var(--border-2); background:var(--surface-2); color:var(--text-2); transition:all 0.2s; }
+    #agentToggle.active { background:linear-gradient(135deg,rgba(139,92,246,.15),rgba(99,102,241,.15)); border-color:rgba(139,92,246,.5); color:#c4b5fd; }
+    .agent-tool-log { margin:8px 0 4px; font-size:11.5px; display:flex; flex-direction:column; gap:3px; }
+    .agent-tool-item { display:flex; align-items:center; gap:7px; padding:5px 10px; background:var(--surface-2); border:1px solid var(--border); border-radius:8px; color:var(--text-2); }
+    .agent-tool-name { font-weight:700; color:var(--accent); font-size:11px; white-space:nowrap; }
+    .agent-tool-result { color:var(--text-2); font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:260px; }
+
     /* Reset modal */
     .reset-card { max-width: 380px; }
 
@@ -1725,6 +1733,12 @@
       </div>
     </div>
 
+    <!-- AI Agent toggle -->
+    <button class="think-pill" id="agentToggle" title="AI Agent — AI autonomously manages your tasks, goals & notes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+      <span id="agentLabel">Agent</span>
+    </button>
+
     <div class="topbar-right">
       <span class="msg-counter" id="msgCounter"><span id="msgNum">25</span> left</span>
       <span class="badge-pro" id="proBadge">⚡ Pro</span>
@@ -1870,7 +1884,16 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.9 5.8L19.6 10l-5.7 1.2L12 17l-1.9-5.8L4.4 10l5.7-1.2L12 3z"/></svg>
         </button>
         <div class="ai-model-dropdown" id="aiModelDrop">
-          <div class="ai-model-dropdown-title">More models</div>
+          <div class="ai-model-dropdown-title">Our Models</div>
+          <!-- Scholar 1.0 — active, BD RAG model -->
+          <div class="ai-model-opt scholar-opt" data-aimodel="scholar" style="opacity:1;cursor:pointer;border:1px solid rgba(139,92,246,.2);background:rgba(139,92,246,.05);">
+            <div class="ai-model-opt-icon" style="background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(99,102,241,.2));border-color:rgba(139,92,246,.3);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+            </div>
+            <div class="ai-model-opt-text"><div class="ai-model-opt-name">Scholar 1.0</div><div class="ai-model-opt-desc">BD Expert · SSC · HSC · BCS · Business</div></div>
+            <span style="font-size:8.5px;font-weight:800;padding:3px 7px;border-radius:99px;background:linear-gradient(135deg,#8b5cf6,#6366f1);color:#fff;white-space:nowrap">NEW</span>
+          </div>
+          <div class="ai-model-dropdown-title" style="margin-top:6px;">Coming Soon</div>
           <div class="ai-model-opt" data-aimodel="claude-sonnet-4.6">
             <div class="ai-model-opt-icon">✦</div>
             <div class="ai-model-opt-text"><div class="ai-model-opt-name">Claude Sonnet 4.6</div><div class="ai-model-opt-desc">Anthropic</div></div>
@@ -2307,6 +2330,8 @@ const S = {
   persona: 'default',
   role: '',
   thinkingLevel: 'normal',
+  scholarMode: false,
+  agentMode: false,
   memory: [],
   convId: null,
   pendingFile: null,
@@ -2516,19 +2541,87 @@ document.querySelectorAll('[data-mthink]').forEach(btn => {
   btn.addEventListener('click', () => { setThinkingLevel(btn.dataset.mthink); toast(btn.dataset.mthink==='powerful' ? '⚡ Powerful thinking on' : 'Default thinking', 'ok'); });
 });
 
-// ══ AI MODEL — Coming Soon selector (item 2) ══
-// Purely a preview/teaser for upcoming frontier models — fully isolated from S.model and the
-// existing fast/smart/coding/deep routing logic, so it can never interfere with active behavior.
+// ══ AI AGENT ══
+const agentToggleBtn = document.getElementById('agentToggle');
+const agentLabelEl   = document.getElementById('agentLabel');
+function setAgentMode(on) {
+  S.agentMode = on;
+  agentToggleBtn?.classList.toggle('active', on);
+  if (agentLabelEl) agentLabelEl.textContent = on ? 'Agent: ON' : 'Agent';
+  if (on) toast('AI Agent ON — AI can now use your tasks, goals & notes autonomously', 'ok');
+  else toast('AI Agent OFF');
+}
+agentToggleBtn?.addEventListener('click', () => setAgentMode(!S.agentMode));
+
+// Render tool call log under a bot message
+function renderToolCalls(toolCalls, bubble) {
+  if (!toolCalls?.length) return;
+  const log = document.createElement('div'); log.className = 'agent-tool-log';
+  toolCalls.forEach(tc => {
+    const item = document.createElement('div'); item.className = 'agent-tool-item';
+    const resultText = (() => {
+      try {
+        const r = typeof tc.result === 'string' ? JSON.parse(tc.result) : tc.result;
+        if (r?.count !== undefined) return `${r.count} found`;
+        if (r?.created) return `Created: ${r.title||''}`;
+        if (r?.updated) return `Updated: ${r.title||''}`;
+        if (r?.deleted) return `Deleted`;
+        if (r?.saved) return `Saved to memory`;
+        if (r?.error) return `Error: ${r.error}`;
+        return JSON.stringify(r).slice(0,60);
+      } catch { return String(tc.result||'').slice(0,60); }
+    })();
+    item.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="11" height="11"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><span class="agent-tool-name">${tc.tool.replace(/_/g,' ')}</span><span class="agent-tool-result">${resultText}</span>`;
+    log.appendChild(item);
+  });
+  bubble.appendChild(log);
+}
+
+// ══ AI MODEL — Scholar 1.0 (active) + Coming Soon selector (item 2) ══
 const aiModelPill = document.getElementById('aiModelPill');
 const aiModelDrop = document.getElementById('aiModelDrop');
+
+function activateScholar() {
+  S.scholarMode = true;
+  aiModelPill.classList.add('on');
+  aiModelPill.style.borderColor = 'rgba(139,92,246,.4)';
+  aiModelPill.style.color = '#b9a6ff';
+  // Disable persona pills visually
+  document.querySelectorAll('.persona-pill,[data-persona],[data-mpersona]').forEach(el => {
+    el.style.opacity = '0.35'; el.style.pointerEvents = 'none';
+  });
+  document.querySelectorAll('.role-opt,[data-mrole]').forEach(el => {
+    el.style.opacity = '0.35'; el.style.pointerEvents = 'none';
+  });
+  toast('Scholar 1.0 — BD Expert mode ON ✦', 'ok');
+}
+function deactivateScholar() {
+  S.scholarMode = false;
+  aiModelPill.style.borderColor = '';
+  aiModelPill.style.color = '';
+  document.querySelectorAll('.persona-pill,[data-persona],[data-mpersona]').forEach(el => {
+    el.style.opacity = ''; el.style.pointerEvents = '';
+  });
+  document.querySelectorAll('.role-opt,[data-mrole]').forEach(el => {
+    el.style.opacity = ''; el.style.pointerEvents = '';
+  });
+}
+
 if (aiModelPill && aiModelDrop) {
   aiModelPill.addEventListener('click', e => { e.stopPropagation(); aiModelDrop.classList.toggle('on'); aiModelPill.classList.toggle('on'); });
-  document.addEventListener('click', () => { aiModelDrop.classList.remove('on'); aiModelPill.classList.remove('on'); });
+  document.addEventListener('click', () => { aiModelDrop.classList.remove('on'); if (!S.scholarMode) aiModelPill.classList.remove('on'); });
   document.querySelectorAll('.ai-model-opt').forEach(opt => {
     opt.addEventListener('click', e => {
       e.stopPropagation();
-      const name = opt.querySelector('.ai-model-opt-name')?.textContent || 'This model';
-      toast(`${name} is coming soon ✨`);
+      const model = opt.dataset.aimodel;
+      if (model === 'scholar') {
+        if (S.scholarMode) { deactivateScholar(); toast('Scholar 1.0 deactivated'); }
+        else { activateScholar(); }
+      } else {
+        const name = opt.querySelector('.ai-model-opt-name')?.textContent || 'This model';
+        toast(`${name} is coming soon ✨`);
+      }
+      aiModelDrop.classList.remove('on');
     });
   });
 }
@@ -3007,7 +3100,7 @@ function startVoiceListen(){
     S.memory.push({role:'user',content:txt}); renderUserMsg(txt,null);
     document.getElementById('voiceStatus').textContent='SG is thinking…'; document.getElementById('voiceOrb').className='voice-orb';
     try{
-      const fd=new FormData(); fd.append('messages',JSON.stringify(buildMsgs(S.memory))); fd.append('personaKey',S.persona); fd.append('modelKey',S.model); fd.append('thinkingLevel',S.thinkingLevel||'normal'); fd.append('roleKey',S.role||'');
+      const fd=new FormData(); fd.append('messages',JSON.stringify(buildMsgs(S.memory))); fd.append('personaKey',S.persona); fd.append('modelKey',S.model); fd.append('thinkingLevel',S.thinkingLevel||'normal'); fd.append('roleKey',S.role||''); if(S.scholarMode) fd.append('scholarMode','true');
       const r=await fetch(`${API}/chat`,{method:'POST',headers:{Authorization:`Bearer ${S.token}`},body:fd}); const d=await r.json();
       const reply=d.reply||'Sorry, I could not respond.'; S.memory.push({role:'assistant',content:reply});
       document.getElementById('voiceStatus').textContent='SG is speaking…'; document.getElementById('voiceStatus').className='voice-status speak'; document.getElementById('voiceOrb').className='voice-orb speak';
@@ -3249,6 +3342,45 @@ async function doChat(text, file, isNew){
   const isSearch=S.persona==='search'||/সার্চ|latest news|current|breaking|search for|price of|weather|score|news today/i.test(text||'');
 
   sendBtnEl.classList.add('loading'); abortCtrl=new AbortController();
+
+  // ── AGENT MODE ────────────────────────────────────
+  if (S.agentMode && !isImg && S.token) {
+    const typingRow = renderTyping(false, false);
+    try {
+      const r = await fetch(`${API}/chat/agent`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json', Authorization:`Bearer ${S.token}`},
+        body: JSON.stringify({ messages: buildMsgs(S.memory) }),
+        signal: abortCtrl.signal,
+      });
+      typingRow.remove(); sendBtnEl.classList.remove('loading'); abortCtrl=null;
+      if (r.status===401) { signOut(); toast('Session expired','err'); openAuth(); S.memory.pop(); return; }
+      if (r.status===403) { const d=await r.json().catch(()=>({})); showSuspendOverlay(d.reason||d.message,d.suspendedUntil,!!d.permanent); S.memory.pop(); return; }
+      if (r.status===429) { const d=await r.json(); if(d.reply==='limit_reached') handleLimit(d); S.memory.pop(); return; }
+      const d = await r.json();
+      const reply = d.reply || d.message || 'Agent completed the task.';
+      S.memory.push({role:'assistant',content:reply});
+      const row = document.createElement('div'); row.className='msg-row bot';
+      const av  = document.createElement('div'); av.className='bot-av';
+      av.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>';
+      const bub = document.createElement('div'); bub.className='bubble';
+      bub.innerHTML = marked.parse(reply);
+      if (d.toolCalls?.length) renderToolCalls(d.toolCalls, bub);
+      row.append(av, bub); chatEl.appendChild(row);
+      chatEl.scrollTo({top:chatEl.scrollHeight,behavior:'smooth'});
+      addMsgActions(row, reply);
+      addZipBtn(row, reply);
+    } catch(e) {
+      if (e.name!=='AbortError') {
+        typingRow?.remove(); sendBtnEl.classList.remove('loading'); abortCtrl=null;
+        renderBotFull('⚠️ **Agent error.** Please try again.');
+        S.memory.pop();
+      }
+    }
+    return;
+  }
+  // ─────────────────────────────────────────────────
+
   const typingRow=renderTyping(isImg, isSearch&&!isImg);
 
   const fd=new FormData();
@@ -3259,6 +3391,8 @@ async function doChat(text, file, isNew){
   fd.append('thinkingLevel', S.thinkingLevel||'normal');
   // Role focus (item 3)
   fd.append('roleKey', S.role||'');
+  // Scholar 1.0 RAG mode
+  if (S.scholarMode) fd.append('scholarMode', 'true');
   if(S.convId) fd.append('conversationId', S.convId);
   if(file&&file.isImage){ fd.append('file',file.file); fd.append('imageText',text||'Analyze this image.'); }
   else if(file&&!file.isImage){ fd.append('file',file.file); }
